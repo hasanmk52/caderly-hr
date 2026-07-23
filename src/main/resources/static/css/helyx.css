@@ -1,0 +1,17 @@
+:root {
+  /* Placeholder brand color - becomes tenant-configurable in a later phase. */
+  --bs-primary: #2f6fed;
+  --bs-primary-rgb: 47, 111, 237;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.helyx-sidebar {
+  min-width: 220px;
+}

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<nav th:fragment="topbar" class="navbar navbar-expand navbar-light bg-white border-bottom px-3 helyx-topbar">
+  <span class="navbar-brand fw-semibold">Helyx</span>
+  <form class="d-none d-md-flex mx-auto" style="width: 40%" role="search">
+    <input class="form-control" type="search" placeholder="Search" aria-label="Search" disabled />
+  </form>
+  <div class="d-flex align-items-center gap-3">
+    <button class="btn btn-primary btn-sm" type="button" disabled>Book time off</button>
+    <span class="rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center"
+          style="width: 2rem; height: 2rem;" aria-label="Account menu">
+      <i class="bi bi-person-fill"></i>
+    </span>
+  </div>
+</nav>
+</body>
+</html>

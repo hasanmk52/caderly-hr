@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="layout(content)">
+<head th:replace="~{fragments/head :: head}"></head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+<div class="d-flex">
+  <div th:replace="~{fragments/sidebar :: sidebar}"></div>
+  <main class="flex-grow-1 p-4" th:replace="${content}"></main>
+</div>
+<script th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}"></script>
+<script th:src="@{/webjars/htmx.org/dist/htmx.min.js}"></script>
+<script th:src="@{/webjars/alpinejs/dist/cdn.min.js}" defer></script>
+</body>
+</html>

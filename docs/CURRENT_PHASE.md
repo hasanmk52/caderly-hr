@@ -1,0 +1,102 @@
+# Current Sub-Phase
+
+**Working on:** Phase 0 — Foundations
+**Branch:** `phase-0-foundations`
+**Goal:** Get the skeleton to a state where every subsequent phase can build on it: dev DB config, base UI layout, quality gates, CI, and a working "Hello from Helyx" page. No business logic yet.
+
+## Read these before doing anything
+
+1. `docs/Helyx_Implementation_Plan.md` — the "Phase 0 — Foundations" section
+2. `CLAUDE.md` — all of it, but especially §7 (coding standards) and §8 (testing rules); Phase 0 is where you wire the quality gates that will enforce §5 and §6 in later phases
+3. `docs/UI_Guidelines.md` — §1 (layout shell), §2 (color palette), §3 (typography), §6 (component conventions), §13 (htmx conventions). The Phase 0 layout + Hello page must conform.
+4. `pom.xml` — confirm what dependencies are already declared before adding anything
+
+## Already in place — do not redo
+
+- Spring Boot 4.1.0 skeleton with Java 25, Maven wrapper
+- Starters: `web` (via `spring-boot-starter-webmvc`), `security`, `data-jpa`, `thymeleaf`, `actuator`, `validation`, `mail`, `flyway`, `devtools`
+- Test starters: `testcontainers`, `testcontainers-junit-jupiter`, `testcontainers-postgresql`, plus per-starter test slices
+- Base package: `com.helyx.helyxhr` — do not rename
+- `groupId=com.helyx`, `artifactId=helyxhr`, `version=0.0.1-SNAPSHOT`
+- WebJars: `bootstrap` 5.3.3, `bootstrap-icons` 1.11.3, `htmx.org` 2.0.4, `alpinejs` 3.14.7, plus `webjars-locator-lite` — all versions declared in `<properties>`
+- `docs/` folder with PRD, Implementation Plan, this file, and empty `adr/`, `ops/`, `user/`
+- `CLAUDE.md` at repo root
+- Existing test scaffolding: `HelyxhrApplicationTests`, `TestHelyxhrApplication`, `TestcontainersConfiguration`
+
+## Remaining Phase 0 work
+
+Group these in your plan-mode plan however makes sense. Do them all before closing this sub-phase.
+
+### Config & database
+- Pin the Testcontainers Postgres image to `postgres:17-alpine` in `TestcontainersConfiguration.java` (currently `postgres:latest` — violates CLAUDE.md §6 A08).
+- Restructure `src/main/resources/application.yaml`: base file + `dev` profile.
+  - `dev` connects to host Postgres at `jdbc:postgresql://localhost:5432/helyx` with user + password from env vars (`DB_USER`, `DB_PASSWORD`), with sensible defaults (`helyx`, empty) for first-run.
+  - Base file sets: `spring.jpa.open-in-view=false`, `spring.jpa.hibernate.ddl-auto=validate` (Flyway owns schema), `spring.flyway.enabled=true`, sensible `logging.level`, structured JSON logs to stdout.
+- Create `src/main/resources/db/migration/V0001__baseline.sql` — empty except for a header comment.
+- Create `.env.example` at repo root with every env var the app reads, safe defaults commented next to each.
+- Ensure `.env` is in `.gitignore`.
+
+### Base UI layout
+- Create `src/main/resources/templates/layout.html` — the standing shell.
+- Create fragments: `templates/fragments/head.html`, `topbar.html`, `sidebar.html` per PRD §24.1.
+- Reference WebJar assets from `head.html` using `webjars-locator-lite` version-agnostic paths.
+- Create `src/main/resources/static/css/helyx.css` with a minimal reset + custom Bootstrap CSS variables (primary color placeholder — will become tenant-configurable later).
+- `HomeController` in `com.helyx.helyxhr.web` renders `templates/home.html` showing "Hello from Helyx" via the layout.
+- `GET /` returns the home page. No auth required for Phase 0.
+
+### Quality gates (Maven plugins)
+- **JaCoCo** — coverage report on `verify`, threshold declared but not enforced yet (so the first PR doesn't fail on 0%).
+- **Spotless** with Google Java Format — `spotless:check` runs in `verify`, `spotless:apply` documented in README.
+- **SpotBugs** — report only in Phase 0, blocking from Phase 1 onwards.
+- **PMD** — report only in Phase 0.
+- **OWASP Dependency-Check** — runs in CI on PR (may be slow, allow fail-soft in Phase 0).
+- **ArchUnit** — add the dependency and one placeholder test in `com.helyx.helyxhr.architecture.ArchitectureTest` that asserts no package cycles. Real tenancy/security enforcement tests come in Phase 1.1 and 1.2.
+- Every plugin version declared in `<properties>` per CLAUDE.md §7.
+
+### CI
+- `.github/workflows/ci.yml`: on PR + push to main, run `./mvnw -B verify`, cache the Maven local repo, upload JaCoCo report as an artifact.
+- Trivy scan step — defer (Docker image comes in Phase 1.14).
+- OWASP ZAP baseline — defer to Phase 1.2 when auth exists.
+
+### Documentation
+- `README.md` at repo root: setup in ≤10 steps.
+  1. Install Java 25 (SDKMAN)
+  2. Install PostgreSQL 17 locally (brew / apt / official installer)
+  3. `createuser helyx --pwprompt` and `createdb helyx -O helyx`
+  4. Clone repo
+  5. `cp .env.example .env` and set DB password
+  6. `./mvnw spring-boot:run`
+  7. Visit `http://localhost:8080`
+  8. Run tests: `./mvnw test`
+  9. Format code: `./mvnw spotless:apply`
+  10. Full local verify: `./mvnw verify`
+- `HELP.md` (auto-generated by Spring Initializr) can stay; it doesn't conflict.
+
+### First ADRs
+- `docs/adr/0001-modular-monolith-multi-tenancy.md` — records the "shared DB, shared schema, tenant_id + RLS + Hibernate filter" decision from PRD §20 and CLAUDE.md §5. Context + decision + consequences, ~10 lines.
+- `docs/adr/0002-server-rendered-ui.md` — records "Thymeleaf + htmx + Alpine + Bootstrap 5, no SPA" from PRD §1 stack rationale.
+
+## Definition of Done for Phase 0
+
+- Host Postgres running + `helyx` database created → `./mvnw spring-boot:run` starts on port 8080 and `curl localhost:8080` returns the "Hello from Helyx" page rendered via the layout (Bootstrap CSS loaded, htmx and Alpine scripts referenced without 404s in DevTools Network tab).
+- `./mvnw test` passes — Testcontainers spins its own `postgres:17-alpine`.
+- `./mvnw verify` runs static analysis + tests + coverage report end-to-end.
+- Push to `main` triggers CI, all green.
+- README setup steps work on a fresh clone by someone who has never seen the project.
+- Every third-party dependency version lives in `<properties>` — grep confirms no inline `<version>` in the `<dependencies>` section other than internal artifacts.
+- Two ADRs written.
+
+## Not in scope for Phase 0 — do not start any of this
+
+- Multi-tenancy plumbing — Phase 1.1
+- Authentication, users, login page — Phase 1.2
+- Any real domain entity (employee, leave, department, tenant) or business logic
+- Docker image / Docker Compose — Phase 1.14
+- Any UI beyond the Hello page
+
+## When you finish
+
+1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
+2. Update this file to Phase 1.1 (see the pattern below).
+3. Commit `phase-0-foundations` and open a PR against `main`.
+4. Do not start Phase 1.1 in the same session.

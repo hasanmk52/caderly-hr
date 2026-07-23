@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: helyx-hr
+  profiles:
+    active: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: helyx_hr
+  flyway:
+    enabled: true
+    schemas: helyx_hr
+
+logging:
+  level:
+    root: info
+    com.helyx.helyxhr: info
+  #structured:
+  #  format:
+  #    console: logstash
