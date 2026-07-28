@@ -1,102 +1,74 @@
 # Current Sub-Phase
 
-**Working on:** Phase 0 — Foundations
-**Branch:** `phase-0-foundations`
-**Goal:** Get the skeleton to a state where every subsequent phase can build on it: dev DB config, base UI layout, quality gates, CI, and a working "Hello from Helyx" page. No business logic yet.
+**Working on:** Phase 1.1 — Multi-tenancy foundation
+**Branch:** `phase-1.1-multitenancy`
+**Goal:** Tenant subdomain resolution, `TenantContext`, Hibernate tenant filter, and the base entity plumbing (`BaseEntity` / `TenantAwareEntity`) that every future entity builds on. Any new entity should require zero extra code to be tenant-safe once it extends `TenantAwareEntity`. No employee/leave/org business logic yet.
 
 ## Read these before doing anything
 
-1. `docs/Helyx_Implementation_Plan.md` — the "Phase 0 — Foundations" section
-2. `CLAUDE.md` — all of it, but especially §7 (coding standards) and §8 (testing rules); Phase 0 is where you wire the quality gates that will enforce §5 and §6 in later phases
-3. `docs/UI_Guidelines.md` — §1 (layout shell), §2 (color palette), §3 (typography), §6 (component conventions), §13 (htmx conventions). The Phase 0 layout + Hello page must conform.
-4. `pom.xml` — confirm what dependencies are already declared before adding anything
+1. `docs/Helyx_Implementation_Plan.md` — the "1.1 Multi-tenancy foundation" section under Phase 1 — MVP
+2. `docs/Helyx_PRD.md` — §6.2 (Multi-Tenancy functional requirements), §20 (Multi-Tenancy Design — the full model: resolution, enforcement layers, cross-tenant/system bypass, suspension), §21 (`tenant` table schema, under "Core cross-tenant")
+3. `CLAUDE.md` — §5 (Multi-tenancy contract, non-negotiable — this phase exists to make every rule in it true by construction) and §8 (testing rules, especially `TenantIsolationTestBase`)
+4. `docs/UI_Guidelines.md` — only as much as needed for the one frontend touchpoint this phase has (home page showing tenant name)
 
 ## Already in place — do not redo
 
-- Spring Boot 4.1.0 skeleton with Java 25, Maven wrapper
-- Starters: `web` (via `spring-boot-starter-webmvc`), `security`, `data-jpa`, `thymeleaf`, `actuator`, `validation`, `mail`, `flyway`, `devtools`
-- Test starters: `testcontainers`, `testcontainers-junit-jupiter`, `testcontainers-postgresql`, plus per-starter test slices
-- Base package: `com.helyx.helyxhr` — do not rename
-- `groupId=com.helyx`, `artifactId=helyxhr`, `version=0.0.1-SNAPSHOT`
-- WebJars: `bootstrap` 5.3.3, `bootstrap-icons` 1.11.3, `htmx.org` 2.0.4, `alpinejs` 3.14.7, plus `webjars-locator-lite` — all versions declared in `<properties>`
-- `docs/` folder with PRD, Implementation Plan, this file, and empty `adr/`, `ops/`, `user/`
-- `CLAUDE.md` at repo root
-- Existing test scaffolding: `HelyxhrApplicationTests`, `TestHelyxhrApplication`, `TestcontainersConfiguration`
+- Full Phase 0 skeleton: Spring Boot 4.1 app, Java 25, `dev` profile against host Postgres, `helyx_hr` schema wired through Flyway + Hibernate.
+- Base UI shell (`layout.html`, `head`/`topbar`/`sidebar` fragments, `helyx.css`) and `HomeController` rendering "Hello from Helyx" at `/`.
+- Minimal `SecurityConfig` permitting `/`, static/webjar assets, and `/actuator/health` — no login yet, that's Phase 1.2. Extend this file's `authorizeHttpRequests`, don't replace its Phase 0 behavior until 1.2 actually adds auth.
+- Quality gates wired: JaCoCo (report, unenforced), Spotless+Google Java Format (blocking), PMD (report-only), ArchUnit (one cycle-freedom test), OWASP dependency-check (CI-only). SpotBugs is configured but **not** bound to `verify` — its bundled ASM can't parse Java 25 bytecode yet (`Unsupported class file major version 69`); re-bind the execution in `pom.xml` once a compatible release ships, don't just re-enable it and hope.
+- CI (`.github/workflows/ci.yml`), README, two ADRs (`0001-modular-monolith-multi-tenancy.md`, `0002-server-rendered-ui.md`).
+- `com.helyx.helyxhr.web` and `com.helyx.helyxhr.security` packages exist with `HomeController` and `SecurityConfig` respectively.
 
-## Remaining Phase 0 work
+## Remaining Phase 1.1 work
 
 Group these in your plan-mode plan however makes sense. Do them all before closing this sub-phase.
 
-### Config & database
-- Pin the Testcontainers Postgres image to `postgres:17-alpine` in `TestcontainersConfiguration.java` (currently `postgres:latest` — violates CLAUDE.md §6 A08).
-- Restructure `src/main/resources/application.yaml`: base file + `dev` profile.
-  - `dev` connects to host Postgres at `jdbc:postgresql://localhost:5432/helyx` with user + password from env vars (`DB_USER`, `DB_PASSWORD`), with sensible defaults (`helyx`, empty) for first-run.
-  - Base file sets: `spring.jpa.open-in-view=false`, `spring.jpa.hibernate.ddl-auto=validate` (Flyway owns schema), `spring.flyway.enabled=true`, sensible `logging.level`, structured JSON logs to stdout.
-- Create `src/main/resources/db/migration/V0001__baseline.sql` — empty except for a header comment.
-- Create `.env.example` at repo root with every env var the app reads, safe defaults commented next to each.
-- Ensure `.env` is in `.gitignore`.
+### Base entity plumbing (`common` package)
+- `common.BaseEntity` — mapped superclass with `id` (UUID), `created_at`, `updated_at`.
+- `common.TenantAwareEntity extends BaseEntity` — adds `tenant_id UUID NOT NULL`.
+- No entity in a tenant-scoped package may skip this — CLAUDE.md §5 rule 1 and 7.
 
-### Base UI layout
-- Create `src/main/resources/templates/layout.html` — the standing shell.
-- Create fragments: `templates/fragments/head.html`, `topbar.html`, `sidebar.html` per PRD §24.1.
-- Reference WebJar assets from `head.html` using `webjars-locator-lite` version-agnostic paths.
-- Create `src/main/resources/static/css/helyx.css` with a minimal reset + custom Bootstrap CSS variables (primary color placeholder — will become tenant-configurable later).
-- `HomeController` in `com.helyx.helyxhr.web` renders `templates/home.html` showing "Hello from Helyx" via the layout.
-- `GET /` returns the home page. No auth required for Phase 0.
+### Tenant + system tables
+- Flyway migration creating `tenant` (per PRD §21 schema: `slug`, `name`, `logo_url`, `primary_color`, `timezone`, `locale`, `weekend_days`, `suspended`, `created_at`, `deleted_at`) and `super_admin`.
+- Postgres RLS policy template: `USING (tenant_id::text = current_setting('app.tenant_id', true))`, ready to attach to every tenant-scoped table added from here on.
 
-### Quality gates (Maven plugins)
-- **JaCoCo** — coverage report on `verify`, threshold declared but not enforced yet (so the first PR doesn't fail on 0%).
-- **Spotless** with Google Java Format — `spotless:check` runs in `verify`, `spotless:apply` documented in README.
-- **SpotBugs** — report only in Phase 0, blocking from Phase 1 onwards.
-- **PMD** — report only in Phase 0.
-- **OWASP Dependency-Check** — runs in CI on PR (may be slow, allow fail-soft in Phase 0).
-- **ArchUnit** — add the dependency and one placeholder test in `com.helyx.helyxhr.architecture.ArchitectureTest` that asserts no package cycles. Real tenancy/security enforcement tests come in Phase 1.1 and 1.2.
-- Every plugin version declared in `<properties>` per CLAUDE.md §7.
+### Tenant resolution
+- `tenant.TenantContext` — `ThreadLocal<UUID>`, `try { set } finally { clear }` pattern (CLAUDE.md §5 rule 3). Include `TenantContext.runAsSystem(...)` for the Super Admin/system-job bypass (rule 6), audited.
+- `tenant.TenantResolutionFilter` (Spring `Filter`, first in chain) — resolves tenant from the `Host` header subdomain, looks up the tenant row, caches the lookup in Caffeine, populates `TenantContext`. 404 on unknown tenant, 503 on suspended (PRD §20.3).
 
-### CI
-- `.github/workflows/ci.yml`: on PR + push to main, run `./mvnw -B verify`, cache the Maven local repo, upload JaCoCo report as an artifact.
-- Trivy scan step — defer (Docker image comes in Phase 1.14).
-- OWASP ZAP baseline — defer to Phase 1.2 when auth exists.
+### Enforcement (defense in depth, PRD §20.4)
+- Hibernate `@FilterDef("tenantFilter", parameters = @ParamDef("tenantId", uuid))` + `@Filter` on `TenantAwareEntity`.
+- AOP interceptor that enables `tenantFilter` with the current tenant at the start of every service method (CLAUDE.md §5 rule 4 — no manual `WHERE tenant_id = ?` in JPQL, ever).
+- `TenantAssignmentListener` — `@PrePersist` sets `tenant_id` from `TenantContext` (rule 5).
+- `SET LOCAL app.tenant_id = ?` at transaction start via `TransactionSynchronization`, so RLS is the backstop even if the ORM filter is ever disabled.
 
-### Documentation
-- `README.md` at repo root: setup in ≤10 steps.
-  1. Install Java 25 (SDKMAN)
-  2. Install PostgreSQL 17 locally (brew / apt / official installer)
-  3. `createuser helyx --pwprompt` and `createdb helyx -O helyx`
-  4. Clone repo
-  5. `cp .env.example .env` and set DB password
-  6. `./mvnw spring-boot:run`
-  7. Visit `http://localhost:8080`
-  8. Run tests: `./mvnw test`
-  9. Format code: `./mvnw spotless:apply`
-  10. Full local verify: `./mvnw verify`
-- `HELP.md` (auto-generated by Spring Initializr) can stay; it doesn't conflict.
+### Frontend touchpoint
+- Home page shows `{tenant.name}` sourced from `TenantContext`, proving resolution actually works end to end.
 
-### First ADRs
-- `docs/adr/0001-modular-monolith-multi-tenancy.md` — records the "shared DB, shared schema, tenant_id + RLS + Hibernate filter" decision from PRD §20 and CLAUDE.md §5. Context + decision + consequences, ~10 lines.
-- `docs/adr/0002-server-rendered-ui.md` — records "Thymeleaf + htmx + Alpine + Bootstrap 5, no SPA" from PRD §1 stack rationale.
+### Tests
+- `ArchitectureTest`: every `@Entity` in a tenant-scoped package must extend `TenantAwareEntity` (CLAUDE.md §5 rule 7, §8).
+- `TenantIsolationTestBase` (CLAUDE.md §8): seed tenant A + tenant B each with an entity; request/read as tenant A must return only A's rows; prove RLS blocks cross-tenant reads even with the Hibernate filter disabled.
+- Integration test for `TenantResolutionFilter`: known subdomain resolves, unknown subdomain 404s, suspended tenant 503s.
 
-## Definition of Done for Phase 0
+## Definition of Done for Phase 1.1
 
-- Host Postgres running + `helyx` database created → `./mvnw spring-boot:run` starts on port 8080 and `curl localhost:8080` returns the "Hello from Helyx" page rendered via the layout (Bootstrap CSS loaded, htmx and Alpine scripts referenced without 404s in DevTools Network tab).
-- `./mvnw test` passes — Testcontainers spins its own `postgres:17-alpine`.
-- `./mvnw verify` runs static analysis + tests + coverage report end-to-end.
-- Push to `main` triggers CI, all green.
-- README setup steps work on a fresh clone by someone who has never seen the project.
-- Every third-party dependency version lives in `<properties>` — grep confirms no inline `<version>` in the `<dependencies>` section other than internal artifacts.
-- Two ADRs written.
+- Any new entity requires zero extra code to be tenant-safe once it extends `TenantAwareEntity` — filter, RLS, and `tenant_id` assignment all happen by construction.
+- ArchUnit test fails the build if a non-tenant-aware `@Entity` is added to a tenant-scoped package.
+- Two-tenant integration test proves cross-tenant reads return empty, with RLS as the enforced backstop, not just the ORM filter.
+- Home page shows the resolved tenant's name when hit via its subdomain locally (e.g. `mhz.localhost:8080`).
+- `./mvnw verify` still green with the same gates as Phase 0.
 
-## Not in scope for Phase 0 — do not start any of this
+## Not in scope for Phase 1.1 — do not start any of this
 
-- Multi-tenancy plumbing — Phase 1.1
-- Authentication, users, login page — Phase 1.2
-- Any real domain entity (employee, leave, department, tenant) or business logic
+- Authentication, users, login page, sessions, RBAC — Phase 1.2
+- Divisions/Departments, Employee CRUD, or any other domain entity — Phase 1.3+
+- Super Admin console UI (the `runAsSystem` bypass plumbing is in scope; a console to use it is not)
 - Docker image / Docker Compose — Phase 1.14
-- Any UI beyond the Hello page
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to Phase 1.1 (see the pattern below).
-3. Commit `phase-0-foundations` and open a PR against `main`.
-4. Do not start Phase 1.1 in the same session.
+2. Update this file to Phase 1.2 (see the pattern above — this file's Phase 0 → Phase 1.1 update is the template).
+3. Commit `phase-1.1-multitenancy` and open a PR against `main`.
+4. Do not start Phase 1.2 in the same session.

@@ -19,7 +19,11 @@ Multi-tenant HRIS and Leave Management SaaS. See `docs/Helyx_PRD.md` for the pro
    export $(grep -v '^#' .env | xargs)
    ./mvnw spring-boot:run
    ```
-7. Visit http://localhost:8080 — you should see "Hello from Helyx".
-8. Run tests: `./mvnw test` (spins up its own ephemeral Postgres via Testcontainers — requires Docker running).
-9. Format code: `./mvnw spotless:apply`.
-10. Full local verify (tests + static analysis + coverage report): `./mvnw verify`.
+7. Seed a dev tenant (tenant provisioning is SQL-only for now, per the implementation plan):
+   ```
+   psql helyx -c "INSERT INTO helyx_hr.tenant (slug, name) VALUES ('mhz', 'MHZ Software');"
+   ```
+8. Visit http://mhz.localhost:8080 — you should see "Hello from MHZ Software". (Browsers resolve `*.localhost` to 127.0.0.1 automatically; the bare http://localhost:8080 returns 404 by design, since every page belongs to a tenant subdomain.)
+9. Run tests: `./mvnw test` (spins up its own ephemeral Postgres via Testcontainers — requires Docker running).
+10. Format code: `./mvnw spotless:apply`.
+11. Full local verify (tests + static analysis + coverage report): `./mvnw verify`.

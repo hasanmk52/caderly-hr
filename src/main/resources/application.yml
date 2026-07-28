@@ -14,6 +14,11 @@ spring:
     enabled: true
     schemas: helyx_hr
 
+# Tenant subdomains sit under this domain ({slug}.helyx.app in prod, {slug}.localhost
+# in dev). Prod profile overrides via HELYX_BASE_DOMAIN / helyx.base-domain.
+helyx:
+  base-domain: localhost
+
 logging:
   level:
     root: info

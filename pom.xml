@@ -120,6 +120,14 @@
 			<version>${alpinejs.version}</version>
 		</dependency>
 
+		<!-- Tenant lookup cache in TenantResolutionFilter (CLAUDE.md §3 stack: Caffeine,
+		     no Redis). Version managed by the Spring Boot BOM. Used directly as a
+		     Cache bean - no spring-cache abstraction needed for a single cache. -->
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>

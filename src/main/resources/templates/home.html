@@ -3,7 +3,7 @@
 <body>
 <th:block th:replace="~{layout :: layout(~{::#content})}">
   <div id="content">
-    <h1>Hello from Helyx</h1>
+    <h1>Hello from <span th:text="${tenant != null ? tenant.name : 'Helyx'}">Helyx</span></h1>
     <p class="text-muted">Welcome to your new Helyx HR home.</p>
   </div>
 </th:block>
