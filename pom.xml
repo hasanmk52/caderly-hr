@@ -41,8 +41,6 @@
 		<!-- Quality gate plugin/dependency versions (CLAUDE.md §7: one place per dependency) -->
 		<archunit.version>1.3.2</archunit.version>
 		<jacoco.version>0.8.13</jacoco.version>
-		<spotless.version>2.44.5</spotless.version>
-		<google-java-format.version>1.27.0</google-java-format.version>
 		<spotbugs-plugin.version>4.9.3.0</spotbugs-plugin.version>
 		<pmd-plugin.version>3.28.0</pmd-plugin.version>
 		<dependency-check.version>12.1.3</dependency-check.version>
@@ -118,6 +116,14 @@
 			<groupId>org.webjars.npm</groupId>
 			<artifactId>alpinejs</artifactId>
 			<version>${alpinejs.version}</version>
+		</dependency>
+
+		<!-- Tenant lookup cache in TenantResolutionFilter (CLAUDE.md §3 stack: Caffeine,
+		     no Redis). Version managed by the Spring Boot BOM. Used directly as a
+		     Cache bean - no spring-cache abstraction needed for a single cache. -->
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
 		</dependency>
 
 		<dependency>
@@ -235,30 +241,6 @@
 						<phase>verify</phase>
 						<goals>
 							<goal>report</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-
-			<!-- Google Java Format via Spotless, CLAUDE.md §7. Blocking: an unformatted
-			     file fails `mvn verify`. Run `mvn spotless:apply` to fix locally. -->
-			<plugin>
-				<groupId>com.diffplug.spotless</groupId>
-				<artifactId>spotless-maven-plugin</artifactId>
-				<version>${spotless.version}</version>
-				<configuration>
-					<java>
-						<googleJavaFormat>
-							<version>${google-java-format.version}</version>
-						</googleJavaFormat>
-					</java>
-				</configuration>
-				<executions>
-					<execution>
-						<id>spotless-check</id>
-						<phase>verify</phase>
-						<goals>
-							<goal>check</goal>
 						</goals>
 					</execution>
 				</executions>

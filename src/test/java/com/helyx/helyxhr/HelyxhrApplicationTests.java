@@ -8,6 +8,6 @@ import org.springframework.context.annotation.Import;
 @SpringBootTest
 class HelyxhrApplicationTests {
 
-  @Test
-  void contextLoads() {}
+    @Test
+    void contextLoads() {}
 }

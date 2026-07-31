@@ -2,7 +2,10 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 <nav th:fragment="topbar" class="navbar navbar-expand navbar-light bg-white border-bottom px-3 helyx-topbar">
-  <span class="navbar-brand fw-semibold">Helyx</span>
+  <!-- Text fallback until tenants upload logos (UI_Guidelines: logo falls back to
+       "Helyx" + tenant name). -->
+  <span class="navbar-brand fw-semibold"
+        th:text="${tenant != null ? 'Helyx · ' + tenant.name : 'Helyx'}">Helyx</span>
   <form class="d-none d-md-flex mx-auto" style="width: 40%" role="search">
     <input class="form-control" type="search" placeholder="Search" aria-label="Search" disabled />
   </form>

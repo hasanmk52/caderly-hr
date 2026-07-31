@@ -29,7 +29,7 @@ Multi-tenant SaaS replacing TalentHR's free plan for MHZ Software (customer #1) 
 - **Maven** with the Maven Wrapper (`./mvnw`)
 - **PostgreSQL 17**
 - **Flyway** (forward-only migrations)
-- **Hibernate 6 + Spring Data JPA**
+- **Hibernate ORM 7.x + Spring Data JPA** (version tracks the Spring Boot BOM — check `./mvnw dependency:tree` rather than assuming a number here)
 - **Spring Security 6** (session cookies, CSRF on, BCrypt cost 12, TOTP MFA planned)
 - **Thymeleaf + htmx + Alpine.js + Bootstrap 5** — server-rendered, no SPA
 - **Caffeine** (in-JVM cache, no Redis at current scale)
@@ -79,13 +79,14 @@ Every violation is a critical bug. Assume nothing.
 1. Every tenant-scoped entity **must** extend `com.helyx.helyxhr.common.TenantAwareEntity` (which has `tenant_id UUID NOT NULL`).
 2. Every tenant-scoped table **must** have Postgres RLS enabled with policy `USING (tenant_id::text = current_setting('app.tenant_id', true))`.
 3. `TenantContext` is a `ThreadLocal<UUID>` populated by `TenantResolutionFilter` from the subdomain and cleared in `finally`.
-4. Every service method activates the Hibernate `tenantFilter` via AOP interceptor — no manual `WHERE tenant_id = ?` in JPQL.
-5. Every write auto-sets `tenant_id` via `@PrePersist` on `TenantAssignmentListener`.
+4. Every tenant-scoped entity's `tenant_id` field is annotated `@TenantId` (Hibernate 7 discriminator multi-tenancy). Hibernate arms this filter itself, from `TenantIdentifierResolver` (a `CurrentTenantIdentifierResolver` bean backed by `TenantContext`), on every query it generates for that entity — including `find(id)`, unlike a hand-written `@Filter`. No manual `WHERE tenant_id = ?` in JPQL, ever.
+4a. The Postgres RLS session variable (`app.tenant_id`) is set at the start of every transaction by `TenantSessionVariableListener`, a Spring `TransactionExecutionListener` registered on the transaction manager — not an AOP aspect. This is the defense-in-depth backstop from PRD §20.4; it runs regardless of which bean or annotation started the transaction.
+5. Every write auto-sets `tenant_id` via Hibernate's `@TenantId` generation (`TenantIdGeneration`), driven by the same resolver as rule 4 — never a hand-written listener.
 6. Any code that needs to bypass tenancy (Super Admin, system jobs) must do so via `TenantContext.runAsSystem(() -> ...)` and audit the action.
 7. **Every new entity must have an ArchUnit test proving it extends `TenantAwareEntity`.** Add it in the same PR.
 8. **Every service method must have an integration test proving cross-tenant reads return empty.** Two-tenant fixture in `TenantIsolationTestBase`.
 
-If Claude is about to write a query, controller, or repository method: stop and confirm all seven of the above are enforced by construction, not by review.
+If Claude is about to write a query, controller, or repository method: stop and confirm all of the above are enforced by construction, not by review.
 
 ---
 
@@ -152,7 +153,7 @@ Maps to OWASP Top 10 (2021 edition). Every rule is enforced by code + test, not 
 ## 7. Coding standards
 
 - **Java 25 features to prefer:** records for DTOs and value objects, pattern matching in `switch`, `sealed` interfaces for state machines (e.g. `LeaveRequestStatus`), `var` for obvious locals only.
-- **Style:** Google Java Format via Spotless. Enforced in CI.
+- **Style:** IntelliJ's default Java formatter (Reformat Code). Not enforced by a CLI/CI formatter — `.editorconfig` at the repo root pins the baseline (4-space indent, UTF-8, LF, final newline) so IntelliJ applies it consistently. Checkstyle/PMD/SpotBugs still enforce substantive rules; only the opinionated reformatter (previously Spotless + Google Java Format) was dropped.
 - **Static analysis:** Checkstyle + SpotBugs + PMD + ErrorProne. CI blocks merge on new violations.
 - **Null-safety:** use `Optional<T>` for return types that may be absent; never for parameters. Non-null by default: annotate the package with `@NullMarked` (JSpecify).
 - **Exceptions:** custom `HelyxException` hierarchy with `errorCode`; controller-level `@ExceptionHandler` maps to RFC 7807 Problem Details.
@@ -247,7 +248,7 @@ Maps to OWASP Top 10 (2021 edition). Every rule is enforced by code + test, not 
 ## 12. When to ask before proceeding
 
 Stop and ask before:
-- Any change to `SecurityConfig`, `TenantResolutionFilter`, `AuditListener`, or `TenantAssignmentListener`.
+- Any change to `SecurityConfig`, `TenantResolutionFilter`, `AuditListener`, `TenantIdentifierResolver`, or `TenantSessionVariableListener`.
 - Adding a new Maven dependency.
 - Any schema change that isn't additive.
 - Any change to the leave duration algorithm.

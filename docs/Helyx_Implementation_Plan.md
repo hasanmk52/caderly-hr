@@ -73,17 +73,17 @@ Bootstrap the project skeleton, CI, and local dev experience so the first featur
 **Backend tasks:**
 - `TenantResolutionFilter` (Spring `Filter`) resolves from `Host` header, caches tenant lookup in Caffeine.
 - `TenantContext` ThreadLocal with `try { set } finally { clear }` pattern.
-- Hibernate `@FilterDef("tenantFilter", parameters=@ParamDef("tenantId", uuid))` + `@Filter` on all tenant-aware entities.
-- AOP interceptor enables filter with current tenant on every service method.
-- `TenantAssignmentListener` `@PrePersist` sets `tenant_id`.
-- `SET LOCAL app.tenant_id = ?` at transaction start via `TransactionSynchronization`.
+- `@TenantId` (Hibernate 7 discriminator multi-tenancy) on `TenantAwareEntity`'s `tenant_id` field — Hibernate arms the restriction itself on every query it generates for that entity (including `find(id)`) and auto-populates the column on insert; no hand-written `@FilterDef`/`@Filter` and no `@PrePersist` listener.
+- `TenantIdentifierResolver` (a `CurrentTenantIdentifierResolver` bean) tells Hibernate the current tenant, backed by `TenantContext`.
+- `TenantSessionVariableListener` (a Spring `TransactionExecutionListener`, auto-registered by Spring Boot — not an AOP aspect) runs `SET LOCAL app.tenant_id = ?` at the start of every transaction, for the RLS backstop.
 - `ArchUnit` test: any `@Entity` in a tenant-scoped package must extend `TenantAwareEntity`.
+- See ADR 0004 for why this landed on native Hibernate multi-tenancy instead of the hand-rolled `@Filter` + AOP aspect originally planned here, and the `spring.data.jpa.repositories.bootstrap-mode: lazy` setting it required.
 
 **Frontend tasks:**
 - Home page shows `{tenant.name}` from `TenantContext` proving resolution works.
 
 **Testing:**
-- Integration test: seed 2 tenants + 2 employees; request as tenant A returns only A's data; RLS blocks even if filter is off.
+- Integration test: seed 2 tenants + 2 employees; request as tenant A returns only A's data. RLS proven independently via a raw JDBC connection under a non-superuser role (Hibernate's restriction can't be "switched off" the way the originally-planned `@Filter` could, so the isolation test bypasses the ORM entirely for this proof rather than disabling a filter).
 
 **DoD:**
 - Any new entity requires zero code to be tenant-safe if it extends `TenantAwareEntity`.

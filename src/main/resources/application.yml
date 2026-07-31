@@ -3,6 +3,16 @@ spring:
     name: helyx-hr
   profiles:
     active: dev
+  data:
+    jpa:
+      repositories:
+        # Discriminator multi-tenancy (@TenantId, ADR 0004) resolves a tenant for every
+        # Hibernate session, including the eager query validation Spring Data normally
+        # does at startup for EVERY repository - even TenantRepository, which must be
+        # queryable before any tenant is known (it's what resolves the tenant). LAZY
+        # defers that first touch to actual first invocation, which for TenantRepository
+        # happens inside TenantService#bySlug's TenantContext.runAsSystem(...) block.
+        bootstrap-mode: lazy
   jpa:
     open-in-view: false
     hibernate:
@@ -13,6 +23,11 @@ spring:
   flyway:
     enabled: true
     schemas: helyx_hr
+
+# Tenant subdomains sit under this domain ({slug}.helyx.app in prod, {slug}.localhost
+# in dev). Prod profile overrides via HELYX_BASE_DOMAIN / helyx.base-domain.
+helyx:
+  base-domain: localhost
 
 logging:
   level:

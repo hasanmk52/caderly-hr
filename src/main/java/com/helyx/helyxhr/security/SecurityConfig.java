@@ -12,15 +12,15 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 class SecurityConfig {
 
-  @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    http.authorizeHttpRequests(
-        authorize ->
-            authorize
-                .requestMatchers("/", "/webjars/**", "/css/**", "/actuator/health")
-                .permitAll()
-                .anyRequest()
-                .authenticated());
-    return http.build();
-  }
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.authorizeHttpRequests(
+                authorize ->
+                        authorize
+                                .requestMatchers("/", "/webjars/**", "/css/**", "/actuator/health")
+                                .permitAll()
+                                .anyRequest()
+                                .authenticated());
+        return http.build();
+    }
 }
