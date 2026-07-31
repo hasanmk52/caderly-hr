@@ -16,7 +16,7 @@
 - Full Phase 0 skeleton: Spring Boot 4.1 app, Java 25, `dev` profile against host Postgres, `helyx_hr` schema wired through Flyway + Hibernate.
 - Base UI shell (`layout.html`, `head`/`topbar`/`sidebar` fragments, `helyx.css`) and `HomeController` rendering "Hello from Helyx" at `/`.
 - Minimal `SecurityConfig` permitting `/`, static/webjar assets, and `/actuator/health` — no login yet, that's Phase 1.2. Extend this file's `authorizeHttpRequests`, don't replace its Phase 0 behavior until 1.2 actually adds auth.
-- Quality gates wired: JaCoCo (report, unenforced), Spotless+Google Java Format (blocking), PMD (report-only), ArchUnit (one cycle-freedom test), OWASP dependency-check (CI-only). SpotBugs is configured but **not** bound to `verify` — its bundled ASM can't parse Java 25 bytecode yet (`Unsupported class file major version 69`); re-bind the execution in `pom.xml` once a compatible release ships, don't just re-enable it and hope.
+- Quality gates wired: JaCoCo (report, unenforced), PMD (report-only), ArchUnit (one cycle-freedom test), OWASP dependency-check (CI-only). Formatting is IntelliJ's default Java style, pinned via root `.editorconfig`, not a CLI/CI-enforced reformatter (Spotless + Google Java Format was dropped — CLAUDE.md §7). SpotBugs is configured but **not** bound to `verify` — its bundled ASM can't parse Java 25 bytecode yet (`Unsupported class file major version 69`); re-bind the execution in `pom.xml` once a compatible release ships, don't just re-enable it and hope.
 - CI (`.github/workflows/ci.yml`), README, two ADRs (`0001-modular-monolith-multi-tenancy.md`, `0002-server-rendered-ui.md`).
 - `com.helyx.helyxhr.web` and `com.helyx.helyxhr.security` packages exist with `HomeController` and `SecurityConfig` respectively.
 
@@ -38,10 +38,9 @@ Group these in your plan-mode plan however makes sense. Do them all before closi
 - `tenant.TenantResolutionFilter` (Spring `Filter`, first in chain) — resolves tenant from the `Host` header subdomain, looks up the tenant row, caches the lookup in Caffeine, populates `TenantContext`. 404 on unknown tenant, 503 on suspended (PRD §20.3).
 
 ### Enforcement (defense in depth, PRD §20.4)
-- Hibernate `@FilterDef("tenantFilter", parameters = @ParamDef("tenantId", uuid))` + `@Filter` on `TenantAwareEntity`.
-- AOP interceptor that enables `tenantFilter` with the current tenant at the start of every service method (CLAUDE.md §5 rule 4 — no manual `WHERE tenant_id = ?` in JPQL, ever).
-- `TenantAssignmentListener` — `@PrePersist` sets `tenant_id` from `TenantContext` (rule 5).
-- `SET LOCAL app.tenant_id = ?` at transaction start via `TransactionSynchronization`, so RLS is the backstop even if the ORM filter is ever disabled.
+- `@TenantId` on `TenantAwareEntity`'s `tenant_id` field (Hibernate 7 discriminator multi-tenancy) — Hibernate arms the filter itself and auto-populates the column on insert; no hand-written `@Filter`/`@FilterDef` or `@PrePersist` listener (CLAUDE.md §5 rules 4 and 5).
+- `TenantIdentifierResolver` — a `CurrentTenantIdentifierResolver` bean that resolves the current tenant from `TenantContext` for every session Hibernate opens.
+- `TenantSessionVariableListener` — a Spring `TransactionExecutionListener` registered on the transaction manager that runs `SET LOCAL app.tenant_id = ?` in `afterBegin`, so RLS is the backstop even if the ORM-level restriction is ever disabled (CLAUDE.md §5 rule 4a). Not an AOP aspect — no `@Order` coordination with `@EnableTransactionManagement` needed.
 
 ### Frontend touchpoint
 - Home page shows `{tenant.name}` sourced from `TenantContext`, proving resolution actually works end to end.

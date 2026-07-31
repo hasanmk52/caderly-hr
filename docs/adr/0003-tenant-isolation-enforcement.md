@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The `@Filter`/AOP-specific bullets below (custom `@FilterDef`/`@Filter`, `TenantEnforcementAspect`) are superseded by [ADR 0004](0004-native-hibernate-multitenancy.md); RLS, default-deny, `Tenant` entity shape, and caching decisions here remain in force.
 
 ## Context
 

@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 @ControllerAdvice
 class TenantModelAdvice {
 
-  @ModelAttribute("tenant")
-  @Nullable TenantSummary tenant(HttpServletRequest request) {
-    return (TenantSummary) request.getAttribute(TenantResolutionFilter.TENANT_ATTRIBUTE);
-  }
+    @ModelAttribute("tenant")
+    @Nullable TenantSummary tenant(HttpServletRequest request) {
+        return (TenantSummary) request.getAttribute(TenantResolutionFilter.TENANT_ATTRIBUTE);
+    }
 }

@@ -702,14 +702,14 @@ Covered in §13. Additional detail:
 5. If tenant suspended → 503 page.
 
 ### 20.4 Enforcement (defense in depth)
-1. **ORM filter:** Hibernate `@Filter` named `tenantFilter` on every entity with `WHERE tenant_id = :currentTenant`, activated by an `AOP interceptor` before every service method.
-2. **Auto-set on write:** `@EntityListener TenantAssignmentListener` sets `tenant_id` from `TenantContext` on `@PrePersist`.
-3. **Postgres RLS:** per-table policy `USING (tenant_id = current_setting('app.tenant_id')::uuid)`. Set via `SET LOCAL app.tenant_id = ...` in each transaction. This catches bugs where the ORM filter is disabled.
-4. **ArchUnit tests:** forbid direct JDBC usage; require every repository method to route through `TenantSafeRepository`.
+1. **ORM restriction:** every tenant-aware entity's `tenant_id` field is annotated `@TenantId` (Hibernate discriminator multi-tenancy, Hibernate 7). Hibernate arms this restriction itself — from a `CurrentTenantIdentifierResolver` bean (`TenantIdentifierResolver`) — on every query it generates for that entity, including `find(id)`; there is no hand-written `@Filter` and no AOP interceptor to opt it in per call (see ADR 0004).
+2. **Auto-set on write:** Hibernate's own `@TenantId` column generation sets `tenant_id` from the same resolver on insert; no `@PrePersist` listener is involved.
+3. **Postgres RLS:** per-table policy `USING (tenant_id = current_setting('app.tenant_id')::uuid)`. Set via `SET LOCAL app.tenant_id = ...` at the start of every transaction by `TenantSessionVariableListener` (a Spring `TransactionExecutionListener`, not an AOP aspect). This catches bugs independently of the ORM layer — including the (rare, deliberately audited) case where the ORM restriction is pointed at a placeholder tenant under `TenantContext.runAsSystem`.
+4. **ArchUnit tests:** require every tenant-scoped entity to extend `common.TenantAwareEntity`; forbidding direct JDBC/native-query usage outside repositories is planned but not yet enforced (CLAUDE.md §8).
 5. **Integration tests:** for every write path, assert audit log has correct `tenant_id`; for every read, seed 2 tenants and assert results are scoped.
 
 ### 20.5 Cross-tenant operations
-Only Super Admin console (behind IP allowlist + separate authentication realm) may bypass filters, using explicit `TenantContext.system()` marker. All such bypasses audit-log with `SYSTEM` actor.
+Only Super Admin console (behind IP allowlist + separate authentication realm) may bypass filters, using explicit `TenantContext.runAsSystem(reason, action)`. Every call requires a reason string and is logged; all such bypasses audit-log with `SYSTEM` actor.
 
 ### 20.6 Backup & restore per tenant
 - Full DB backup covers all tenants (single restore = all).
@@ -1337,7 +1337,7 @@ Legend: ✅ full · 👤 self only · 👥 direct + indirect reports · 🔒 rea
                        │  │ timeoff, docs, notif, audit)  │ │
                        │  ├───────────────────────────────┤ │
                        │  │ Spring Data JPA + Hibernate   │ │
-                       │  │ Hibernate @Filter tenantFilter│ │
+                       │  │ Hibernate @TenantId (7.x)     │ │
                        │  └────────┬───────────────┬──────┘ │
                        │           │               │        │
                        │  ┌────────▼───┐   ┌───────▼─────┐  │

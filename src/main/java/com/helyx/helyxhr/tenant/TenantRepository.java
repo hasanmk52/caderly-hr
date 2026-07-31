@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TenantRepository extends JpaRepository<Tenant, UUID> {
 
-  Optional<Tenant> findBySlugAndDeletedAtIsNull(String slug);
+    Optional<Tenant> findBySlugAndDeletedAtIsNull(String slug);
 }

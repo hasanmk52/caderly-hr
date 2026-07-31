@@ -14,16 +14,20 @@ import jakarta.persistence.Table;
 @Table(name = "isolation_probe")
 public class IsolationProbe extends TenantAwareEntity {
 
-  @Column(name = "label", nullable = false)
-  private String label;
+    @Column(name = "label", nullable = false)
+    private String label;
 
-  protected IsolationProbe() {}
+    protected IsolationProbe() {}
 
-  public IsolationProbe(String label) {
-    this.label = label;
-  }
+    public IsolationProbe(String label) {
+        this.label = label;
+    }
 
-  public String label() {
-    return label;
-  }
+    public String label() {
+        return label;
+    }
+
+    public void relabel(String label) {
+        this.label = label;
+    }
 }

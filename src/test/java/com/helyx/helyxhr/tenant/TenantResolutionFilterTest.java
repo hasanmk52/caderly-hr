@@ -20,57 +20,62 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 class TenantResolutionFilterTest {
 
-  @Autowired private MockMvc mockMvc;
-  @Autowired private TenantRepository tenantRepository;
-  @Autowired private TenantService tenantService;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private TenantRepository tenantRepository;
+    @Autowired private TenantService tenantService;
 
-  @BeforeEach
-  void resetCache() {
-    // Tenants seeded mid-test must be visible immediately, and a cached negative
-    // lookup from a previous test must not leak into this one.
-    tenantService.evictCache();
-  }
+    @BeforeEach
+    void resetCache() {
+        // Tenants seeded mid-test must be visible immediately, and a cached negative
+        // lookup from a previous test must not leak into this one.
+        tenantService.evictCache();
+    }
 
-  @Test
-  void home_whenKnownTenant_rendersTenantName() throws Exception {
-    seedTenantIfAbsent("mhz", "MHZ Software");
+    @Test
+    void home_whenKnownTenant_rendersTenantName() throws Exception {
+        seedTenantIfAbsent("mhz", "MHZ Software");
 
-    mockMvc
-        .perform(get(URI.create("http://mhz.localhost/")))
-        .andExpect(status().isOk())
-        .andExpect(content().string(containsString("MHZ Software")));
-  }
+        mockMvc
+                .perform(get(URI.create("http://mhz.localhost/")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("MHZ Software")));
+    }
 
-  @Test
-  void home_whenUnknownTenant_returns404() throws Exception {
-    mockMvc.perform(get(URI.create("http://nope.localhost/"))).andExpect(status().isNotFound());
-  }
+    @Test
+    void home_whenUnknownTenant_returns404() throws Exception {
+        mockMvc.perform(get(URI.create("http://nope.localhost/"))).andExpect(status().isNotFound());
+    }
 
-  @Test
-  void home_whenNoSubdomain_returns404() throws Exception {
-    mockMvc.perform(get(URI.create("http://localhost/"))).andExpect(status().isNotFound());
-  }
+    @Test
+    void home_whenNoSubdomain_returns404() throws Exception {
+        mockMvc.perform(get(URI.create("http://localhost/"))).andExpect(status().isNotFound());
+    }
 
-  @Test
-  void home_whenSuspendedTenant_returns503() throws Exception {
-    Tenant suspended = seedTenantIfAbsent("frozen", "Frozen Co");
-    suspended.suspend();
-    tenantRepository.save(suspended);
-    tenantService.evictCache();
+    @Test
+    void home_whenSuspendedTenant_returns503() throws Exception {
+        Tenant suspended = seedTenantIfAbsent("frozen", "Frozen Co");
+        suspended.suspend();
+        TenantContext.runAsSystem("test: suspend tenant", () -> tenantRepository.save(suspended));
+        tenantService.evictCache();
 
-    mockMvc
-        .perform(get(URI.create("http://frozen.localhost/")))
-        .andExpect(status().isServiceUnavailable());
-  }
+        mockMvc
+                .perform(get(URI.create("http://frozen.localhost/")))
+                .andExpect(status().isServiceUnavailable());
+    }
 
-  @Test
-  void actuatorHealth_withoutTenant_returns200() throws Exception {
-    mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
-  }
+    @Test
+    void actuatorHealth_withoutTenant_returns200() throws Exception {
+        mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
+    }
 
-  private Tenant seedTenantIfAbsent(String slug, String name) {
-    return tenantRepository
-        .findBySlugAndDeletedAtIsNull(slug)
-        .orElseGet(() -> tenantRepository.save(new Tenant(slug, name)));
-  }
+    // Seeding a tenant is itself cross-tenant work (there's no tenant yet to be "in") — same
+    // reasoning as TenantService#bySlug (ADR 0004): runAsSystem, not a real tenant context.
+    private Tenant seedTenantIfAbsent(String slug, String name) {
+        return TenantContext.runAsSystem(
+                "test: seed tenant fixture",
+                () ->
+                        tenantRepository
+                                .findBySlugAndDeletedAtIsNull(slug)
+                                .orElseGet(() -> tenantRepository.save(new Tenant(slug, name))));
+    }
 }
