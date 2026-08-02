@@ -1,7 +1,6 @@
 package com.helyx.helyxhr.web;
 
 import com.helyx.helyxhr.common.HelyxException;
-import com.helyx.helyxhr.identity.AppUser;
 import com.helyx.helyxhr.identity.AppUserRepository;
 import com.helyx.helyxhr.identity.InviteService;
 import com.helyx.helyxhr.identity.Role;
