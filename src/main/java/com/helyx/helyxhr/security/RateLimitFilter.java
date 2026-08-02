@@ -115,8 +115,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return (comma < 0 ? forwarded : forwarded.substring(0, comma)).trim();
     }
 
-    /** Test seam: lets a test start from a clean slate without rebuilding the context. */
-    void reset(@Nullable String key) {
+    /**
+     * Drops accumulated buckets, for one key or all of them.
+     *
+     * <p>Public because tests need a clean slate between cases without rebuilding the application
+     * context — several login attempts in one test class would otherwise trip the limit and turn
+     * unrelated assertions red. Also the natural hook for an operator who needs to lift a limit
+     * on someone locked out by a misconfigured proxy.
+     */
+    public void clearBuckets(@Nullable String key) {
         if (key == null) {
             buckets.invalidateAll();
         } else {

@@ -102,10 +102,19 @@ class SecurityConfig {
         return new HttpSessionEventPublisher();
     }
 
+    /**
+     * Declared as its own bean, not inline in the registration below, so tests and operators can
+     * reach {@code clearBuckets}. Boot does not double-register it: a filter already referenced
+     * by a {@code FilterRegistrationBean} is excluded from automatic registration.
+     */
     @Bean
-    FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration() {
-        FilterRegistrationBean<RateLimitFilter> registration =
-                new FilterRegistrationBean<>(new RateLimitFilter(LOGIN_PATH, FORGOT_PASSWORD_PATH));
+    RateLimitFilter rateLimitFilter() {
+        return new RateLimitFilter(LOGIN_PATH, FORGOT_PASSWORD_PATH);
+    }
+
+    @Bean
+    FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter filter) {
+        FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>(filter);
         // After tenant resolution (HIGHEST_PRECEDENCE) but before the security chain, so a flood
         // of login attempts is turned away without ever reaching the database.
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
@@ -113,10 +122,15 @@ class SecurityConfig {
     }
 
     @Bean
+    AbsoluteSessionTimeoutFilter absoluteSessionTimeoutFilter(Clock clock) {
+        return new AbsoluteSessionTimeoutFilter(MAX_SESSION_AGE, clock);
+    }
+
+    @Bean
     FilterRegistrationBean<AbsoluteSessionTimeoutFilter> absoluteSessionTimeoutFilterRegistration(
-            Clock clock) {
+            AbsoluteSessionTimeoutFilter filter) {
         FilterRegistrationBean<AbsoluteSessionTimeoutFilter> registration =
-                new FilterRegistrationBean<>(new AbsoluteSessionTimeoutFilter(MAX_SESSION_AGE, clock));
+                new FilterRegistrationBean<>(filter);
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
         return registration;
     }
