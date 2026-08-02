@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<!--/* Resolved by Spring Boot's error dispatch for any 5xx (UI Guidelines §7.3: support contact
+       plus a request ID the user can quote). The trace ID is only populated once request-scoped
+       MDC logging lands in Phase 1.11; until then the block stays hidden rather than showing an
+       empty field the user might try to read out. */-->
+<th:block th:replace="~{bare-layout :: layout('Something went wrong', ~{::#content})}">
+  <main id="content" class="helyx-bare-main">
+    <div class="helyx-bare-card">
+      <div class="card shadow-sm">
+        <div class="card-body p-4 text-center">
+          <i class="bi bi-exclamation-octagon text-danger fs-1 d-block mb-3" aria-hidden="true"></i>
+          <h1 class="h4 mb-2">Something went wrong</h1>
+          <p class="text-muted mb-3">
+            An unexpected error occurred on our side. Please try again in a moment.
+          </p>
+          <p class="small text-muted mb-4" th:if="${requestId}">
+            Quote this reference if you contact support:
+            <code th:text="${requestId}">-</code>
+          </p>
+          <a class="btn btn-primary" th:href="@{/}">Back to home</a>
+        </div>
+      </div>
+    </div>
+  </main>
+</th:block>
+</html>
