@@ -30,7 +30,7 @@ Multi-tenant SaaS replacing TalentHR's free plan for MHZ Software (customer #1) 
 - **PostgreSQL 17**
 - **Flyway** (forward-only migrations)
 - **Hibernate ORM 7.x + Spring Data JPA** (version tracks the Spring Boot BOM — check `./mvnw dependency:tree` rather than assuming a number here)
-- **Spring Security 6** (session cookies, CSRF on, BCrypt cost 12, TOTP MFA planned)
+- **Spring Security 7** (session cookies, CSRF on, BCrypt cost 12, TOTP MFA planned) — version tracks the Spring Boot BOM; 7.1.0 as of Boot 4.1.0. Security 7 removed most API deprecated across the 6.x line, so 6.x configuration guidance will not compile.
 - **Thymeleaf + htmx + Alpine.js + Bootstrap 5** — server-rendered, no SPA
 - **Caffeine** (in-JVM cache, no Redis at current scale)
 - **Testcontainers Postgres** + JUnit 5 + AssertJ + Mockito
@@ -59,7 +59,7 @@ com.helyx.helyxhr
 ├── audit           # AuditEntry, LoginAudit, AuditListener
 ├── reports         # Report services
 ├── storage         # FileStorage interface + Local + S3 impls
-├── security        # SecurityConfig, JwtService, TotpService
+├── security        # SecurityConfig, TotpService
 ├── web             # Thymeleaf controllers (server-rendered)
 ├── api             # REST controllers under /api/v1
 ├── superadmin      # Cross-tenant console (separate security realm)
@@ -147,6 +147,25 @@ Maps to OWASP Top 10 (2021 edition). Every rule is enforced by code + test, not 
 
 ### A10 Server-Side Request Forgery
 - No feature currently makes outbound HTTP based on user input. When added (webhooks in Phase 2), URL allowlist per tenant + block private IP ranges (10/8, 172.16/12, 192.168/16, 169.254/16, ::1, fc00::/7).
+
+---
+
+## 6a. Reliability contract — durable outbox for external side effects (non-negotiable)
+
+Any code that causes an effect outside the local Postgres transaction — sending email, calling an HTTP webhook, publishing to a queue, writing to S3, calling a third-party API — must go through a durable outbox pattern:
+
+1. **Write an intent row** (`email_outbox`, `webhook_outbox`, `push_outbox`, etc.) *in the same transaction* as the business action that triggered it. No `mailSender.send()` / `restClient.post()` / `s3Client.putObject()` inline in a request path.
+2. **A `@Scheduled` dispatcher** polls the outbox (`fixedDelay = 30s` is the default; tune per outbox if needed), performs the external call, and marks `SENT` on success.
+3. **On failure:** increment `attempts`, set `next_attempt_at` with exponential backoff (30s → 2m → 10m), retry up to 3 times, then mark `FAILED` with the last error and log at `error`. **Never lose the intent row.**
+4. **Every outbox has an Admin UI** to inspect `FAILED` rows and retry them (may ship one sub-phase after the outbox itself, but must exist before the outbox goes to production).
+
+**Exceptions:**
+- **Read-only external calls** (fetching public data, no data-loss risk) may be inline.
+- **Non-idempotent third-party calls** (payments, OTP SMS, anything that shouldn't be retried without deduplication) require an idempotency-key column on the outbox row plus deduplication by the receiving side. Discuss in an ADR before implementing.
+
+**Never** use `@Async` for an unrecoverable side effect. `@Async` = in-memory queue = silent data loss on restart.
+
+Currently in use: `email_outbox` (from sub-phase 1.2). Planned: `webhook_outbox` (Phase 2 Slack/MS Teams integrations), any future outbound HTTP.
 
 ---
 

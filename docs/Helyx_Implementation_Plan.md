@@ -6,7 +6,7 @@
 
 Solo developer capacity assumption: ~4 focused dev-days/week (accounting for the day job and life). All estimates in dev-weeks at that pace. Complexity: **S**=1-2 weeks, **M**=3-5 weeks, **L**=6-10 weeks, **XL**=10+ weeks.
 
-Total MVP estimate: **~14-18 weeks** (3.5-4.5 months).
+Total MVP estimate: **~14.5-18.5 weeks** (~3.5-4.5 months).
 
 ---
 
@@ -76,7 +76,7 @@ Bootstrap the project skeleton, CI, and local dev experience so the first featur
 - `@TenantId` (Hibernate 7 discriminator multi-tenancy) on `TenantAwareEntity`'s `tenant_id` field — Hibernate arms the restriction itself on every query it generates for that entity (including `find(id)`) and auto-populates the column on insert; no hand-written `@FilterDef`/`@Filter` and no `@PrePersist` listener.
 - `TenantIdentifierResolver` (a `CurrentTenantIdentifierResolver` bean) tells Hibernate the current tenant, backed by `TenantContext`.
 - `TenantSessionVariableListener` (a Spring `TransactionExecutionListener`, auto-registered by Spring Boot — not an AOP aspect) runs `SET LOCAL app.tenant_id = ?` at the start of every transaction, for the RLS backstop.
-- `ArchUnit` test: any `@Entity` in a tenant-scoped package must extend `TenantAwareEntity`.
+- `ArchUnit` test: any `@Entity` in a tenant-scoped package must extend `TenantAwareEntity`. **Exempt:** entities in a `.system` sub-package of any module (system infrastructure — `EmailOutbox`, `AuditEntry`, `LoginAudit`, `Tenant`, `SuperAdmin`). Rule enforced by package pattern, not by manual allowlist per class.
 - See ADR 0004 for why this landed on native Hibernate multi-tenancy instead of the hand-rolled `@Filter` + AOP aspect originally planned here, and the `spring.data.jpa.repositories.bootstrap-mode: lazy` setting it required.
 
 **Frontend tasks:**
@@ -93,18 +93,22 @@ Bootstrap the project skeleton, CI, and local dev experience so the first featur
 
 ---
 
-### 1.2 Authentication & Users (2 weeks)
+### 1.2 Authentication & Users (2.5 weeks)
 
-**Features:** Email/password login, invite flow, password reset, session management, RBAC.
+**Features:** Email/password login, invite flow, password reset, session management, RBAC. Includes the **minimal email outbox infrastructure** so invite + reset emails are durable from day one (richer templates + full event catalog land in 1.10).
 
 **DB changes:**
-- `app_user`, `user_role`, `password_reset_token`, `token_revocation`.
+- `app_user`, `user_role`, `password_reset_token` — tenant-scoped, extend `TenantAwareEntity`, `@TenantId` + RLS as per §5. (No `token_revocation` table: that was a JWT-era artifact. PRD §19.1 now specifies server-side sessions, where revocation means deleting the user's sessions from the session store.)
+- `email_outbox` — **system-scoped infrastructure table**, same category as `audit_entry` / `login_audit`. Does NOT extend `TenantAwareEntity`, does NOT have `@TenantId`, does NOT have RLS. `tenant_id` is a *nullable reference column* used by the dispatcher to look up branding and by the Admin viewer to filter — not the tenancy discriminator. Columns: `id, tenant_id (nullable ref to tenant), to_email, subject, body_html, status (PENDING|SENT|FAILED), attempts, last_error, created_at, next_attempt_at, sent_at`. Lives in a `.system` sub-package so ArchUnit's "every tenant-package entity extends TenantAwareEntity" rule excludes it by construction.
 
 **Backend tasks:**
-- `SecurityConfig`: form login (Thymeleaf), stateless JWT-in-cookie session, CSRF enabled, custom `AuthenticationProvider` that scopes user lookup by current tenant.
+- `SecurityConfig`: form login (Thymeleaf), **server-side session cookie** (Spring Security default, `HttpOnly` + `Secure` + `SameSite=Lax`), CSRF enabled, custom `AuthenticationProvider` that scopes user lookup by current tenant. Session invalidated on password change, role change, or termination via `SessionRegistry`.
 - BCrypt encoder, cost 12.
-- `InviteService`: create user with INVITED status, generate token, enqueue email.
-- `PasswordResetService`.
+- `EmailOutboxService.enqueue(tenantId, to, subject, bodyHtml)` — writes to `email_outbox` in the same transaction as the calling business action; no direct SMTP call. Callers pass `TenantContext.currentTenantId()` explicitly (or `null` for Super Admin system emails).
+- `EmailDispatcher` — `@Scheduled(fixedDelay = 30s)` runs **system-scoped** (no `TenantContext`, no per-tenant filter) and polls all `PENDING` rows across all tenants in one query. Sends via `JavaMailSender`, marks `SENT`; on failure increments `attempts`, sets `next_attempt_at` with exponential backoff (30s → 2m → 10m), and after 3 failed attempts marks `FAILED` with the last error. Log at `warn` on transient failure, `error` on `FAILED`. The dispatcher never uses tenant-scoped repositories — it queries `email_outbox` directly.
+- Inline plain HTML for the two Phase-1.2 emails (invite + password reset). Tenant-branded Thymeleaf templates come in 1.10.
+- `InviteService`: create user with INVITED status, generate 32-byte token stored SHA-256-hashed, call `EmailOutboxService.enqueue(...)`.
+- `PasswordResetService`: same pattern — token generated, hashed, enqueued.
 - Login rate limiter (Bucket4j).
 - Failed login counter + lockout.
 - Role hierarchy: ADMIN > MANAGER > EMPLOYEE (Spring `RoleHierarchy`).
@@ -119,12 +123,16 @@ Bootstrap the project skeleton, CI, and local dev experience so the first featur
 
 **Testing:**
 - Auth integration tests, lockout after 5 fails, invite flow end-to-end.
+- **Outbox durability test:** enqueue email in a transaction, force JVM restart before dispatcher runs, assert row still present as `PENDING` on restart, dispatcher picks it up within one poll cycle.
+- **Outbox retry test:** stub `JavaMailSender` to throw on first 2 attempts, assert 3rd attempt succeeds, `attempts=3`, `status=SENT`.
+- MailHog Testcontainer verifies full outbox → SMTP → inbox path.
 - Playwright E2E: create user (via API), send invite, accept, log in, see home.
 - Security test: request `/admin/*` as Employee → 403.
 
 **DoD:**
 - Login works with tenant subdomain. Wrong tenant → user not found.
-- Invite email received via MailHog in dev.
+- Invite email arrives in MailHog inbox in dev after a `./mvnw spring-boot:run` invite.
+- **Killing the app mid-invite (`SIGKILL` after enqueue commit, before dispatch) does not lose the invite** — restart, dispatcher picks it up and delivers within one poll cycle.
 - CSRF blocks form POST without token.
 
 **Complexity:** M. **Depends on:** 1.1.
@@ -311,24 +319,28 @@ Bootstrap the project skeleton, CI, and local dev experience so the first featur
 
 ---
 
-### 1.10 Notifications (email outbox) (0.5 week)
+### 1.10 Notifications — templates, event wiring, admin view (0.5 week)
 
-**Features:** Async, retriable email delivery.
+**Features:** Full transactional-email catalog on top of the outbox infrastructure already shipped in 1.2.
 
-**DB changes:** `email_outbox`.
+**DB changes:**
+- Extend `email_outbox` if new columns are needed (e.g., `event_type` for filtering, `template_key`). Additive migration only.
 
 **Backend:**
-- `EmailOutboxService` enqueues.
-- `EmailDispatcher` @Scheduled every 30s pulls PENDING, sends via `JavaMailSender`, retries with backoff.
-- Templates in `templates/email/*.html` with tenant branding merged.
+- Thymeleaf email templates in `src/main/resources/templates/email/*.html`, one per event.
+- `EmailTemplateService.render(templateKey, model)` — renders template with per-tenant branding merged in (logo URL, primary color, tenant name).
+- Wire every notification event listed in PRD §17.2 (leave requested/approved/rejected/cancelled, holiday reminder, birthday, work anniversary, document expiring — password reset + invite already wired in 1.2) to call `EmailOutboxService.enqueue(...)`.
+- Admin outbox viewer: `/admin/notifications` page with paginated table (date, to, subject, status, attempts, last error), filter by status/date, "retry" action for FAILED rows.
+- Per-tenant notification toggles (disable birthday/anniversary/etc.) — one settings page.
 
 **Testing:**
-- Unit tests with GreenMail or MailHog Testcontainer.
-- Retry logic on SMTP failure.
+- Snapshot tests for each rendered template (branding merge correct, no missing tokens).
+- Integration test per event: perform business action, assert correct `email_outbox` row created with correct recipient(s).
+- E2E: Admin sees a FAILED row after simulated SMTP outage; clicks retry; row transitions to SENT after MailHog is back.
 
-**DoD:** All lifecycle events dispatch reliably. Failed sends are visible to Admin in the outbox view (bonus, if time permits).
+**DoD:** Every event in PRD §17.2 produces a correctly-branded email in MailHog. Admin can inspect failed sends and retry.
 
-**Complexity:** S. **Depends on:** 1.2.
+**Complexity:** S. **Depends on:** 1.2 (outbox infra), 1.6 (leave events).
 
 ---
 

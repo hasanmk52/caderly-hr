@@ -207,7 +207,7 @@ Grouped by module. Detailed acceptance criteria in §10.
 |---|---|
 | **Performance** | p95 page load < 400 ms for typical pages (profile, calendar, dashboard) at 50 employees × 50 tenants baseline. p95 API JSON responses < 200 ms. |
 | **Availability** | 99.5% monthly (allows ~3.6 h/mo downtime) for self-hosted single-instance. Higher tiers require HA setup, not part of MVP. |
-| **Scalability** | Single Spring Boot instance + single Postgres must serve baseline (50×50). Design must not preclude horizontal scale later (stateless app, no in-memory session unless via shared cache). |
+| **Scalability** | Single Spring Boot instance + single Postgres must serve baseline (50×50). Design must not preclude horizontal scale later: application code is stateless *except* for the HTTP session, which is deliberately in-JVM in MVP and moves to a shared store (`spring-session-jdbc` → Postgres) as a config-only change when we add a second instance. |
 | **Security** | See §19. |
 | **Data integrity** | All writes transactional; leave-booking is optimistic-locked to prevent double-book of same day. |
 | **Compliance readiness** | Design controls for future SOC2 Type II and GDPR compliance. No formal audit in MVP. |
@@ -587,8 +587,8 @@ Covered in §13. Additional detail:
 | Work anniversary | Team | "🎉 {Employee} joined {tenant} {N} years ago today" (opt-in) |
 
 ### 17.3 Delivery
-- Async via `@Async` + `TaskExecutor`, with a Postgres-backed outbox table (`email_outbox`) for retry + delivery audit.
-- Scheduled retry: 3 attempts with exponential backoff, then mark FAILED and log.
+- Durable outbox, never `@Async`: the triggering action writes an `email_outbox` row **in its own transaction**, and a `@Scheduled` dispatcher polls the table and performs the SMTP send (CLAUDE.md §6a). An in-memory async queue would silently drop pending mail on restart.
+- Scheduled retry: 3 attempts with exponential backoff (30s → 2m → 10m), then mark FAILED and log.
 - Test SMTP via MailHog in dev.
 
 ### 17.4 Preferences (Phase 2)
@@ -629,7 +629,7 @@ Covered in §13. Additional detail:
 ### 19.1 Authentication
 - Passwords: BCrypt cost 12, min length 10, must have upper+lower+digit, blocked-common-passwords list.
 - Reset tokens: 32-byte cryptographic random, single-use, 24h TTL, stored hashed.
-- Session: JWT access token (15 min) + refresh token in HttpOnly SameSite=Lax secure cookie (7 days rolling). Session revocation via `token_revocation` table.
+- Session: **server-side HTTP session cookie** (`JSESSIONID`), `HttpOnly` + `Secure` + `SameSite=Lax`. Spring Security default. Idle timeout 8 h (configurable per tenant); absolute timeout 24 h. Session state stored in-JVM for the single-instance MHZ deployment; when we go multi-instance, swap in `spring-session-jdbc` and store sessions in Postgres — no application-code change. **Revocation** is immediate: password change, role change, or termination invalidates all sessions for that user by deleting them from the session store.
 - Lockout: 5 failures / 15 min per (email + IP).
 - MFA (TOTP): optional per user, enforceable per tenant for Admin role.
 
@@ -769,11 +769,20 @@ CREATE TABLE app_user (
 );
 
 CREATE TABLE user_role (
-  user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES tenant(id),
+  user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   role varchar(20) NOT NULL, -- EMPLOYEE, MANAGER, ADMIN
-  PRIMARY KEY (user_id, role)
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, user_id, role)
 );
+-- Synthetic UUID PK (not the natural composite (user_id, role)) so this
+-- table extends TenantAwareEntity like every other tenant-scoped table
+-- and gets Hibernate 7 @TenantId + RLS for free per CLAUDE.md §5.
+-- The UNIQUE constraint preserves the composite-key semantic. See ADR-0005.
+CREATE INDEX idx_user_role_user ON user_role(tenant_id, user_id);
+CREATE INDEX idx_user_role_role ON user_role(tenant_id, role);
 
 CREATE TABLE password_reset_token (
   id uuid PRIMARY KEY,
@@ -1004,10 +1013,21 @@ CREATE TABLE leave_request (
 CREATE INDEX idx_leave_req_emp_period ON leave_request(tenant_id, employee_id, start_date, end_date);
 CREATE INDEX idx_leave_req_status ON leave_request(tenant_id, status);
 
+-- ============ System-scoped infrastructure tables ============
+-- Notifications, audit, and login-audit tables are NOT tenant-scoped in the
+-- ORM sense: their Java entities do NOT extend TenantAwareEntity, do NOT have
+-- @TenantId, and do NOT have RLS. The tenant_id column is a nullable
+-- *reference* used for admin-viewer filtering and for the dispatcher to look
+-- up per-tenant branding. Background jobs (EmailDispatcher, audit archival)
+-- query these tables system-scoped without a TenantContext. Any admin viewer
+-- of these tables filters WHERE tenant_id = :currentTenant explicitly in the
+-- controller/service — defense in depth for system tables. See ADR 0005 and
+-- CLAUDE.md §5.1 exemption + Implementation Plan §1.2.
+
 -- ============ Notifications ============
 CREATE TABLE email_outbox (
   id uuid PRIMARY KEY,
-  tenant_id uuid REFERENCES tenant(id),
+  tenant_id uuid REFERENCES tenant(id), -- nullable reference, not RLS discriminator
   to_email varchar(255) NOT NULL,
   subject varchar(500) NOT NULL,
   body_html text NOT NULL,
@@ -1019,10 +1039,13 @@ CREATE TABLE email_outbox (
   next_attempt_at timestamptz
 );
 
+CREATE INDEX idx_email_outbox_pending ON email_outbox(status, next_attempt_at) WHERE status = 'PENDING';
+CREATE INDEX idx_email_outbox_tenant ON email_outbox(tenant_id, created_at DESC);
+
 -- ============ Audit ============
 CREATE TABLE audit_entry (
   id bigserial PRIMARY KEY,
-  tenant_id uuid,
+  tenant_id uuid, -- nullable reference, not RLS discriminator (system actions have no tenant)
   actor_user_id uuid,
   actor_role varchar(20),
   occurred_at timestamptz NOT NULL DEFAULT now(),
@@ -1041,7 +1064,7 @@ CREATE INDEX idx_audit_entity ON audit_entry(tenant_id, entity_type, entity_id);
 
 CREATE TABLE login_audit (
   id bigserial PRIMARY KEY,
-  tenant_id uuid,
+  tenant_id uuid, -- nullable reference, not RLS discriminator (unknown-tenant attempts land here too)
   user_id uuid,
   occurred_at timestamptz NOT NULL DEFAULT now(),
   email_attempted varchar(255),
@@ -1080,7 +1103,7 @@ com.helyx.helyxhr
 ├── audit                   # AuditEntry, LoginAudit, AuditListener
 ├── reports                 # ReportService, LeaveBalanceReport, UtilizationReport, HeadcountReport
 ├── storage                 # FileStorage interface, LocalFileStorage, S3FileStorage
-├── security                # SecurityConfig, JwtService, TotpService, PasswordEncoder, RateLimiter
+├── security                # SecurityConfig, TotpService, PasswordEncoder, RateLimiter
 ├── web                     # Controllers (Thymeleaf), FragmentAdvice, GlobalExceptionHandler
 ├── api                     # REST controllers (v1)
 ├── superadmin              # Super-admin console (separate security realm)
