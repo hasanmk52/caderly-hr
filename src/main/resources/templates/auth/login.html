@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<th:block th:replace="~{bare-layout :: layout('Log in', ~{::#content})}">
+  <main id="content" class="helyx-bare-main">
+    <div class="helyx-bare-card">
+
+      <div class="text-center mb-4">
+        <h1 class="h4 mb-1" th:text="${tenant != null ? tenant.name : 'Helyx'}">Helyx</h1>
+        <p class="text-muted small mb-0">Sign in to continue</p>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+
+          <!--/* UI Guidelines §9: errors announced to assistive tech, and never say WHICH of
+                 email or password was wrong — the failure URL is the same for a bad password,
+                 a locked account, and an address that does not exist. */-->
+          <div class="alert alert-danger py-2" role="alert" th:if="${param.error}">
+            <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>
+            Incorrect email or password.
+          </div>
+          <div class="alert alert-danger py-2" role="alert" th:if="${param.rateLimited}">
+            <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>
+            Too many attempts. Please wait a minute and try again.
+          </div>
+          <div class="alert alert-info py-2" role="status" th:if="${param.expired}">
+            Your session expired. Please sign in again.
+          </div>
+          <div class="alert alert-success py-2" role="status" th:if="${param.inviteAccepted}">
+            Your password is set. You can sign in now.
+          </div>
+          <div class="alert alert-success py-2" role="status" th:if="${param.resetComplete}">
+            Your password has been changed. You can sign in now.
+          </div>
+          <div class="alert alert-info py-2" role="status" th:if="${param.loggedOut}">
+            You have been signed out.
+          </div>
+
+          <form th:action="@{/login}" method="post">
+            <div class="mb-3">
+              <label class="form-label" for="email">Email</label>
+              <input class="form-control" type="email" id="email" name="email"
+                     autocomplete="username" required autofocus />
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="password">Password</label>
+              <input class="form-control" type="password" id="password" name="password"
+                     autocomplete="current-password" required />
+            </div>
+            <button class="btn btn-primary w-100" type="submit">Log in</button>
+          </form>
+
+          <div class="text-center mt-3">
+            <a class="btn btn-link btn-sm" th:href="@{/forgot-password}">Forgot password?</a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+</th:block>
+</html>

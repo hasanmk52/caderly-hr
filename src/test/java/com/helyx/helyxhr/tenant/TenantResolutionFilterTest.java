@@ -39,11 +39,13 @@ class TenantResolutionFilterTest {
     void home_whenKnownTenantAndAuthenticated_rendersTenantName() throws Exception {
         seedTenantIfAbsent("mhz", "MHZ Software");
 
-        // A principal is required from sub-phase 1.2 on: "/" is the home dashboard and the
-        // security chain is default-deny. The tenant assertions below are unaffected — tenant
-        // resolution happens in a filter that runs before authentication.
+        // A principal with a role is required from sub-phase 1.2 on: "/" is the home dashboard,
+        // the chain is default-deny, and HomeController requires EMPLOYEE. The tenant assertions
+        // are unaffected — tenant resolution runs in a filter ahead of authentication.
         mockMvc
-                .perform(get(URI.create("http://mhz.localhost/")).with(user("someone@mhz.test")))
+                .perform(
+                        get(URI.create("http://mhz.localhost/"))
+                                .with(user("someone@mhz.test").roles("EMPLOYEE")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("MHZ Software")));
     }
