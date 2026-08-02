@@ -151,5 +151,8 @@ class AppUserTest {
 
         assertThat(user.isLocked(T0)).isFalse();
         assertThat(user.failedLoginCount()).isZero();
+        // The status column must follow the timestamp. Clearing one without the other left
+        // accounts reading LOCKED forever while being perfectly usable.
+        assertThat(user.status()).isEqualTo(UserStatus.ACTIVE);
     }
 }

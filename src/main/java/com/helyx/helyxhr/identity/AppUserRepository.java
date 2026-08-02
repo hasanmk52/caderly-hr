@@ -18,5 +18,8 @@ public interface AppUserRepository extends TenantAwareRepository<AppUser> {
 
     boolean existsByEmail(String email);
 
+    /** Invite redemption looks the user up by stored digest; the raw token is never persisted. */
+    Optional<AppUser> findByInviteTokenHash(String inviteTokenHash);
+
     List<AppUser> findAllByOrderByEmailAsc();
 }

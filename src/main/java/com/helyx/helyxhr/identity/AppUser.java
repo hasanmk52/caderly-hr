@@ -114,7 +114,7 @@ public class AppUser extends TenantAwareEntity {
         this.status = UserStatus.ACTIVE;
         this.inviteTokenHash = null;
         this.inviteExpiresAt = null;
-        clearFailedLogins();
+        unlock();
     }
 
     /** Whether the invite token is still redeemable at {@code now}. */
@@ -122,9 +122,13 @@ public class AppUser extends TenantAwareEntity {
         return inviteTokenHash != null && inviteExpiresAt != null && now.isBefore(inviteExpiresAt);
     }
 
+    /**
+     * A successful reset proves mailbox control, so it also lifts any lock the failed attempts
+     * that prompted the reset had put in place.
+     */
     public void changePassword(String passwordHash) {
         this.passwordHash = passwordHash;
-        clearFailedLogins();
+        unlock();
     }
 
     /**
@@ -202,10 +206,14 @@ public class AppUser extends TenantAwareEntity {
         return Collections.unmodifiableSet(new HashSet<>(roles));
     }
 
+    /**
+     * Resets the attempt counter only. Deliberately does NOT clear {@code lockedUntil} — that is
+     * {@link #unlock()}'s job, and conflating the two let a caller silently drop the lock
+     * timestamp while leaving the status column reading LOCKED forever.
+     */
     private void clearFailedLogins() {
         this.failedLoginCount = 0;
         this.failedLoginWindowStart = null;
-        this.lockedUntil = null;
     }
 
     public String email() {
