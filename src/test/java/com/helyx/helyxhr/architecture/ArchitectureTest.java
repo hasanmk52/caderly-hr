@@ -26,9 +26,14 @@ class ArchitectureTest {
 
     @Test
     void entities_inTenantScopedPackages_extendTenantAwareEntity() {
-        // Default-deny: every package except the cross-tenant roots (tenant, superadmin)
-        // and common itself is tenant-scoped, so any future entity is gated automatically
-        // (CLAUDE.md §5 rules 1 and 7).
+        // Default-deny: every package except the cross-tenant roots (tenant, superadmin),
+        // common itself, and .system infrastructure sub-packages is tenant-scoped, so any
+        // future entity is gated automatically (CLAUDE.md §5 rules 1 and 7).
+        //
+        // ..system.. is matched by pattern rather than by a class allowlist so the exemption
+        // is self-documenting: moving an entity into a .system package is a visible design
+        // statement that it is cross-tenant infrastructure (ADR 0005 decision B), and it
+        // cannot be granted accidentally by editing a list in this test.
         ArchRule rule =
                 classes()
                         .that()
@@ -37,7 +42,8 @@ class ArchitectureTest {
                         .resideOutsideOfPackages(
                                 "com.helyx.helyxhr.tenant..",
                                 "com.helyx.helyxhr.superadmin..",
-                                "com.helyx.helyxhr.common..")
+                                "com.helyx.helyxhr.common..",
+                                "..system..")
                         .should()
                         .beAssignableTo(TenantAwareEntity.class)
                         .because("every tenant-scoped entity must extend TenantAwareEntity (CLAUDE.md §5)")

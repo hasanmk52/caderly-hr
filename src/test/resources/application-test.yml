@@ -1,0 +1,24 @@
+# Test profile. The datasource comes from TestcontainersConfiguration's @ServiceConnection,
+# so nothing here configures one.
+spring:
+  mail:
+    # Overridden per-test by GreenMail's random port where the SMTP path is under test;
+    # this default just keeps the JavaMailSender bean constructible everywhere else.
+    host: localhost
+    port: 3025
+
+management:
+  health:
+    mail:
+      # Tests that replace JavaMailSender with a mock leave this contributor with no
+      # JavaMailSenderImpl to inspect, and it fails context startup rather than degrading.
+      enabled: false
+
+helyx:
+  base-domain: localhost
+  email:
+    from: no-reply@helyx.test
+    dispatcher:
+      # Tests drive the outbox by calling dispatchPending() directly, so that assertions run
+      # at a known point rather than racing a 30-second scheduler.
+      enabled: false

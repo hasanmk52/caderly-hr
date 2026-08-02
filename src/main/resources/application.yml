@@ -28,6 +28,15 @@ spring:
 # in dev). Prod profile overrides via HELYX_BASE_DOMAIN / helyx.base-domain.
 helyx:
   base-domain: localhost
+  email:
+    # No default: a wrong From address silently lands mail in spam, so an unset value
+    # should stop startup rather than be guessed (CLAUDE.md §6 A05 - no defaults in yml).
+    from: ${HELYX_EMAIL_FROM}
+    dispatcher:
+      # Turned off in tests so they can drain the outbox at a known moment instead of
+      # racing the scheduler.
+      enabled: true
+      poll-interval-ms: 30000
 
 logging:
   level:
