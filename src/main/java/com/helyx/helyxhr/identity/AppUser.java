@@ -127,9 +127,14 @@ public class AppUser extends TenantAwareEntity {
         clearFailedLogins();
     }
 
+    /**
+     * Also clears a LOCKED status. A lapsed lock lets authentication through on the timestamp
+     * alone, so without this the status column would stay LOCKED forever on an account that is
+     * demonstrably usable.
+     */
     public void recordSuccessfulLogin(Instant now) {
         this.lastLoginAt = now;
-        clearFailedLogins();
+        unlock();
     }
 
     /**

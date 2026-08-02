@@ -1,3 +1,16 @@
+server:
+  servlet:
+    session:
+      # PRD §19.1 idle timeout. The 24 h ABSOLUTE cap is not expressible here — this setting
+      # only measures inactivity — and is enforced by AbsoluteSessionTimeoutFilter.
+      timeout: 8h
+      cookie:
+        http-only: true
+        # Secure defaults to on; the dev profile turns it off because dev runs over plain
+        # HTTP on *.localhost and the browser would otherwise never send the cookie back.
+        secure: ${SESSION_COOKIE_SECURE:true}
+        same-site: lax
+
 spring:
   application:
     name: helyx-hr

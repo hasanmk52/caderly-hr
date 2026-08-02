@@ -1,8 +1,10 @@
 package com.helyx.helyxhr.tenant;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.helyx.helyxhr.TestcontainersConfiguration;
@@ -34,13 +36,26 @@ class TenantResolutionFilterTest {
     }
 
     @Test
-    void home_whenKnownTenant_rendersTenantName() throws Exception {
+    void home_whenKnownTenantAndAuthenticated_rendersTenantName() throws Exception {
+        seedTenantIfAbsent("mhz", "MHZ Software");
+
+        // A principal is required from sub-phase 1.2 on: "/" is the home dashboard and the
+        // security chain is default-deny. The tenant assertions below are unaffected — tenant
+        // resolution happens in a filter that runs before authentication.
+        mockMvc
+                .perform(get(URI.create("http://mhz.localhost/")).with(user("someone@mhz.test")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("MHZ Software")));
+    }
+
+    @Test
+    void home_whenKnownTenantButAnonymous_redirectsToLogin() throws Exception {
         seedTenantIfAbsent("mhz", "MHZ Software");
 
         mockMvc
                 .perform(get(URI.create("http://mhz.localhost/")))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("MHZ Software")));
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test
