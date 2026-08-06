@@ -65,6 +65,25 @@ The forgot-password endpoint always renders the same page with the same message,
 
 Called out rather than left implicit: a determined attacker with clean timing data can still distinguish the two paths. The rate limiter (3 requests/hour/email, PRD §19.7) is what makes that impractical to exploit at scale. Revisit if a threat model ever rates account enumeration as high impact.
 
+### F. The password policy enforces composition rules only — no common-password blocklist
+
+PRD §19.1 asks for "blocked-common-passwords list". Sub-phase 1.2 shipped one: a hand-written 134-entry `security/common-passwords.txt` loaded into a static `Set`. It was removed in review, on the grounds that it was security theatre rather than a control:
+
+- 134 entries is far below the threshold where a blocklist changes an attacker's odds. Real corpora start around 10⁵–10⁷ entries.
+- The entries it did hold were mostly unreachable anyway. A candidate has already passed ≥10 characters plus upper + lower + digit before the list is consulted, which eliminates `password`, `123456`, `qwerty` and almost everything else a short hand-written list contains.
+- Its presence invited the belief that the requirement was met, which is worse than its visible absence.
+
+What remains enforced: ≥10 characters, at least one upper-case letter, one lower-case letter, one digit — each with a specific error message, and each covered by `PasswordPolicyValidatorTest`.
+
+Two honest ways to satisfy the requirement properly, both deferred as decisions in their own right:
+
+1. **Spring Security's `HaveIBeenPwnedRestApiPasswordChecker`** — real breach coverage, but an outbound HTTP call on every password set. That is a third-party dependency in the signup path and a privacy question for an HR product, and under CLAUDE.md §6a its failure mode needs thinking through.
+2. **A bundled breach corpus** (top 10⁵ from a public list, as a filter or hashed set) — no network call, but a real resource and a maintenance story.
+
+Until one is chosen, the gap is recorded here and in `CURRENT_PHASE.md` rather than papered over.
+
+A related fix came out of writing the test: `PasswordPolicyValidator` was package-private, which works under Spring (its `ConstraintValidatorFactory` instantiates reflectively) but fails with `HV000064` under a plain Bean Validation `Validator`, because the spec requires a public no-arg constructor. The class is now `public`. The constraint is used from another package, so this was latent fragility regardless of the test.
+
 ## Consequences
 
 **Positive:**

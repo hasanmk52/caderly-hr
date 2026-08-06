@@ -3,6 +3,7 @@ package com.helyx.helyxhr.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -212,6 +213,42 @@ class AuthenticationFlowTest {
         mockMvc
                 .perform(post(URI.create("http://" + slugA + ".localhost/logout")))
                 .andExpect(status().isForbidden());
+    }
+
+    // ---------- password policy ----------
+
+    /**
+     * Proves the {@code @ValidPassword} constraint is actually discovered and applied on a real
+     * request. {@code PasswordPolicyValidatorTest} covers the rules themselves; this covers the
+     * wiring, which is the half that fails silently — an undiscovered constraint fails open and
+     * every weak password would be accepted with no visible error anywhere.
+     */
+    @Test
+    void acceptInvite_whenPasswordViolatesPolicy_reportsAFieldError() throws Exception {
+        mockMvc
+                .perform(
+                        post(URI.create("http://" + slugA + ".localhost/accept-invite"))
+                                .param("token", "irrelevant-the-password-is-checked-first")
+                                .param("password", "weak")
+                                .param("confirmPassword", "weak")
+                                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeHasFieldErrors("form", "password"));
+    }
+
+    @Test
+    void acceptInvite_whenPasswordMeetsPolicyButTokenIsBogus_reportsAPageErrorNotAFieldError()
+            throws Exception {
+        mockMvc
+                .perform(
+                        post(URI.create("http://" + slugA + ".localhost/accept-invite"))
+                                .param("token", "not-a-real-token")
+                                .param("password", PASSWORD)
+                                .param("confirmPassword", PASSWORD)
+                                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeHasNoErrors("form"))
+                .andExpect(model().attributeExists("pageError"));
     }
 
     // ---------- rate limiting ----------

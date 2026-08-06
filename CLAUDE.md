@@ -121,6 +121,8 @@ Maps to OWASP Top 10 (2021 edition). Every rule is enforced by code + test, not 
 - Actuator endpoints exposed only over management port + auth; `/actuator/env` and `/actuator/heapdump` disabled in prod profile.
 - No default passwords in `application.yml` — everything from env vars.
 - Directory listing off. Server banner hidden.
+- **Error responses never carry internals.** `spring.web.error.include-stacktrace`, `include-exception`, `include-message` and `include-binding-errors` are all pinned to `never`/`false` in `application.yml`. Pinned, not left to Boot's defaults: `spring-boot-devtools` raises all four to `ALWAYS`, which is how a 403 once returned the whole filter chain to the client. Note these moved from `server.error.*` in Boot 4.0.0 and the old keys are ignored silently — `ErrorPageResolutionTest` asserts both the bound value and the namespace.
+- **Every error status renders a Helyx page.** `templates/error/` carries `403`, `404`, `4xx` and `5xx`; the series catch-alls are what keep a new status from falling through to Boot's Whitelabel page. An RBAC test that only asserts the status code will not notice — assert the rendered page too.
 
 ### A06 Vulnerable and Outdated Components
 - Dependabot enabled on GitHub.

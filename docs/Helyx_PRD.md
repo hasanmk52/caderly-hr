@@ -627,7 +627,7 @@ Covered in §13. Additional detail:
 ## 19. Security Requirements
 
 ### 19.1 Authentication
-- Passwords: BCrypt cost 12, min length 10, must have upper+lower+digit, blocked-common-passwords list.
+- Passwords: BCrypt cost 12, min length 10, must have upper+lower+digit, blocked-common-passwords list. *(Composition rules shipped in 1.2. The blocklist is **not implemented** — a hand-written list is theatre at any size a human maintains, and the composition rules already exclude nearly everything such a list would contain. Needs either the HaveIBeenPwned range API or a bundled breach corpus; deferred as a decision in its own right, see ADR 0006 decision F.)*
 - Reset tokens: 32-byte cryptographic random, single-use, 24h TTL, stored hashed.
 - Session: **server-side HTTP session cookie** (`JSESSIONID`), `HttpOnly` + `Secure` + `SameSite=Lax`. Spring Security default. Idle timeout 8 h (configurable per tenant); absolute timeout 24 h. Session state stored in-JVM for the single-instance MHZ deployment; when we go multi-instance, swap in `spring-session-jdbc` and store sessions in Postgres — no application-code change. **Revocation** is immediate: password change, role change, or termination invalidates all sessions for that user by deleting them from the session store.
 - Lockout: 5 failures / 15 min per (email + IP).

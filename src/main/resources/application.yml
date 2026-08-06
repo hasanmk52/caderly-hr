@@ -14,6 +14,22 @@ server:
 spring:
   application:
     name: helyx-hr
+  web:
+    error:
+      # Pinned, not left to the default (CLAUDE.md §6 A05). Boot's own default is already NEVER,
+      # but spring-boot-devtools raises these to ALWAYS through its default property source, so a
+      # dev error response carried a full stack trace: package layout, framework versions, the
+      # entire filter chain. Setting them explicitly wins over devtools and makes the behaviour
+      # identical in every profile instead of depending on which jars are on the classpath.
+      #
+      # NOTE the namespace. These moved from `server.error.*` to `spring.web.error.*` in Boot
+      # 4.0.0, and the old keys are deprecated at level=error — meaning Boot silently ignores
+      # them rather than failing. `server.error.include-stacktrace: never` looks correct, is
+      # accepted without warning, and does nothing at all.
+      include-stacktrace: never
+      include-exception: false
+      include-message: never
+      include-binding-errors: never
   profiles:
     active: dev
   data:

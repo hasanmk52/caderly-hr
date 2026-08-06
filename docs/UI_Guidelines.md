@@ -186,8 +186,11 @@ Structure:
 ### 7.3 Error states
 - Field-level: `is-invalid` + `invalid-feedback` per §6 Forms.
 - Page-level (server error, network error): render inline `alert alert-danger` at the top of the affected component. Do NOT redirect to a generic error page mid-flow.
-- Global 5xx: dedicated `/error/500` page with support contact + request ID.
-- Global 404: dedicated `/error/404` with search bar.
+- Global 5xx: dedicated `error/5xx.html` with support contact + request ID.
+- Global 404: dedicated `error/404.html` with search bar. (The search bar waits on global search; until then the page offers navigation instead of a control that would not work.)
+- Global 403: dedicated `error/403.html` — "Access denied", worded so it does not confirm whether the page exists.
+- **Every other status must land somewhere too.** Spring Boot resolves `templates/error/<status>.html` and then `templates/error/<series>xx.html`; anything matching neither falls through to Boot's Whitelabel page, which is unbranded and — with devtools active — prints a stack trace. `error/4xx.html` and `error/5xx.html` exist as the catch-alls that make this impossible. Add a status-specific page when the wording matters; never remove the catch-alls.
+- Verify error pages by **looking at the rendered page**, not the status code. A correct 403 status with a Whitelabel body is a defect that status-only tests pass.
 
 ### 7.4 Success feedback
 Toasts (Bootstrap `toast`) in the top-right, auto-dismiss after 4 s. Use `bg-success` for confirmations, `bg-info` for informational. Toasts are the ONLY confirmation mechanism for non-destructive actions — never use alerts or reload the page just to show success.

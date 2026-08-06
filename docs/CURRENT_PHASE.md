@@ -17,6 +17,7 @@
 - **Everything from 1.1** (see git history): `TenantAwareEntity`, `TenantContext`, `TenantResolutionFilter`, `TenantIdentifierResolver`, `TenantSessionVariableListener`, the RLS template.
 - **Identity and auth (1.2):** `app_user` / `user_role` / `password_reset_token`, `AppUserDetailsService`, `InviteService`, `PasswordResetService`, lockout, rate limiting, session management.
 - **`SecurityConfig` is now real** — form login, BCrypt 12, `RoleHierarchy` (ADMIN > MANAGER > EMPLOYEE), CSRF on, PRD §19.6 headers, default-deny. It is still on the CLAUDE.md §12 ask-first list; 1.3 should need no change to it beyond nothing at all, since `/admin/**` is already authenticated and `@PreAuthorize` does the rest.
+- **Error pages, all four:** `templates/error/` has `403`, `404`, `4xx`, `5xx`, and `spring.web.error.*` is pinned to `never` so nothing leaks a stack trace. `ErrorPageResolutionTest` fails the build if a status stops resolving or the properties drift. If you add a status with wording worth its own page, add `error/<status>.html` — do **not** remove the `4xx`/`5xx` catch-alls.
 - **Exception hierarchy + RFC 7807:** `common.HelyxException` with `NotFoundException` / `ValidationException` / `ConflictException`, and `web.GlobalExceptionHandler`, which content-negotiates between a rendered error page and a problem document. Throw these rather than inventing new ones.
 - **Email outbox (CLAUDE.md §6a):** `EmailOutboxService.enqueue(...)` with `MANDATORY` propagation, `EmailDispatcher` on a 30s poll. 1.3 sends no email, but any future side effect goes through this.
 - **UI shell:** `layout.html` (`layout(title, content)`), `bare-layout.html` for unauthenticated pages, `fragments/head.html` as `head(title)`, a working avatar dropdown with CSRF logout, and `sec:authorize`-gated Admin nav — **confirmed working** against Spring Security 7, so the `thymeleaf-extras-springsecurity6` artifact name is not a problem.
@@ -53,7 +54,7 @@
 ### Tests
 
 - CRUD integration tests per service, happy path plus at least one sad path.
-- RBAC: one 200 and one 403 per endpoint per role (Employee and Manager both get 403 on `/admin/divisions` and `/admin/departments`).
+- RBAC: one 200 and one 403 per endpoint per role (Employee and Manager both get 403 on `/admin/divisions` and `/admin/departments`). **Assert the rendered page, not only the status.** 1.2's RBAC tests passed on the status code while the 403 body was Boot's Whitelabel page printing a full stack trace; that is exactly the gap a status-only assertion leaves open.
 - Tenant isolation: a `TenantIsolationTestBase` subclass per new entity proving cross-tenant reads return empty (CLAUDE.md §5 rule 8).
 - Archive-instead-of-delete behaviour.
 - ArchUnit stays green with no new exemptions.
@@ -87,6 +88,7 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
 - **Lockout is keyed on the user, not (email + IP)** as PRD §19.1 specifies. Blocked on `login_audit`, which Phase 1.11 owns. The 10/min/IP rate limit covers the IP axis meanwhile. See ADR 0006 decision B.
 - **Password-reset enumeration safety is response-shape only, not constant-time.** ADR 0006 decision E.
 - **Session revocation is wired for password change only.** Role change and termination reuse `SessionRevoker` when those features land (1.3 role editing is not in scope; termination is 1.4, BR-11).
+- **The password policy has no common-password blocklist**, contrary to PRD §19.1. Composition rules (≥10 chars, upper + lower + digit) are enforced and tested; the hand-written 134-entry list that originally shipped was removed as theatre. Pick either the HaveIBeenPwned checker or a real breach corpus when it matters — ADR 0006 decision F has the analysis.
 - **The tenant primary colour is not yet injected into `--bs-primary`.** `helyx.css` still hardcodes a placeholder, contrary to UI Guidelines §2/§12. Phase 1.10 owns tenant branding.
 
 ## When you finish
