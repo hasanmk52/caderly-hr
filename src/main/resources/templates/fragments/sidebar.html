@@ -1,16 +1,23 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
 <nav th:fragment="sidebar" class="helyx-sidebar bg-white border-end p-3" aria-label="Primary">
   <ul class="nav nav-pills flex-column gap-1">
-    <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
+    <li class="nav-item"><a class="nav-link active" th:href="@{/}">Home</a></li>
     <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">People</a></li>
     <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">My Profile</a></li>
     <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Files</a></li>
     <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Calendar</a></li>
     <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">For Action</a></li>
-    <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Admin</a></li>
-    <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Reports</a></li>
+    <!--/* UI Guidelines §1: Admin and Reports are Admin-only. Hiding them is presentation
+           only — /admin/** is enforced by @PreAuthorize on the controller, and an Employee
+           who types the URL still gets a 403. */-->
+    <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+      <a class="nav-link" th:href="@{/admin/users}">Admin</a>
+    </li>
+    <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+      <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Reports</a>
+    </li>
   </ul>
 </nav>
 </body>

@@ -1,73 +1,99 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.1 — Multi-tenancy foundation
-**Branch:** `phase-1.1-multitenancy`
-**Goal:** Tenant subdomain resolution, `TenantContext`, Hibernate tenant filter, and the base entity plumbing (`BaseEntity` / `TenantAwareEntity`) that every future entity builds on. Any new entity should require zero extra code to be tenant-safe once it extends `TenantAwareEntity`. No employee/leave/org business logic yet.
+**Working on:** Phase 1.3 — Organization: Divisions & Departments
+**Branch:** `phase-1.3-org`
+**Goal:** An Admin can create, rename, and archive Divisions and Departments, and assign each Department to exactly one Division. Two explicit tables, two levels, no deeper hierarchy exposed. First sub-phase where the UI does htmx-driven row updates and an Alpine offcanvas form.
 
 ## Read these before doing anything
 
-1. `docs/Helyx_Implementation_Plan.md` — the "1.1 Multi-tenancy foundation" section under Phase 1 — MVP
-2. `docs/Helyx_PRD.md` — §6.2 (Multi-Tenancy functional requirements), §20 (Multi-Tenancy Design — the full model: resolution, enforcement layers, cross-tenant/system bypass, suspension), §21 (`tenant` table schema, under "Core cross-tenant")
-3. `CLAUDE.md` — §5 (Multi-tenancy contract, non-negotiable — this phase exists to make every rule in it true by construction) and §8 (testing rules, especially `TenantIsolationTestBase`)
-4. `docs/UI_Guidelines.md` — only as much as needed for the one frontend touchpoint this phase has (home page showing tenant name)
+1. `docs/Helyx_Implementation_Plan.md` — the "1.3 Organization — Divisions & Departments" section under Phase 1 — MVP
+2. `docs/Helyx_PRD.md` — §13 (all four subsections — §13.4 on the N-level migration path is a design constraint, not background), §6.4 (FR-4.x), §21 (`division`, `department` schemas), §26 (permissions matrix — CRUD divisions/departments is Admin-only), §10 for the acceptance-criteria format
+3. `CLAUDE.md` — §5 (multi-tenancy contract — both new tables are tenant-scoped), §6 (A01 access control, A03 injection), §8 (testing rules), §10 (the "adding a new tenant-scoped entity" recipe, which now has three worked examples in `identity` to copy)
+4. `docs/UI_Guidelines.md` — §6 (tables, forms, slide-over panels), §7.1 (empty states), §7.5 (destructive confirmations), §13 (htmx conventions), §14 (Alpine.js conventions)
+5. `docs/adr/0003`, `0004`, `0005` — tenancy mechanics and the tenant-scoped-vs-system-scoped distinction. Do not re-litigate them.
 
 ## Already in place — do not redo
 
-- Full Phase 0 skeleton: Spring Boot 4.1 app, Java 25, `dev` profile against host Postgres, `helyx_hr` schema wired through Flyway + Hibernate.
-- Base UI shell (`layout.html`, `head`/`topbar`/`sidebar` fragments, `helyx.css`) and `HomeController` rendering "Hello from Helyx" at `/`.
-- Minimal `SecurityConfig` permitting `/`, static/webjar assets, and `/actuator/health` — no login yet, that's Phase 1.2. Extend this file's `authorizeHttpRequests`, don't replace its Phase 0 behavior until 1.2 actually adds auth.
-- Quality gates wired: JaCoCo (report, unenforced), PMD (report-only), ArchUnit (one cycle-freedom test), OWASP dependency-check (CI-only). Formatting is IntelliJ's default Java style, pinned via root `.editorconfig`, not a CLI/CI-enforced reformatter (Spotless + Google Java Format was dropped — CLAUDE.md §7). SpotBugs is configured but **not** bound to `verify` — its bundled ASM can't parse Java 25 bytecode yet (`Unsupported class file major version 69`); re-bind the execution in `pom.xml` once a compatible release ships, don't just re-enable it and hope.
-- CI (`.github/workflows/ci.yml`), README, two ADRs (`0001-modular-monolith-multi-tenancy.md`, `0002-server-rendered-ui.md`).
-- `com.helyx.helyxhr.web` and `com.helyx.helyxhr.security` packages exist with `HomeController` and `SecurityConfig` respectively.
+- **Everything from 1.1** (see git history): `TenantAwareEntity`, `TenantContext`, `TenantResolutionFilter`, `TenantIdentifierResolver`, `TenantSessionVariableListener`, the RLS template.
+- **Identity and auth (1.2):** `app_user` / `user_role` / `password_reset_token`, `AppUserDetailsService`, `InviteService`, `PasswordResetService`, lockout, rate limiting, session management.
+- **`SecurityConfig` is now real** — form login, BCrypt 12, `RoleHierarchy` (ADMIN > MANAGER > EMPLOYEE), CSRF on, PRD §19.6 headers, default-deny. It is still on the CLAUDE.md §12 ask-first list; 1.3 should need no change to it beyond nothing at all, since `/admin/**` is already authenticated and `@PreAuthorize` does the rest.
+- **Error pages, all four:** `templates/error/` has `403`, `404`, `4xx`, `5xx`, and `spring.web.error.*` is pinned to `never` so nothing leaks a stack trace. `ErrorPageResolutionTest` fails the build if a status stops resolving or the properties drift. If you add a status with wording worth its own page, add `error/<status>.html` — do **not** remove the `4xx`/`5xx` catch-alls.
+- **Exception hierarchy + RFC 7807:** `common.HelyxException` with `NotFoundException` / `ValidationException` / `ConflictException`, and `web.GlobalExceptionHandler`, which content-negotiates between a rendered error page and a problem document. Throw these rather than inventing new ones.
+- **Email outbox (CLAUDE.md §6a):** `EmailOutboxService.enqueue(...)` with `MANDATORY` propagation, `EmailDispatcher` on a 30s poll. 1.3 sends no email, but any future side effect goes through this.
+- **UI shell:** `layout.html` (`layout(title, content)`), `bare-layout.html` for unauthenticated pages, `fragments/head.html` as `head(title)`, a working avatar dropdown with CSRF logout, and `sec:authorize`-gated Admin nav — **confirmed working** against Spring Security 7, so the `thymeleaf-extras-springsecurity6` artifact name is not a problem.
+- **Test scaffolding:** `TenantIsolationTestBase`, `MutableClock` + `MutableClockConfiguration` (advance time instead of sleeping), `support/` helpers, the `rls_probe` raw-JDBC pattern, and the `test` Spring profile (`application-test.yml`) which disables the outbox dispatcher.
+- **ArchUnit now enforces four rules:** no package cycles, tenant-scoped entities extend `TenantAwareEntity` (exempting `..system..`), **every request-mapping method has `@PreAuthorize`**, and native queries are confined to repositories. Plus `NoSqlConcatenationTest` greps for concatenated queries.
+- **Dev bootstrap:** `bootstrap.DevDataSeeder` (`@Profile("dev")`) seeds tenant `mhz` and `admin@mhz.test` / `DevAdmin12345`. Delete it when the Super Admin console lands in 1.13.
+- **Dev mail inbox:** `docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit`, read at `http://localhost:8025`.
+- **Quality gates:** JaCoCo report (74.8% line, target 0.70, still unenforced), PMD (report-only, currently zero violations — keep it there), OWASP dependency-check (CI-only), ArchUnit. SpotBugs still unbound — its bundled ASM cannot parse Java 25 bytecode.
+- **The build now really targets Java 25.** `java.version=25` drives `maven.compiler.release`; the old `source`/`target` properties were silently overridden by the parent's default of 17, so Java 18+ APIs were unavailable. They work now.
 
-## Remaining Phase 1.1 work
+## Remaining Phase 1.3 work
 
-Group these in your plan-mode plan however makes sense. Do them all before closing this sub-phase.
+### Schema + entities (`org` package)
 
-### Base entity plumbing (`common` package)
-- `common.BaseEntity` — mapped superclass with `id` (UUID), `created_at`, `updated_at`.
-- `common.TenantAwareEntity extends BaseEntity` — adds `tenant_id UUID NOT NULL`.
-- No entity in a tenant-scoped package may skip this — CLAUDE.md §5 rule 1 and 7.
+- Flyway migration for `division` and `department` per PRD §21. Both tenant-scoped: `tenant_id uuid NOT NULL` plus the RLS template block (`ENABLE` + **`FORCE`** + `tenant_isolation`), and a `GRANT SELECT ... TO rls_probe` line in the test migration if you want the raw-JDBC proof.
+- Entities extend `TenantAwareEntity`, private setters, intent-named methods (`rename(...)`, `archive()`, `moveToDivision(...)`).
+- `department.head_employee_id` stays a nullable plain UUID with **no FK** until `employee` exists in 1.4. Say so in a comment so it does not read as an oversight.
+- `UNIQUE (tenant_id, name)` on both, per PRD §21.
+- **§13.4 constraint:** two explicit tables, but do not expose a deeper hierarchy in the API or the URLs. Keep the migration to `org_unit` cheap later.
 
-### Tenant + system tables
-- Flyway migration creating `tenant` (per PRD §21 schema: `slug`, `name`, `logo_url`, `primary_color`, `timezone`, `locale`, `weekend_days`, `suspended`, `created_at`, `deleted_at`) and `super_admin`.
-- Postgres RLS policy template: `USING (tenant_id::text = current_setting('app.tenant_id', true))`, ready to attach to every tenant-scoped table added from here on.
+### Backend (`org` package)
 
-### Tenant resolution
-- `tenant.TenantContext` — `ThreadLocal<UUID>`, `try { set } finally { clear }` pattern (CLAUDE.md §5 rule 3). Include `TenantContext.runAsSystem(...)` for the Super Admin/system-job bypass (rule 6), audited.
-- `tenant.TenantResolutionFilter` (Spring `Filter`, first in chain) — resolves tenant from the `Host` header subdomain, looks up the tenant row, caches the lookup in Caffeine, populates `TenantContext`. 404 on unknown tenant, 503 on suspended (PRD §20.3).
+- `DivisionService` / `DepartmentService`, `@Transactional` on writes.
+- Delete rules (PRD §13.2): hard delete only when nothing references the row; otherwise `archived = true`. In 1.3 there are no employees yet, so the "no active employees" half of the rule cannot be enforced — **decide at plan time** whether to build the check now against an `OrgFacade` seam or defer it to 1.4, and write down which.
+- `/admin/divisions` and `/admin/departments` MVC controllers, `@PreAuthorize("hasRole('ADMIN')")` on every method (ArchUnit will fail the build otherwise).
+- DTOs as records. Never expose entities to templates.
 
-### Enforcement (defense in depth, PRD §20.4)
-- `@TenantId` on `TenantAwareEntity`'s `tenant_id` field (Hibernate 7 discriminator multi-tenancy) — Hibernate arms the filter itself and auto-populates the column on insert; no hand-written `@Filter`/`@FilterDef` or `@PrePersist` listener (CLAUDE.md §5 rules 4 and 5).
-- `TenantIdentifierResolver` — a `CurrentTenantIdentifierResolver` bean that resolves the current tenant from `TenantContext` for every session Hibernate opens.
-- `TenantSessionVariableListener` — a Spring `TransactionExecutionListener` registered on the transaction manager that runs `SET LOCAL app.tenant_id = ?` in `afterBegin`, so RLS is the backstop even if the ORM-level restriction is ever disabled (CLAUDE.md §5 rule 4a). Not an AOP aspect — no `@Order` coordination with `@EnableTransactionManagement` needed.
+### Frontend
 
-### Frontend touchpoint
-- Home page shows `{tenant.name}` sourced from `TenantContext`, proving resolution actually works end to end.
+- Admin console pages: Bootstrap tables per UI Guidelines §6 (`table table-hover align-middle`, `table-responsive`, `<th scope="col">`, empty-state block instead of an empty tbody).
+- Slide-over create/edit form (Bootstrap offcanvas, Alpine) and htmx-powered row updates.
+- **Watch the CSP.** `SecurityConfig` deliberately omits `'unsafe-eval'`, which Alpine.js needs for expression evaluation, because nothing used Alpine until now. The first `x-data` on a page will break in the browser console. The fix is Alpine's CSP build, **not** loosening the directive — and that is a `SecurityConfig` change, so it is on the §12 ask-first list.
 
 ### Tests
-- `ArchitectureTest`: every `@Entity` in a tenant-scoped package must extend `TenantAwareEntity` (CLAUDE.md §5 rule 7, §8).
-- `TenantIsolationTestBase` (CLAUDE.md §8): seed tenant A + tenant B each with an entity; request/read as tenant A must return only A's rows; prove RLS blocks cross-tenant reads even with the Hibernate filter disabled.
-- Integration test for `TenantResolutionFilter`: known subdomain resolves, unknown subdomain 404s, suspended tenant 503s.
 
-## Definition of Done for Phase 1.1
+- CRUD integration tests per service, happy path plus at least one sad path.
+- RBAC: one 200 and one 403 per endpoint per role (Employee and Manager both get 403 on `/admin/divisions` and `/admin/departments`). **Assert the rendered page, not only the status.** 1.2's RBAC tests passed on the status code while the 403 body was Boot's Whitelabel page printing a full stack trace; that is exactly the gap a status-only assertion leaves open.
+- Tenant isolation: a `TenantIsolationTestBase` subclass per new entity proving cross-tenant reads return empty (CLAUDE.md §5 rule 8).
+- Archive-instead-of-delete behaviour.
+- ArchUnit stays green with no new exemptions.
 
-- Any new entity requires zero extra code to be tenant-safe once it extends `TenantAwareEntity` — filter, RLS, and `tenant_id` assignment all happen by construction.
-- ArchUnit test fails the build if a non-tenant-aware `@Entity` is added to a tenant-scoped package.
-- Two-tenant integration test proves cross-tenant reads return empty, with RLS as the enforced backstop, not just the ORM filter.
-- Home page shows the resolved tenant's name when hit via its subdomain locally (e.g. `mhz.localhost:8080`).
-- `./mvnw verify` still green with the same gates as Phase 0.
+## Definition of Done for Phase 1.3
 
-## Not in scope for Phase 1.1 — do not start any of this
+- Admin can add a Division, add a Department, and assign the Department to that Division.
+- A Department that cannot be hard-deleted is archived instead, and archived rows are excluded from the default list.
+- Renaming works and preserves the row's identity.
+- `/admin/divisions` and `/admin/departments` return 403 for Employee and for Manager.
+- Every new entity has a tenant-isolation test proving cross-tenant reads return empty.
+- Both new tables have `ENABLE` + `FORCE ROW LEVEL SECURITY` + the `tenant_isolation` policy.
+- `./mvnw verify` green with the same gates as 1.2, and PMD still at zero violations.
 
-- Authentication, users, login page, sessions, RBAC — Phase 1.2
-- Divisions/Departments, Employee CRUD, or any other domain entity — Phase 1.3+
-- Super Admin console UI (the `runAsSystem` bypass plumbing is in scope; a console to use it is not)
-- Docker image / Docker Compose — Phase 1.14
+## Not in scope for Phase 1.3 — do not start any of this
+
+- Employee entity, and therefore the real `head_employee_id` FK and the "no active employees" delete guard — Phase 1.4
+- Bulk reassignment of employees between departments — needs employees, Phase 1.4
+- Org chart tree view — Phase 2 (PRD §13.3)
+- N-level hierarchy / `org_unit` — explicitly deferred (PRD §13.4)
+- MFA / TOTP — Phase 1.5
+- Tenant-branded email templates and the outbox Admin retry UI — Phase 1.10
+- `audit_entry` / `login_audit` / `AuditListener` — Phase 1.11. Note PRD §13.2 says renames are audit-logged; that wiring lands in 1.11, not here.
+- Super Admin console — Phase 1.13
+
+## Carried forward from 1.2 — open items
+
+These were accepted deviations, not oversights. Do not silently "fix" them; they have owners.
+
+- **Playwright E2E is not set up.** Deferred from 1.2 with approval — the invite→login flow is covered by MockMvc, and 1.4 is the first phase with enough screens to justify the harness. Revisit there.
+- **Lockout is keyed on the user, not (email + IP)** as PRD §19.1 specifies. Blocked on `login_audit`, which Phase 1.11 owns. The 10/min/IP rate limit covers the IP axis meanwhile. See ADR 0006 decision B.
+- **Password-reset enumeration safety is response-shape only, not constant-time.** ADR 0006 decision E.
+- **Session revocation is wired for password change only.** Role change and termination reuse `SessionRevoker` when those features land (1.3 role editing is not in scope; termination is 1.4, BR-11).
+- **The password policy has no common-password blocklist**, contrary to PRD §19.1. Composition rules (≥10 chars, upper + lower + digit) are enforced and tested; the hand-written 134-entry list that originally shipped was removed as theatre. Pick either the HaveIBeenPwned checker or a real breach corpus when it matters — ADR 0006 decision F has the analysis.
+- **The tenant primary colour is not yet injected into `--bs-primary`.** `helyx.css` still hardcodes a placeholder, contrary to UI Guidelines §2/§12. Phase 1.10 owns tenant branding.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to Phase 1.2 (see the pattern above — this file's Phase 0 → Phase 1.1 update is the template).
-3. Commit `phase-1.1-multitenancy` and open a PR against `main`.
-4. Do not start Phase 1.2 in the same session.
+2. Update this file to Phase 1.4 (this file's 1.2 → 1.3 update is the template).
+3. Commit `phase-1.3-org` and open a PR against `main`.
+4. Do not start Phase 1.4 in the same session.

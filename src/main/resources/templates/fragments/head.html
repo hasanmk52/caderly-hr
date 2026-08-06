@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head th:fragment="head">
+<!--/* Parameterised so each page names itself in the browser tab and history. Callers pass a
+       page-specific title; it is suffixed with the product name here so no template repeats it. */-->
+<head th:fragment="head(title)">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Helyx HR</title>
+  <title th:text="${title} + ' · Helyx HR'">Helyx HR</title>
   <link rel="stylesheet" th:href="@{/webjars/bootstrap/css/bootstrap.min.css}" />
   <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/font/bootstrap-icons.min.css}" />
   <link rel="stylesheet" th:href="@{/css/helyx.css}" />

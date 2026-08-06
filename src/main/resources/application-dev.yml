@@ -1,6 +1,24 @@
+server:
+  servlet:
+    session:
+      cookie:
+        # Dev serves plain HTTP on *.localhost; a Secure cookie would never come back.
+        secure: false
+
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/helyx
     username: ${DB_USER:helyx}
     password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
+  # Local catch-all SMTP inbox. Start one with:
+  #   docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
+  # then read the mail at http://localhost:8025. (Mailpit is the maintained successor to
+  # MailHog, which the PRD names; same SMTP-sink-plus-web-UI role.)
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+
+helyx:
+  email:
+    from: ${HELYX_EMAIL_FROM:no-reply@helyx.local}

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
-<th:block th:replace="~{layout :: layout(~{::#content})}">
-  <div id="content">
+<th:block th:replace="~{layout :: layout('Home', ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
     <h1>Hello from <span th:text="${tenant != null ? tenant.name : 'Helyx'}">Helyx</span></h1>
     <p class="text-muted">Welcome to your new Helyx HR home.</p>
   </div>

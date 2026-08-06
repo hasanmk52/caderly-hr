@@ -9,6 +9,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.context.annotation.Import;
 
 /**
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Import;
  * verifies tenant scoping.
  */
 @Import(TestcontainersConfiguration.class)
+@ActiveProfiles("test")
 @SpringBootTest
 public abstract class TenantIsolationTestBase {
 

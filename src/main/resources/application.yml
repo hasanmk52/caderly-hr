@@ -1,6 +1,35 @@
+server:
+  servlet:
+    session:
+      # PRD §19.1 idle timeout. The 24 h ABSOLUTE cap is not expressible here — this setting
+      # only measures inactivity — and is enforced by AbsoluteSessionTimeoutFilter.
+      timeout: 8h
+      cookie:
+        http-only: true
+        # Secure defaults to on; the dev profile turns it off because dev runs over plain
+        # HTTP on *.localhost and the browser would otherwise never send the cookie back.
+        secure: ${SESSION_COOKIE_SECURE:true}
+        same-site: lax
+
 spring:
   application:
     name: helyx-hr
+  web:
+    error:
+      # Pinned, not left to the default (CLAUDE.md §6 A05). Boot's own default is already NEVER,
+      # but spring-boot-devtools raises these to ALWAYS through its default property source, so a
+      # dev error response carried a full stack trace: package layout, framework versions, the
+      # entire filter chain. Setting them explicitly wins over devtools and makes the behaviour
+      # identical in every profile instead of depending on which jars are on the classpath.
+      #
+      # NOTE the namespace. These moved from `server.error.*` to `spring.web.error.*` in Boot
+      # 4.0.0, and the old keys are deprecated at level=error — meaning Boot silently ignores
+      # them rather than failing. `server.error.include-stacktrace: never` looks correct, is
+      # accepted without warning, and does nothing at all.
+      include-stacktrace: never
+      include-exception: false
+      include-message: never
+      include-binding-errors: never
   profiles:
     active: dev
   data:
@@ -28,6 +57,15 @@ spring:
 # in dev). Prod profile overrides via HELYX_BASE_DOMAIN / helyx.base-domain.
 helyx:
   base-domain: localhost
+  email:
+    # No default: a wrong From address silently lands mail in spam, so an unset value
+    # should stop startup rather than be guessed (CLAUDE.md §6 A05 - no defaults in yml).
+    from: ${HELYX_EMAIL_FROM}
+    dispatcher:
+      # Turned off in tests so they can drain the outbox at a known moment instead of
+      # racing the scheduler.
+      enabled: true
+      poll-interval-ms: 30000
 
 logging:
   level:

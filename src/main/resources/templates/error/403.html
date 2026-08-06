@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<!--/* Resolved by Spring Boot's error dispatch on any 403 (UI Guidelines §7.3).
+       Reached when a signed-in user hits a URL their role does not allow — a typed address or a
+       stale link, since sec:authorize already hides what they cannot use. The wording avoids
+       confirming that the page exists: "not available to your account" says no more than the
+       user already knows. */-->
+<th:block th:replace="~{bare-layout :: layout('Access denied', ~{::#content})}">
+  <main id="content" class="helyx-bare-main">
+    <div class="helyx-bare-card">
+      <div class="card shadow-sm">
+        <div class="card-body p-4 text-center">
+          <p class="display-5 fw-semibold text-primary mb-1">403</p>
+          <h1 class="h4 mb-2">Access denied</h1>
+          <p class="text-muted mb-4">
+            This page is not available to your account. If you think that is wrong, ask an
+            administrator to check your role.
+          </p>
+          <a class="btn btn-primary" th:href="@{/}">Back to home</a>
+        </div>
+      </div>
+    </div>
+  </main>
+</th:block>
+</html>

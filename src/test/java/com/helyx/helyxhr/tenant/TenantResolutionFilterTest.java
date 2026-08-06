@@ -1,8 +1,10 @@
 package com.helyx.helyxhr.tenant;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.helyx.helyxhr.TestcontainersConfiguration;
@@ -11,11 +13,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 @Import(TestcontainersConfiguration.class)
+@ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc
 class TenantResolutionFilterTest {
@@ -32,13 +36,28 @@ class TenantResolutionFilterTest {
     }
 
     @Test
-    void home_whenKnownTenant_rendersTenantName() throws Exception {
+    void home_whenKnownTenantAndAuthenticated_rendersTenantName() throws Exception {
+        seedTenantIfAbsent("mhz", "MHZ Software");
+
+        // A principal with a role is required from sub-phase 1.2 on: "/" is the home dashboard,
+        // the chain is default-deny, and HomeController requires EMPLOYEE. The tenant assertions
+        // are unaffected — tenant resolution runs in a filter ahead of authentication.
+        mockMvc
+                .perform(
+                        get(URI.create("http://mhz.localhost/"))
+                                .with(user("someone@mhz.test").roles("EMPLOYEE")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("MHZ Software")));
+    }
+
+    @Test
+    void home_whenKnownTenantButAnonymous_redirectsToLogin() throws Exception {
         seedTenantIfAbsent("mhz", "MHZ Software");
 
         mockMvc
                 .perform(get(URI.create("http://mhz.localhost/")))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("MHZ Software")));
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test

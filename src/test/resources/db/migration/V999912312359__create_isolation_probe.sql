@@ -29,4 +29,8 @@ BEGIN
 END $$;
 
 GRANT USAGE ON SCHEMA helyx_hr TO rls_probe;
+-- Grants are per-table, so every table wanting a raw-JDBC RLS proof needs its own line here.
 GRANT SELECT ON isolation_probe TO rls_probe;
+GRANT SELECT ON app_user TO rls_probe;
+GRANT SELECT ON user_role TO rls_probe;
+GRANT SELECT ON password_reset_token TO rls_probe;

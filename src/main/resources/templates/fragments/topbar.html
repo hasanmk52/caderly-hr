@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
 <nav th:fragment="topbar" class="navbar navbar-expand navbar-light bg-white border-bottom px-3 helyx-topbar">
   <!-- Text fallback until tenants upload logos (UI_Guidelines: logo falls back to
@@ -11,10 +11,31 @@
   </form>
   <div class="d-flex align-items-center gap-3">
     <button class="btn btn-primary btn-sm" type="button" disabled>Book time off</button>
-    <span class="rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center"
-          style="width: 2rem; height: 2rem;" aria-label="Account menu">
-      <i class="bi bi-person-fill"></i>
-    </span>
+
+    <div class="dropdown">
+      <button class="btn p-0 rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center"
+              style="width: 2rem; height: 2rem;" type="button"
+              id="accountMenuButton" data-bs-toggle="dropdown" aria-expanded="false"
+              aria-label="Account menu">
+        <i class="bi bi-person-fill" aria-hidden="true"></i>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="accountMenuButton">
+        <li>
+          <span class="dropdown-header text-truncate" style="max-width: 16rem"
+                sec:authentication="name">someone@example.com</span>
+        </li>
+        <li><hr class="dropdown-divider" /></li>
+        <li>
+          <!--/* A POST form, not a link. Logout is state-changing, so it carries the CSRF
+                 token Thymeleaf injects automatically into th:action forms. */-->
+          <form th:action="@{/logout}" method="post" class="px-1">
+            <button class="dropdown-item" type="submit">
+              <i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Log out
+            </button>
+          </form>
+        </li>
+      </ul>
+    </div>
   </div>
 </nav>
 </body>
