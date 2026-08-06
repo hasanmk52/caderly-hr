@@ -32,10 +32,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
-    private static final Duration LOGIN_WINDOW = Duration.ofMinutes(1);
-    private static final long LOGIN_CAPACITY = 10;
-    private static final Duration RESET_WINDOW = Duration.ofHours(1);
-    private static final long RESET_CAPACITY = 3;
+    /** PRD §19.7: 10 login attempts per minute per IP, 3 reset requests per hour per address. */
+    private static final Bandwidth LOGIN_LIMIT = perWindow(10, Duration.ofMinutes(1));
+
+    private static final Bandwidth RESET_LIMIT = perWindow(3, Duration.ofHours(1));
 
     private final String loginPath;
     private final String forgotPasswordPath;
@@ -64,41 +64,43 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         String path = request.getRequestURI();
-        String key = null;
-        Bandwidth limit = null;
+        if (!allowed(request, path)) {
+            // Redirect rather than a bare 429: these are browser form posts, and the user needs
+            // the page back with an explanation. ?rateLimited is what the template renders on.
+            response.sendRedirect(request.getContextPath() + path + "?rateLimited");
+            return;
+        }
+        chain.doFilter(request, response);
+    }
 
+    /** Consumes a token for whichever limit covers this request; {@code true} if one was free. */
+    private boolean allowed(HttpServletRequest request, String path) {
         if (loginPath.equals(path)) {
-            key = "login:" + clientIp(request);
-            limit = Bandwidth.builder().capacity(LOGIN_CAPACITY).refillGreedy(LOGIN_CAPACITY, LOGIN_WINDOW).build();
-        } else if (forgotPasswordPath.equals(path)) {
+            return consume("login:" + clientIp(request), LOGIN_LIMIT);
+        }
+        if (forgotPasswordPath.equals(path)) {
             String email = request.getParameter("email");
-            if (email != null && !email.isBlank()) {
-                key = "reset:" + email.trim().toLowerCase(Locale.ROOT);
-                limit =
-                        Bandwidth.builder()
-                                .capacity(RESET_CAPACITY)
-                                .refillGreedy(RESET_CAPACITY, RESET_WINDOW)
-                                .build();
+            // No address to key on: let it through, and the form's own validation rejects it.
+            if (email == null || email.isBlank()) {
+                return true;
             }
+            return consume("reset:" + email.trim().toLowerCase(Locale.ROOT), RESET_LIMIT);
         }
+        return true;
+    }
 
-        if (key == null) {
-            chain.doFilter(request, response);
-            return;
-        }
-
-        Bandwidth bandwidth = limit;
-        Bucket bucket = buckets.get(key, ignored -> Bucket.builder().addLimit(bandwidth).build());
+    private boolean consume(String key, Bandwidth limit) {
+        Bucket bucket = buckets.get(key, ignored -> Bucket.builder().addLimit(limit).build());
         if (bucket.tryConsume(1)) {
-            chain.doFilter(request, response);
-            return;
+            return true;
         }
-
         // Log the bucket key, never the submitted credentials.
         log.warn("Rate limit exceeded for {}", key);
-        // Redirect rather than a bare 429: these are browser form posts, and the user needs the
-        // page back with an explanation. The ?rateLimited flag is what the template renders on.
-        response.sendRedirect(request.getContextPath() + path + "?rateLimited");
+        return false;
+    }
+
+    private static Bandwidth perWindow(long capacity, Duration window) {
+        return Bandwidth.builder().capacity(capacity).refillGreedy(capacity, window).build();
     }
 
     /**

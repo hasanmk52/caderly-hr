@@ -1,7 +1,6 @@
 package com.helyx.helyxhr.identity;
 
 import java.time.Clock;
-import java.util.UUID;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -40,17 +39,12 @@ public class AppUserDetailsService implements UserDetailsService {
                 users.findByEmail(email)
                         .orElseThrow(() -> new UsernameNotFoundException("No user for the given email"));
 
-        UUID id = user.getId();
-        if (id == null) {
-            throw new IllegalStateException("Loaded user has no id");
-        }
-
         // An INVITED user has no password yet; passing null to the encoder would blow up, and an
         // empty hash can never match, so it fails as bad credentials like any other wrong password.
         String passwordHash = user.passwordHash() == null ? "" : user.passwordHash();
 
         return new AppUserPrincipal(
-                id,
+                user.requireId(),
                 user.email(),
                 passwordHash,
                 user.roles(),

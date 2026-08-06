@@ -57,12 +57,4 @@ public class PasswordResetToken extends TenantAwareEntity {
     public AppUser user() {
         return user;
     }
-
-    public Instant expiresAt() {
-        return expiresAt;
-    }
-
-    public @Nullable Instant usedAt() {
-        return usedAt;
-    }
 }

@@ -11,8 +11,6 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -42,6 +40,8 @@ public class AppUser extends TenantAwareEntity {
     @Column(name = "password_hash")
     private @Nullable String passwordHash;
 
+    // Mapped but unread: the columns exist so Phase 1.5 (PRD FR-1.5) is an additive change rather
+    // than a migration. No accessors until something needs them.
     @Column(name = "mfa_secret")
     private @Nullable String mfaSecret;
 
@@ -161,7 +161,7 @@ public class AppUser extends TenantAwareEntity {
         }
     }
 
-    public void lockUntil(Instant until) {
+    private void lockUntil(Instant until) {
         this.lockedUntil = until;
         this.status = UserStatus.LOCKED;
     }
@@ -174,13 +174,21 @@ public class AppUser extends TenantAwareEntity {
         return lockedUntil != null && now.isBefore(lockedUntil);
     }
 
-    /** Clears a lapsed lock. Called on the next successful authentication, not by a job. */
+    /**
+     * Clears a lock and the attempt counter behind it. Called on the next successful
+     * authentication, not by a scheduled job.
+     *
+     * <p>The timestamp, the status and the counter are cleared together on purpose. An earlier
+     * split — where resetting the counter also dropped {@code lockedUntil} but left {@code status}
+     * — produced an account that authenticated fine while reading LOCKED forever.
+     */
     public void unlock() {
         this.lockedUntil = null;
+        this.failedLoginCount = 0;
+        this.failedLoginWindowStart = null;
         if (this.status == UserStatus.LOCKED) {
             this.status = UserStatus.ACTIVE;
         }
-        clearFailedLogins();
     }
 
     public void disable() {
@@ -193,27 +201,9 @@ public class AppUser extends TenantAwareEntity {
         }
     }
 
-    public void revoke(Role role) {
-        roles.removeIf(assignment -> assignment.role() == role);
-    }
-
     /** The roles held by this user, as an unmodifiable snapshot. */
     public Set<Role> roles() {
         return roles.stream().map(UserRole::role).collect(Collectors.toUnmodifiableSet());
-    }
-
-    Set<UserRole> roleAssignments() {
-        return Collections.unmodifiableSet(new HashSet<>(roles));
-    }
-
-    /**
-     * Resets the attempt counter only. Deliberately does NOT clear {@code lockedUntil} — that is
-     * {@link #unlock()}'s job, and conflating the two let a caller silently drop the lock
-     * timestamp while leaving the status column reading LOCKED forever.
-     */
-    private void clearFailedLogins() {
-        this.failedLoginCount = 0;
-        this.failedLoginWindowStart = null;
     }
 
     public String email() {
@@ -242,13 +232,5 @@ public class AppUser extends TenantAwareEntity {
 
     public @Nullable String inviteTokenHash() {
         return inviteTokenHash;
-    }
-
-    public @Nullable Instant inviteExpiresAt() {
-        return inviteExpiresAt;
-    }
-
-    public boolean mfaEnabled() {
-        return mfaEnabled;
     }
 }

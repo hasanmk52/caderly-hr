@@ -91,13 +91,7 @@ public class EmailDispatcher {
                 .findByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                         EmailStatus.PENDING, clock.instant(), BATCH_SIZE)
                 .stream()
-                .map(row -> {
-                    UUID id = row.getId();
-                    if (id == null) {
-                        throw new IllegalStateException("Persisted outbox row has no id");
-                    }
-                    return id;
-                })
+                .map(EmailOutbox::requireId)
                 .toList();
     }
 }

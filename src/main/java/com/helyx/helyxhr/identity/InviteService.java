@@ -79,13 +79,9 @@ public class InviteService {
                 IdentityEmails.inviteSubject(tenantName),
                 IdentityEmails.inviteBody(tenantName, acceptUrl(appBaseUrl, rawToken)));
 
-        UUID id = saved.getId();
-        if (id == null) {
-            throw new IllegalStateException("Saved user has no id");
-        }
         // The token is never logged — it is a live credential until redeemed.
         log.info("Invited {} with roles {}", normalisedEmail, roles);
-        return id;
+        return saved.requireId();
     }
 
     /**

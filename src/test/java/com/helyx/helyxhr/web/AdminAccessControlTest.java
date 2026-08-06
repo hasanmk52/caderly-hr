@@ -14,6 +14,8 @@ import java.net.URI;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -118,17 +120,26 @@ class AdminAccessControlTest {
                 .andExpect(status().isOk());
     }
 
-    @Test
-    void loginPage_whenAnonymous_returns200() throws Exception {
+    /**
+     * The other half of default-deny: the pages a signed-out user must still reach. Getting this
+     * wrong locks every user out of their own account with no way back in, and the four pages are
+     * one list in {@code SecurityConfig} — so they are asserted as one list here rather than as
+     * one test each.
+     *
+     * <p>The two token-bearing pages are hit with a junk token on purpose: they must render (and
+     * say the link is dead), not 403 or blow up.
+     */
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "/login",
+                "/forgot-password",
+                "/reset-password?token=not-a-real-token",
+                "/accept-invite?token=not-a-real-token"
+            })
+    void publicAuthPages_whenAnonymous_areReachable(String path) throws Exception {
         mockMvc
-                .perform(get(URI.create("http://" + slug + ".localhost/login")))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void forgotPasswordPage_whenAnonymous_returns200() throws Exception {
-        mockMvc
-                .perform(get(URI.create("http://" + slug + ".localhost/forgot-password")))
+                .perform(get(URI.create("http://" + slug + ".localhost" + path)))
                 .andExpect(status().isOk());
     }
 

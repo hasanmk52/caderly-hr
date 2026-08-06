@@ -10,7 +10,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -122,12 +121,8 @@ public class PasswordResetService {
         user.changePassword(passwordEncoder.encode(newPassword));
         users.save(user);
 
-        UUID userId = user.getId();
-        if (userId == null) {
-            throw new IllegalStateException("Reset token points at an unsaved user");
-        }
         // Fired after commit by the listener, so a rolled-back reset does not log anyone out.
-        events.publishEvent(new PasswordChangedEvent(userId));
+        events.publishEvent(new PasswordChangedEvent(user.requireId()));
         log.info("Password reset completed for {}", user.email());
     }
 

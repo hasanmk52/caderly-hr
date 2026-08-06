@@ -33,7 +33,10 @@ public class EmailOutbox extends BaseEntity {
 
     static final int MAX_ATTEMPTS = 3;
 
-    /** Postgres {@code text} has no length limit, but the column does have a stored error cap. */
+    /**
+     * The column is {@code text} and imposes no limit of its own; this one exists so a driver or
+     * library exception with a megabyte-long message cannot bloat the row.
+     */
     private static final int MAX_ERROR_LENGTH = 4000;
 
     @Column(name = "tenant_id")
@@ -107,14 +110,6 @@ public class EmailOutbox extends BaseEntity {
         // RETRY_BACKOFF[0], so index by attempts - 1.
         this.nextAttemptAt = now.plus(RETRY_BACKOFF.get(attempts - 1));
         return true;
-    }
-
-    /** Puts a FAILED row back in the queue with a fresh budget. Used by the Phase 1.10 retry UI. */
-    public void requeue(Instant now) {
-        this.status = EmailStatus.PENDING;
-        this.attempts = 0;
-        this.lastError = null;
-        this.nextAttemptAt = now;
     }
 
     private static @Nullable String truncate(@Nullable String error) {

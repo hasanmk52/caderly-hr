@@ -44,9 +44,8 @@ public class EmailOutboxService {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public UUID enqueue(@Nullable UUID tenantId, String toEmail, String subject, String bodyHtml) {
-        EmailOutbox row =
-                new EmailOutbox(tenantId, toEmail, subject, bodyHtml, clock.instant());
-        UUID id = outbox.save(row).getId();
+        EmailOutbox row = new EmailOutbox(tenantId, toEmail, subject, bodyHtml, clock.instant());
+        UUID id = outbox.save(row).requireId();
         // The recipient address is not a secret, but the body may contain a one-time token,
         // so it is never logged (CLAUDE.md §6 A09).
         log.info("Queued email {} to {} (subject: {})", id, toEmail, subject);

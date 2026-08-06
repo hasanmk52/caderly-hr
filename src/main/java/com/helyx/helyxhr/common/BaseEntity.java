@@ -30,6 +30,20 @@ public abstract class BaseEntity {
     return id;
   }
 
+  /**
+   * The id of an entity that has been persisted.
+   *
+   * <p>{@link #getId()} is nullable because it genuinely is null before the insert. Callers holding
+   * a saved entity know better but cannot prove it to the compiler, so this states the expectation
+   * once instead of every call site re-deriving the same null check.
+   */
+  public UUID requireId() {
+    if (id == null) {
+      throw new IllegalStateException(getClass().getSimpleName() + " has not been persisted");
+    }
+    return id;
+  }
+
   public @Nullable Instant getCreatedAt() {
     return createdAt;
   }

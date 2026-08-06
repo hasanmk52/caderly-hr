@@ -1,7 +1,6 @@
 package com.helyx.helyxhr.identity;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.security.core.GrantedAuthority;
@@ -88,10 +87,5 @@ public final class AppUserPrincipal implements UserDetails {
     @Override
     public String toString() {
         return "AppUserPrincipal[userId=" + userId + ", email=" + email + ", roles=" + roles + "]";
-    }
-
-    /** Convenience for tests and for building an Authentication without the full entity. */
-    public static AppUserPrincipal of(UUID userId, String email, Role... roles) {
-        return new AppUserPrincipal(userId, email, "", Set.copyOf(List.of(roles)), true, true);
     }
 }
