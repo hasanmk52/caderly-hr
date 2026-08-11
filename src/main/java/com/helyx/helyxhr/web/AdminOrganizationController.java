@@ -27,26 +27,18 @@ import org.springframework.web.bind.annotation.PostMapping;
 
 /**
  * Admin CRUD for Divisions and Departments (PRD §13, §26: Admin-only). One combined page —
- * {@code admin/organization} — because a Department is meaningless without its Division;
- * mutation routes stay split ({@code /admin/divisions/**}, {@code /admin/departments/**}) per
- * the Implementation Plan's endpoint naming.
+ * {@code admin/organization} — since a Department is meaningless without its Division; mutation
+ * routes stay split ({@code /admin/divisions/**}, {@code /admin/departments/**}) per the
+ * Implementation Plan's endpoint naming.
  *
- * <p>Every mutation is htmx-driven (CURRENT_PHASE.md goal). The create/edit form lives in a
- * Bootstrap offcanvas whose body ({@code #divisionOffcanvasBody} / {@code
- * #departmentOffcanvasBody}) is the form's own {@code hx-target}: a validation failure re-renders
- * just the form fragment with errors, and the offcanvas — a plain DOM node the response never
- * touches — stays open with no extra wiring. A successful save instead returns two fragments in
- * one response: the table ({@code #organization-content}, swapped out-of-band via {@code
- * hx-swap-oob}) and a fresh blank form for the next "Add" click. An {@code HX-Trigger} header
- * carries the toast text (UI Guidelines §7.4) and tells {@code helyx.js} to close the offcanvas.
+ * <p>Every mutation is htmx-driven: a successful save returns the form fragment plus an
+ * out-of-band table swap and an {@code HX-Trigger} toast header (UI Guidelines §7.4) — see
+ * {@code organization.html} and {@code helyx.js} for the wiring.
  *
- * <p>No method here is {@code @Transactional} (CLAUDE.md §7). Any request that needs a write
- * followed by a fresh read of both Divisions and Departments — every mutation, plus the full
- * page GET — goes through {@link OrganizationAdminService}, which owns that transaction boundary
- * instead. See that class's Javadoc and ADR 0007 for why a plain write-then-separately-read
- * split is not safe here. The single-read GET endpoints ({@code new-form}, division {@code
- * edit-form}) call {@link DivisionService}/{@link DepartmentService} directly — one read per
- * request needs no combining.
+ * <p>No method here is {@code @Transactional} (CLAUDE.md §7) — {@link OrganizationAdminService}
+ * owns the write-then-read transaction boundary (see ADR 0007 for why). Single-read GET
+ * endpoints ({@code new-form}, division {@code edit-form}) call {@link DivisionService}/{@link
+ * DepartmentService} directly.
  */
 @Controller
 @PreAuthorize("hasRole('ADMIN')")

@@ -7,20 +7,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Transaction boundary for the Divisions/Departments admin page (PRD §13). {@code
- * AdminOrganizationController} needs a write followed immediately by a fresh read of both
- * Divisions and Departments (to re-render the table), and read-only pages that touch both
- * entities in one request. Doing each of those as separate, unrelated transactions was observed
- * to intermittently render an empty table right after a genuinely-committed write — see ADR
- * 0007. Every method here is exactly one transaction covering everything a single controller
- * response needs, which closes that gap.
+ * Transaction boundary for {@link com.helyx.helyxhr.web.AdminOrganizationController}'s
+ * write-then-read and multi-read requests (PRD §13). Splitting a write from its follow-up table
+ * read into separate transactions let a genuinely-committed write render as an empty table (ADR
+ * 0007); each method here is one transaction covering everything a single controller response
+ * needs.
  *
- * <p>CLAUDE.md §7 keeps {@code @Transactional} out of controllers, so this is where it lives
- * instead: {@code DivisionService}/{@code DepartmentService} still own their own write
- * transactions individually (each is still independently correct and independently testable);
- * this class only adds the "and read everything back in the same transaction" step a page
- * render needs. None of the exceptions the two services throw are caught here — they propagate
- * straight to the controller, so there's no rollback-only trap to work around (see ADR 0007).
+ * <p>Keeps {@code @Transactional} out of the controller (CLAUDE.md §7). Nothing here catches the
+ * {@code HelyxException}s {@code DivisionService}/{@code DepartmentService} throw, so they
+ * propagate cleanly with no rollback-only trap to work around.
  */
 @Service
 public class OrganizationAdminService {
