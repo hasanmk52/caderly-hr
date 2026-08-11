@@ -9,8 +9,13 @@
   <div th:replace="~{fragments/sidebar :: sidebar}"></div>
   <main id="main-content" class="flex-grow-1 p-4" th:replace="${content}"></main>
 </div>
+<!--/* UI Guidelines §7.4: toasts are the only success-confirmation mechanism. */-->
+<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"
+     aria-live="polite" aria-atomic="true"></div>
 <script th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}"></script>
 <script th:src="@{/webjars/htmx.org/dist/htmx.min.js}"></script>
-<script th:src="@{/webjars/alpinejs/dist/cdn.min.js}" defer></script>
+<!--/* CSP-safe build (SecurityConfig has no 'unsafe-eval') — see pom.xml's alpinejs__csp comment. */-->
+<script th:src="@{/webjars/alpinejs__csp/dist/cdn.min.js}" defer></script>
+<script th:src="@{/js/helyx.js}"></script>
 </body>
 </html>

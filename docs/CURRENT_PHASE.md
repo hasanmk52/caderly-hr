@@ -1,99 +1,87 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.3 — Organization: Divisions & Departments
-**Branch:** `phase-1.3-org`
-**Goal:** An Admin can create, rename, and archive Divisions and Departments, and assign each Department to exactly one Division. Two explicit tables, two levels, no deeper hierarchy exposed. First sub-phase where the UI does htmx-driven row updates and an Alpine offcanvas form.
+**Working on:** Phase 1.4 — Employee CRUD + Profile
+**Branch:** `phase-1.4-employee`
+**Goal:** An Admin can add an Employee (invite → accept → active), edit their own record end to end (job, compensation, department/manager assignment, government IDs, bank details), and every Employee can view and edit their own profile within the fields they're allowed to touch. Introduces column encryption (government IDs, bank details) and history tables (status, manager) for the first time.
 
 ## Read these before doing anything
 
-1. `docs/Helyx_Implementation_Plan.md` — the "1.3 Organization — Divisions & Departments" section under Phase 1 — MVP
-2. `docs/Helyx_PRD.md` — §13 (all four subsections — §13.4 on the N-level migration path is a design constraint, not background), §6.4 (FR-4.x), §21 (`division`, `department` schemas), §26 (permissions matrix — CRUD divisions/departments is Admin-only), §10 for the acceptance-criteria format
-3. `CLAUDE.md` — §5 (multi-tenancy contract — both new tables are tenant-scoped), §6 (A01 access control, A03 injection), §8 (testing rules), §10 (the "adding a new tenant-scoped entity" recipe, which now has three worked examples in `identity` to copy)
-4. `docs/UI_Guidelines.md` — §6 (tables, forms, slide-over panels), §7.1 (empty states), §7.5 (destructive confirmations), §13 (htmx conventions), §14 (Alpine.js conventions)
-5. `docs/adr/0003`, `0004`, `0005` — tenancy mechanics and the tenant-scoped-vs-system-scoped distinction. Do not re-litigate them.
+1. `docs/Helyx_Implementation_Plan.md` — the "1.4 Employee CRUD + Profile" section under Phase 1 — MVP
+2. `docs/Helyx_PRD.md` — §14 (Employee Management — Detailed: lifecycle states, create/edit/terminate flows), §6.3 (FR-3.x — employee fields, government IDs, bank details, documents, field-level edit permissions), §6.4 (FR-4.2–4.4 — Department↔Employee relationship, exactly-one-department-at-a-time, manager assignment), §21 (`employee`, `employee_status_history`, `employee_manager_history`, `education`, `emergency_contact`, `government_id`, `bank_detail`, `benefit` schemas), §26 (permissions matrix), §10 for the acceptance-criteria format
+3. `CLAUDE.md` — §5 (multi-tenancy contract — every new table is tenant-scoped), §6 A02 specifically (column encryption via `CryptoConverter`, AES-256-GCM, key from env var — new in this phase), §8 (testing rules), §10 (the "adding a new tenant-scoped entity" recipe)
+4. `docs/UI_Guidelines.md` — §6 (tabs, forms), §7.1 (empty states), §8.5 (Profile page layout — left column + right tabs), §13/§14 (htmx/Alpine — now proven working, see ADR 0007)
+5. `docs/adr/0004`, `0005`, `0006`, `0007` — tenancy mechanics, identity/session shape, and the htmx-CRUD transaction pattern (ADR 0007 — **read this one closely**: any endpoint here that needs a write followed by a fresh read (or several reads combined) must go through a dedicated `@Transactional` service-layer class, the way `OrganizationAdminService` does — never `@Transactional` on the controller itself (CLAUDE.md §7) — or it risks the same transient-empty-render bug 1.3 hit, root-caused and documented there)
 
 ## Already in place — do not redo
 
-- **Everything from 1.1** (see git history): `TenantAwareEntity`, `TenantContext`, `TenantResolutionFilter`, `TenantIdentifierResolver`, `TenantSessionVariableListener`, the RLS template.
-- **Identity and auth (1.2):** `app_user` / `user_role` / `password_reset_token`, `AppUserDetailsService`, `InviteService`, `PasswordResetService`, lockout, rate limiting, session management.
-- **`SecurityConfig` is now real** — form login, BCrypt 12, `RoleHierarchy` (ADMIN > MANAGER > EMPLOYEE), CSRF on, PRD §19.6 headers, default-deny. It is still on the CLAUDE.md §12 ask-first list; 1.3 should need no change to it beyond nothing at all, since `/admin/**` is already authenticated and `@PreAuthorize` does the rest.
-- **Error pages, all four:** `templates/error/` has `403`, `404`, `4xx`, `5xx`, and `spring.web.error.*` is pinned to `never` so nothing leaks a stack trace. `ErrorPageResolutionTest` fails the build if a status stops resolving or the properties drift. If you add a status with wording worth its own page, add `error/<status>.html` — do **not** remove the `4xx`/`5xx` catch-alls.
-- **Exception hierarchy + RFC 7807:** `common.HelyxException` with `NotFoundException` / `ValidationException` / `ConflictException`, and `web.GlobalExceptionHandler`, which content-negotiates between a rendered error page and a problem document. Throw these rather than inventing new ones.
-- **Email outbox (CLAUDE.md §6a):** `EmailOutboxService.enqueue(...)` with `MANDATORY` propagation, `EmailDispatcher` on a 30s poll. 1.3 sends no email, but any future side effect goes through this.
-- **UI shell:** `layout.html` (`layout(title, content)`), `bare-layout.html` for unauthenticated pages, `fragments/head.html` as `head(title)`, a working avatar dropdown with CSRF logout, and `sec:authorize`-gated Admin nav — **confirmed working** against Spring Security 7, so the `thymeleaf-extras-springsecurity6` artifact name is not a problem.
-- **Test scaffolding:** `TenantIsolationTestBase`, `MutableClock` + `MutableClockConfiguration` (advance time instead of sleeping), `support/` helpers, the `rls_probe` raw-JDBC pattern, and the `test` Spring profile (`application-test.yml`) which disables the outbox dispatcher.
-- **ArchUnit now enforces four rules:** no package cycles, tenant-scoped entities extend `TenantAwareEntity` (exempting `..system..`), **every request-mapping method has `@PreAuthorize`**, and native queries are confined to repositories. Plus `NoSqlConcatenationTest` greps for concatenated queries.
-- **Dev bootstrap:** `bootstrap.DevDataSeeder` (`@Profile("dev")`) seeds tenant `mhz` and `admin@mhz.test` / `DevAdmin12345`. Delete it when the Super Admin console lands in 1.13.
-- **Dev mail inbox:** `docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit`, read at `http://localhost:8025`.
-- **Quality gates:** JaCoCo report (74.8% line, target 0.70, still unenforced), PMD (report-only, currently zero violations — keep it there), OWASP dependency-check (CI-only), ArchUnit. SpotBugs still unbound — its bundled ASM cannot parse Java 25 bytecode.
-- **The build now really targets Java 25.** `java.version=25` drives `maven.compiler.release`; the old `source`/`target` properties were silently overridden by the parent's default of 17, so Java 18+ APIs were unavailable. They work now.
+- **Everything from 1.1–1.3** (see git history): `TenantAwareEntity`, `TenantContext`, `TenantResolutionFilter`, `TenantIdentifierResolver`, `TenantSessionVariableListener`, the RLS template; `app_user` / `user_role` / `password_reset_token` and the full auth flow; `division` / `department` and the Organization admin page.
+- **`org` package is feature-complete for what 1.4 needs to consume**: `DivisionService.listActive()` / `DepartmentService.listActive()` for populating the Employee form's department picker. Read `Division`/`Department` directly for now — no `OrgFacade` exists yet (deliberately deferred, see "Carried forward" below); 1.4 is exactly the phase that gives it a first real consumer, so add one now rather than reaching into `org`'s repositories directly from `people`.
+- **`SecurityConfig`** — form login, BCrypt 12, `RoleHierarchy`, CSRF, headers, default-deny. **CSP now has an Alpine-CSP-safe path** (ADR 0007) — `x-data`/`x-model`/etc. work as-is via the `alpinejs__csp` webjar; do not add `'unsafe-eval'` and do not swap back to the plain `alpinejs` webjar.
+- **htmx + Alpine are proven patterns now**, not first uses: `admin/organization.html` and `AdminOrganizationController` are the reference implementation for offcanvas-form-plus-table-swap. `OrganizationAdminService` (in `org`) is the reference implementation for ADR 0007's transaction shape — copy that pattern for any new endpoint that writes then reads back what it just wrote, or reads more than one thing in one request.
+- **Error pages, exception hierarchy, RFC 7807, email outbox, UI shell, test scaffolding, ArchUnit rules, dev bootstrap, quality gates** — all as documented in prior phases' history. No changes needed.
 
-## Remaining Phase 1.3 work
+## Remaining Phase 1.4 work
 
-### Schema + entities (`org` package)
+### Schema + entities (`people` package)
 
-- Flyway migration for `division` and `department` per PRD §21. Both tenant-scoped: `tenant_id uuid NOT NULL` plus the RLS template block (`ENABLE` + **`FORCE`** + `tenant_isolation`), and a `GRANT SELECT ... TO rls_probe` line in the test migration if you want the raw-JDBC proof.
-- Entities extend `TenantAwareEntity`, private setters, intent-named methods (`rename(...)`, `archive()`, `moveToDivision(...)`).
-- `department.head_employee_id` stays a nullable plain UUID with **no FK** until `employee` exists in 1.4. Say so in a comment so it does not read as an oversight.
-- `UNIQUE (tenant_id, name)` on both, per PRD §21.
-- **§13.4 constraint:** two explicit tables, but do not expose a deeper hierarchy in the API or the URLs. Keep the migration to `org_unit` cheap later.
+- Flyway migration for `employee`, `employee_status_history`, `employee_manager_history`, `education`, `emergency_contact`, `government_id`, `bank_detail`, `benefit` per PRD §21. All tenant-scoped: RLS template + `@TenantId`, `rls_probe` grants in the test migration.
+- `employee.department_id` — now a **real FK** to `department`, and `department.head_employee_id` (nullable, no FK since Phase 1.3) gets its FK added in this migration too, per CURRENT_PHASE.md's own note from 1.3.
+- Column encryption: `CryptoConverter` (AES-256-GCM) applied to `government_id.id_number` and every `bank_detail` field per CLAUDE.md §6 A02. Key from an env var — confirm the var name and local/dev provisioning before writing code that depends on it being present.
+- `employee_status_history` / `employee_manager_history` populated by history listeners on status/manager change, not by hand in the service.
 
-### Backend (`org` package)
+### Backend
 
-- `DivisionService` / `DepartmentService`, `@Transactional` on writes.
-- Delete rules (PRD §13.2): hard delete only when nothing references the row; otherwise `archived = true`. In 1.3 there are no employees yet, so the "no active employees" half of the rule cannot be enforced — **decide at plan time** whether to build the check now against an `OrgFacade` seam or defer it to 1.4, and write down which.
-- `/admin/divisions` and `/admin/departments` MVC controllers, `@PreAuthorize("hasRole('ADMIN')")` on every method (ArchUnit will fail the build otherwise).
-- DTOs as records. Never expose entities to templates.
+- `EmployeeService`: create (INVITED status, reuses `InviteService`'s email-invite flow from 1.2), self-service edit (Employee can touch contact/address/emergency-contacts/documents; Admin can touch everything including job/compensation/employment-status), terminate (immediate if past/today, scheduled job if future — revokes sessions via the `SessionRegistry` call ADR 0006 already wired for password/role change).
+- **Field-level permission enforcement**: a `PatchEmployeeDto` (or equivalent) that filters which fields a given role may set, not just endpoint-level `@PreAuthorize`. This is new territory — 1.2/1.3 only needed endpoint-level checks.
+- **This is where the Department delete-or-archive guard from Phase 1.3 gets its "no active employees" half** (PRD FR-4.2): `DepartmentService.delete()` currently always hard-deletes (documented gap, see `DepartmentService`'s own Javadoc). Add the employee-count check here, following `DivisionService.deleteOrArchive()`'s shape.
+- `/admin/employees` (Admin CRUD + list) and `/profile` (self-service) MVC controllers, `@PreAuthorize` on every method.
 
 ### Frontend
 
-- Admin console pages: Bootstrap tables per UI Guidelines §6 (`table table-hover align-middle`, `table-responsive`, `<th scope="col">`, empty-state block instead of an empty tbody).
-- Slide-over create/edit form (Bootstrap offcanvas, Alpine) and htmx-powered row updates.
-- **Watch the CSP.** `SecurityConfig` deliberately omits `'unsafe-eval'`, which Alpine.js needs for expression evaluation, because nothing used Alpine until now. The first `x-data` on a page will break in the browser console. The fix is Alpine's CSP build, **not** loosening the directive — and that is a `SecurityConfig` change, so it is on the §12 ask-first list.
+- People list page (list view only — grid/tree is Phase 2), filterable by department + status.
+- Profile page per UI Guidelines §8.5: sticky left column (avatar, name, role badge, tenure — computed from `hire_date`, department/title, manager mini-card, peers), right column tabbed (Personal · Education · Job · Documents · Tasks · Time Off), htmx-loaded per tab, URL-reflected active tab.
+- Admin-only compensation section, gated with `sec:authorize`.
+- Reuse the offcanvas + htmx-swap-oob + toast pattern from `admin/organization.html` for anything that's a simple create/edit form; the Profile page's own inline-edit tabs are a new pattern (`hx-patch` per section) worth its own look before copying anything wholesale.
 
 ### Tests
 
-- CRUD integration tests per service, happy path plus at least one sad path.
-- RBAC: one 200 and one 403 per endpoint per role (Employee and Manager both get 403 on `/admin/divisions` and `/admin/departments`). **Assert the rendered page, not only the status.** 1.2's RBAC tests passed on the status code while the 403 body was Boot's Whitelabel page printing a full stack trace; that is exactly the gap a status-only assertion leaves open.
-- Tenant isolation: a `TenantIsolationTestBase` subclass per new entity proving cross-tenant reads return empty (CLAUDE.md §5 rule 8).
-- Archive-instead-of-delete behaviour.
-- ArchUnit stays green with no new exemptions.
+- Integration + Playwright E2E for the full create → invite → accept → edit → terminate flow (this is the phase that finally justifies standing up Playwright — deferred twice already, see "Carried forward").
+- Field-level permission tests: Employee cannot PATCH compensation; Manager can read a report's profile but not edit it.
+- Tenant isolation test for every new entity (8 tables — this is the biggest isolation-test surface added in one phase so far).
+- Encryption round-trip test: value written is unreadable at the raw column level, readable correctly through the entity.
 
-## Definition of Done for Phase 1.3
+## Definition of Done for Phase 1.4
 
-- Admin can add a Division, add a Department, and assign the Department to that Division.
-- A Department that cannot be hard-deleted is archived instead, and archived rows are excluded from the default list.
-- Renaming works and preserves the row's identity.
-- `/admin/divisions` and `/admin/departments` return 403 for Employee and for Manager.
-- Every new entity has a tenant-isolation test proving cross-tenant reads return empty.
-- Both new tables have `ENABLE` + `FORCE ROW LEVEL SECURITY` + the `tenant_isolation` policy.
-- `./mvnw verify` green with the same gates as 1.2, and PMD still at zero violations.
+- Admin adds an Employee, invitee accepts and sets a password, edits their own contact info, uploads a document (stub is fine if 1.7 — Files — hasn't landed; do not block on it), and sees their own profile side panel populated with an auto-calculated tenure.
+- Termination revokes sessions immediately (past/today) or via the scheduled job (future).
+- Employee cannot edit fields reserved to Admin (job, department, compensation, employment status) — enforced server-side, not just hidden in the UI.
+- Department delete now correctly blocks (archives instead) when it has active employees — closing the Phase 1.3 gap.
+- Every new entity has a tenant-isolation test; RLS + `@TenantId` on all 8 new tables.
+- `./mvnw verify` green, PMD at zero violations, ArchUnit green with no new exemptions.
 
-## Not in scope for Phase 1.3 — do not start any of this
+## Not in scope for Phase 1.4 — do not start any of this
 
-- Employee entity, and therefore the real `head_employee_id` FK and the "no active employees" delete guard — Phase 1.4
-- Bulk reassignment of employees between departments — needs employees, Phase 1.4
-- Org chart tree view — Phase 2 (PRD §13.3)
-- N-level hierarchy / `org_unit` — explicitly deferred (PRD §13.4)
-- MFA / TOTP — Phase 1.5
-- Tenant-branded email templates and the outbox Admin retry UI — Phase 1.10
-- `audit_entry` / `login_audit` / `AuditListener` — Phase 1.11. Note PRD §13.2 says renames are audit-logged; that wiring lands in 1.11, not here.
-- Super Admin console — Phase 1.13
+- Employee custom fields — schema only (`employee_custom_field_definition`/`_value`), no UI (Phase 2, PRD §14.5)
+- Grid/tree People views — Phase 2 (PRD §8.3)
+- File storage / document upload UI — Phase 1.7, unless already landed by the time this phase starts
+- Leave balance display on profile — Phase 1.5/1.6 own leave data
+- `audit_entry` — Phase 1.11
 
-## Carried forward from 1.2 — open items
+## Carried forward — open items
 
 These were accepted deviations, not oversights. Do not silently "fix" them; they have owners.
 
-- **Playwright E2E is not set up.** Deferred from 1.2 with approval — the invite→login flow is covered by MockMvc, and 1.4 is the first phase with enough screens to justify the harness. Revisit there.
-- **Lockout is keyed on the user, not (email + IP)** as PRD §19.1 specifies. Blocked on `login_audit`, which Phase 1.11 owns. The 10/min/IP rate limit covers the IP axis meanwhile. See ADR 0006 decision B.
-- **Password-reset enumeration safety is response-shape only, not constant-time.** ADR 0006 decision E.
-- **Session revocation is wired for password change only.** Role change and termination reuse `SessionRevoker` when those features land (1.3 role editing is not in scope; termination is 1.4, BR-11).
-- **The password policy has no common-password blocklist**, contrary to PRD §19.1. Composition rules (≥10 chars, upper + lower + digit) are enforced and tested; the hand-written 134-entry list that originally shipped was removed as theatre. Pick either the HaveIBeenPwned checker or a real breach corpus when it matters — ADR 0006 decision F has the analysis.
-- **The tenant primary colour is not yet injected into `--bs-primary`.** `helyx.css` still hardcodes a placeholder, contrary to UI Guidelines §2/§12. Phase 1.10 owns tenant branding.
+- **Playwright E2E is still not set up**, deferred again from 1.3 with the explicit note that 1.4 is "the first phase with enough screens to justify the harness." This is that phase — set it up here, don't defer a third time.
+- **Lockout is keyed on the user, not (email + IP)** — blocked on `login_audit`, Phase 1.11. ADR 0006 decision B.
+- **Password-reset enumeration safety is response-shape only**, not constant-time. ADR 0006 decision E.
+- **No common-password blocklist.** ADR 0006 decision F — pick HaveIBeenPwned checker or a real breach corpus when it matters.
+- **Tenant primary colour not yet injected into `--bs-primary`.** Phase 1.10 owns tenant branding.
+- **`OrgFacade` does not exist yet.** Phase 1.3 deferred it since it had no cross-module consumer. This phase (`people` reading `org`) is that consumer — decide whether to add the facade seam now or read `Division`/`Department` directly a little longer, and write down which (mirrors the decision `DivisionService`/`DepartmentService` themselves had to make in 1.3).
+- **Phase 1.3's transient-empty-render bug is root-caused** (not just worked around) — ADR 0007 has the log-backed diagnosis (`TenantSessionVariableListener` never re-firing for a second, unrelated transaction in the same request) and the fix (`OrganizationAdminService` combines write+read into one transaction). *Why* the listener doesn't re-fire wasn't chased further — that's the starting point if a similar symptom appears somewhere this pattern can't be applied directly.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to Phase 1.4 (this file's 1.2 → 1.3 update is the template).
-3. Commit `phase-1.3-org` and open a PR against `main`.
-4. Do not start Phase 1.4 in the same session.
+2. Update this file to Phase 1.5 (this file's 1.3 → 1.4 update is the template).
+3. Commit `phase-1.4-employee` and open a PR against `main`.
+4. Do not start Phase 1.5 in the same session.

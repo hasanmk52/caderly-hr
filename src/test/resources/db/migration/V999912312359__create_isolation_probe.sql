@@ -34,3 +34,5 @@ GRANT SELECT ON isolation_probe TO rls_probe;
 GRANT SELECT ON app_user TO rls_probe;
 GRANT SELECT ON user_role TO rls_probe;
 GRANT SELECT ON password_reset_token TO rls_probe;
+GRANT SELECT ON division TO rls_probe;
+GRANT SELECT ON department TO rls_probe;

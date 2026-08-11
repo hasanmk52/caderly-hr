@@ -120,9 +120,12 @@
 			<artifactId>htmx.org</artifactId>
 			<version>${htmx.version}</version>
 		</dependency>
+		<!-- CSP build (@alpinejs/csp), not the default `alpinejs` artifact: SecurityConfig's CSP
+		     has no 'unsafe-eval', which the default build needs for expression evaluation. This
+		     build parses expressions without eval/new Function instead. -->
 		<dependency>
 			<groupId>org.webjars.npm</groupId>
-			<artifactId>alpinejs</artifactId>
+			<artifactId>alpinejs__csp</artifactId>
 			<version>${alpinejs.version}</version>
 		</dependency>
 

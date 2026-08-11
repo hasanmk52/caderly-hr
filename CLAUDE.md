@@ -289,4 +289,9 @@ Stop and ask before:
 
 ---
 
+## 14. Improvise
+Refer to `docs/SELF_IMPROVE.md` and use any skills available to you whenever necessary.
+
+---
+
 *End of CLAUDE.md*
