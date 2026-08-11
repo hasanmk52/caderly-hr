@@ -1,7 +1,6 @@
 package com.helyx.helyxhr.web;
 
 import com.helyx.helyxhr.common.HelyxException;
-import com.helyx.helyxhr.identity.AppUserRepository;
 import com.helyx.helyxhr.identity.InviteService;
 import com.helyx.helyxhr.identity.Role;
 import com.helyx.helyxhr.tenant.TenantSummary;
@@ -11,7 +10,6 @@ import java.util.List;
 import java.util.Set;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,11 +30,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 class AdminUserController {
 
     private final InviteService invites;
-    private final AppUserRepository users;
 
-    AdminUserController(InviteService invites, AppUserRepository users) {
+    AdminUserController(InviteService invites) {
         this.invites = invites;
-        this.users = users;
     }
 
     /**
@@ -46,7 +42,6 @@ class AdminUserController {
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @Transactional(readOnly = true)
     String listUsers(Model model) {
         model.addAttribute("users", userRows());
         model.addAttribute("allRoles", Role.values());
@@ -92,7 +87,7 @@ class AdminUserController {
      * touch entities (CLAUDE.md §7), and the roles association is lazy in the general case.
      */
     private List<UserRow> userRows() {
-        return users.findAllByOrderByEmailAsc().stream()
+        return invites.listUsers().stream()
                 .map(
                         user ->
                                 new UserRow(

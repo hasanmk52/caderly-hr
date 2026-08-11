@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -40,6 +41,12 @@ public class InviteService {
         this.emailOutbox = emailOutbox;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
+    }
+
+    /** Backs the admin user list — a service-layer read so it has its own transaction (CLAUDE.md §7: never on the controller). */
+    @Transactional(readOnly = true)
+    public List<AppUser> listUsers() {
+        return users.findAllByOrderByEmailAsc();
     }
 
     /**

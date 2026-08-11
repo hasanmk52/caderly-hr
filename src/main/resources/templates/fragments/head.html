@@ -5,6 +5,11 @@
 <head th:fragment="head(title)">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!--/* UI Guidelines §13: htmx state-changing requests carry CSRF via a header read from here,
+         since they aren't regular form posts that Spring Security's Thymeleaf dialect decorates
+         automatically (no th:action on an hx-post form). See helyx.js's configRequest listener. */-->
+  <meta name="_csrf" th:content="${_csrf.token}" />
+  <meta name="_csrf_header" th:content="${_csrf.headerName}" />
   <title th:text="${title} + ' · Helyx HR'">Helyx HR</title>
   <link rel="stylesheet" th:href="@{/webjars/bootstrap/css/bootstrap.min.css}" />
   <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/font/bootstrap-icons.min.css}" />
