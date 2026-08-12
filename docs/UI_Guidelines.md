@@ -105,8 +105,9 @@ Prefer: `mb-2` (0.5rem), `mb-3` (1rem), `mb-4` (1.5rem), `mb-5` (3rem). Same sca
 ### Buttons
 - **Primary action per screen:** exactly one `btn-primary`. Everything else `btn-outline-secondary` or `btn-link`.
 - **Destructive:** `btn-danger` only inside confirmation modals; on list rows use `btn-outline-danger btn-sm`.
+- **Cancel is always a button, never a link:** `btn-outline-secondary`, whether it dismisses a modal/offcanvas or navigates away (an `<a class="btn btn-outline-secondary">` for the latter). `btn-link` is for genuinely link-like actions (sortable column headers, "Forgot password?"), not for Cancel.
 - **Icon-only:** always add `aria-label` and use `btn` + Bootstrap Icon child.
-- **Sizes:** default for main CTAs, `btn-sm` in tables and toolbars, avoid `btn-lg`.
+- **Sizes:** default for main CTAs, `btn-sm` in tables and toolbars, avoid `btn-lg`. Modal and offcanvas action bars (§ Modals, § Slide-over panels) use `btn-sm` for both buttons — these sit inside an already-compact panel, not the main page CTA.
 
 ### Cards
 - Use `card` for all widgets, list items with heavy content, dashboard tiles.
@@ -127,7 +128,7 @@ Prefer: `mb-2` (0.5rem), `mb-3` (1rem), `mb-4` (1.5rem), `mb-5` (3rem). Same sca
 - Use `form-floating` for compact forms (single-column), plain `form-label` above input for standard forms.
 - Validation: server-side via Bean Validation. Render errors as `invalid-feedback` sibling of the input, with `is-invalid` on the input.
 - Success feedback after submit: toast (see §7.4), not banner.
-- Form actions bar at bottom: primary on right, "Cancel" as `btn-link` on left. On mobile, stack full-width.
+- Form actions bar at bottom: primary on right, "Cancel" as `btn-outline-secondary` on left, both `btn-sm` inside a modal/offcanvas (§6 Buttons). On mobile, stack full-width.
 - Disable submit while htmx request is in flight (`hx-indicator` swaps a spinner).
 
 ### Modals
@@ -139,7 +140,7 @@ Prefer: `mb-2` (0.5rem), `mb-3` (1rem), `mb-4` (1.5rem), `mb-5` (3rem). Same sca
 ### Slide-over panels (Bootstrap offcanvas)
 - Use for: editing a resource inline (edit department, edit leave type, edit employee section).
 - Right-side, `offcanvas-end`, width ~480 px.
-- Always has an explicit close X and a footer with Cancel + Save.
+- Always has an explicit close X and a footer with Cancel (`btn-outline-secondary btn-sm`) + Save (`btn-primary btn-sm`).
 
 ### Tabs (profile pages)
 - Use Bootstrap `nav-tabs` with `nav-link` items and `tab-pane` bodies.
@@ -201,7 +202,7 @@ Destructive actions (delete, terminate): confirm via modal, then show a toast on
 - Always show a confirmation modal.
 - Modal title states the action ("Terminate Priya Sharma?").
 - Body states the consequence ("This will revoke access immediately and cancel 2 pending leave requests. This cannot be undone.").
-- Actions: `btn-outline-secondary` Cancel (left), `btn-danger` Confirm (right).
+- Actions: `btn-outline-secondary btn-sm` Cancel (left), `btn-danger btn-sm` Confirm (right).
 - Confirm button text should be the verb, never "OK" ("Terminate employee", "Delete file").
 
 ---
