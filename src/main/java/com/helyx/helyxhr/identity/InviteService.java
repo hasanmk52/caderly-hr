@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,16 +31,19 @@ public class InviteService {
     private final AppUserRepository users;
     private final EmailOutboxService emailOutbox;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
     InviteService(
             AppUserRepository users,
             EmailOutboxService emailOutbox,
             PasswordEncoder passwordEncoder,
+            ApplicationEventPublisher events,
             Clock clock) {
         this.users = users;
         this.emailOutbox = emailOutbox;
         this.passwordEncoder = passwordEncoder;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -115,6 +119,10 @@ public class InviteService {
 
         user.acceptInvite(passwordEncoder.encode(newPassword));
         users.save(user);
+
+        // Fired after commit by the listener (mirrors PasswordChangedEvent), so a rolled-back
+        // accept never activates an Employee row for a user that isn't really active.
+        events.publishEvent(new UserInviteAcceptedEvent(user.requireId()));
         log.info("Invite accepted for {}", user.email());
     }
 

@@ -48,6 +48,7 @@
 
 		<!-- Quality gate plugin/dependency versions (CLAUDE.md §7: one place per dependency) -->
 		<archunit.version>1.3.2</archunit.version>
+		<playwright.version>1.62.0</playwright.version>
 		<jacoco.version>0.8.13</jacoco.version>
 		<spotbugs-plugin.version>4.9.3.0</spotbugs-plugin.version>
 		<pmd-plugin.version>3.28.0</pmd-plugin.version>
@@ -216,6 +217,18 @@
 			<groupId>com.tngtech.archunit</groupId>
 			<artifactId>archunit-junit5</artifactId>
 			<version>${archunit.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- E2E browser automation (CLAUDE.md §3 locked stack). First real use is Phase 1.4
+		     (docs/CURRENT_PHASE.md): "the first phase with enough screens to justify the
+		     harness" — deferred twice already in 1.2/1.3. Browsers are not on the classpath;
+		     they install separately (see the playwright-install exec-maven-plugin execution
+		     below), same as any other Playwright-Java setup. -->
+		<dependency>
+			<groupId>com.microsoft.playwright</groupId>
+			<artifactId>playwright</artifactId>
+			<version>${playwright.version}</version>
 			<scope>test</scope>
 		</dependency>
 

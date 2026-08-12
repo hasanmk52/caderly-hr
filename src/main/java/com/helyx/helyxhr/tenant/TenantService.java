@@ -3,7 +3,9 @@ package com.helyx.helyxhr.tenant;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
@@ -43,6 +45,16 @@ public class TenantService implements TenantFacade {
                         TenantContext.runAsSystem(
                                 "resolve tenant by slug for request routing",
                                 () -> repository.findBySlugAndDeletedAtIsNull(s).map(TenantSummary::of)));
+    }
+
+    @Override
+    public List<UUID> listActiveTenantIds() {
+        return TenantContext.runAsSystem(
+                "list active tenants for scheduled job fan-out",
+                () ->
+                        repository.findAllByDeletedAtIsNullAndSuspendedFalse().stream()
+                                .map(tenant -> java.util.Objects.requireNonNull(tenant.getId()))
+                                .toList());
     }
 
     // Package-private: only tests need to force freshness.

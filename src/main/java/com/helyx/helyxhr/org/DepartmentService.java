@@ -65,13 +65,21 @@ public class DepartmentService {
     }
 
     /**
-     * Nothing can reference a Department in Phase 1.3 — {@code employee} doesn't exist yet — so
-     * this always hard-deletes. Phase 1.4 adds the "no active employees" guard here, following
-     * the same shape as {@link DivisionService#deleteOrArchive}.
+     * PRD §6.4 FR-4.2: hard delete only when the department has no active employees, otherwise
+     * archive. {@code hasActiveEmployees} arrives pre-computed rather than being queried here
+     * because the answer lives in {@code people}, and {@code org} must not depend on it — that
+     * would cycle against {@code people}'s own dependency on {@code org} via {@code OrgFacade}.
+     * {@code web.AdminOrganizationController} is the orchestration layer that asks {@code
+     * people.PeopleFacade} first and passes the answer in (see its Javadoc).
      */
     @Transactional
-    public DeleteOutcome delete(UUID id) {
+    public DeleteOutcome deleteOrArchive(UUID id, boolean hasActiveEmployees) {
         Department department = require(id);
+        if (hasActiveEmployees) {
+            department.archive();
+            log.info("Archived department {} (has active employees)", id);
+            return DeleteOutcome.ARCHIVED;
+        }
         departments.delete(department);
         log.info("Deleted department {}", id);
         return DeleteOutcome.DELETED;

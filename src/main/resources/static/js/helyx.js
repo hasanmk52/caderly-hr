@@ -25,7 +25,7 @@
     }
   });
 
-  var OFFCANVAS_BODY_IDS = ["divisionOffcanvasBody", "departmentOffcanvasBody"];
+  var OFFCANVAS_BODY_IDS = ["divisionOffcanvasBody", "departmentOffcanvasBody", "employeeOffcanvasBody"];
 
   document.body.addEventListener("htmx:afterSwap", function (event) {
     if (OFFCANVAS_BODY_IDS.indexOf(event.detail.target.id) === -1) {

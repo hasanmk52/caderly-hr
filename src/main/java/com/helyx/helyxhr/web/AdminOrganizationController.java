@@ -10,6 +10,7 @@ import com.helyx.helyxhr.org.OrganizationAdminService;
 import com.helyx.helyxhr.org.OrganizationAdminService.DeleteResult;
 import com.helyx.helyxhr.org.OrganizationAdminService.DepartmentEditData;
 import com.helyx.helyxhr.org.OrganizationAdminService.OrganizationSnapshot;
+import com.helyx.helyxhr.people.PeopleFacade;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -39,6 +40,13 @@ import org.springframework.web.bind.annotation.PostMapping;
  * owns the write-then-read transaction boundary (see ADR 0007 for why). Single-read GET
  * endpoints ({@code new-form}, division {@code edit-form}) call {@link DivisionService}/{@link
  * DepartmentService} directly.
+ *
+ * <p>{@link #deleteDepartment} also orchestrates the "no active employees" delete-guard (PRD
+ * §6.4 FR-4.2, Phase 1.3's carried-forward gap): it asks {@code people.PeopleFacade} for the
+ * employee count and passes the answer into {@code org}. That orchestration lives here rather
+ * than inside {@code org} itself because {@code org} must not depend on {@code people} — {@code
+ * people} already depends on {@code org} via {@code OrgFacade}, and the reverse edge would be a
+ * package cycle. {@code web} is allowed to depend on both.
  */
 @Controller
 @PreAuthorize("hasRole('ADMIN')")
@@ -46,10 +54,13 @@ class AdminOrganizationController {
 
     private final DivisionService divisions;
     private final OrganizationAdminService organizationAdmin;
+    private final PeopleFacade people;
 
-    AdminOrganizationController(DivisionService divisions, OrganizationAdminService organizationAdmin) {
+    AdminOrganizationController(
+            DivisionService divisions, OrganizationAdminService organizationAdmin, PeopleFacade people) {
         this.divisions = divisions;
         this.organizationAdmin = organizationAdmin;
+        this.people = people;
     }
 
     @GetMapping("/admin/organization")
@@ -151,7 +162,7 @@ class AdminOrganizationController {
                 response,
                 result.outcome() == DeleteOutcome.DELETED
                         ? "Division deleted"
-                        : "Division archived — it still has active departments assigned");
+                        : "Division archived - it still has active departments assigned");
         populateTables(model, result.snapshot());
         return "admin/organization :: content";
     }
@@ -203,10 +214,13 @@ class AdminOrganizationController {
     @DeleteMapping("/admin/departments/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     String deleteDepartment(@PathVariable UUID id, Model model, HttpServletResponse response) {
-        DeleteResult result = organizationAdmin.deleteDepartment(id);
+        boolean hasActiveEmployees = people.countActiveEmployeesInDepartment(id) > 0;
+        DeleteResult result = organizationAdmin.deleteDepartment(id, hasActiveEmployees);
         toast(
                 response,
-                result.outcome() == DeleteOutcome.DELETED ? "Department deleted" : "Department archived");
+                result.outcome() == DeleteOutcome.DELETED
+                        ? "Department deleted"
+                        : "Department archived - it still has active employees assigned");
         populateTables(model, result.snapshot());
         return "admin/organization :: content";
     }

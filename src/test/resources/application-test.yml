@@ -22,3 +22,10 @@ helyx:
       # Tests drive the outbox by calling dispatchPending() directly, so that assertions run
       # at a known point rather than racing a 30-second scheduler.
       enabled: false
+  people:
+    # Test-only fixed key (ADR 0008) — never used outside src/test.
+    encryption-key: 9QUnvMKRTuBhtr+6LF60m694q3P36vRsbU+uDXI1RVo=
+    termination-job:
+      # Tests drive the job by calling its public method directly at a known moment, matching
+      # EmailDispatcher's pattern.
+      enabled: false
