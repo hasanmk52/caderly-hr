@@ -13,7 +13,7 @@ Multi-tenant HRIS and Leave Management SaaS. See `docs/Helyx_PRD.md` for the pro
    psql helyx -c "CREATE SCHEMA helyx_hr AUTHORIZATION helyx;"
    ```
 4. Clone this repo.
-5. `cp .env.example .env` and fill in `DB_PASSWORD` (and `DB_USER` if you used a different role name).
+5. `cp .env.example .env` and fill in `DB_PASSWORD` (and `DB_USER` if you used a different role name). Also set `HELYX_EMPLOYEE_ENCRYPTION_KEY` — generate one with `openssl rand -base64 32` (see `.env.example` for details; this key must stay stable once real data is encrypted with it).
 6. Export the env vars and start the app:
    ```
    export $(grep -v '^#' .env | xargs)
