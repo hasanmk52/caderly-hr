@@ -66,6 +66,15 @@ helyx:
       # racing the scheduler.
       enabled: true
       poll-interval-ms: 30000
+  people:
+    # AES-256-GCM key for CryptoConverter (ADR 0008, CLAUDE.md §6 A02) — base64, 32 raw bytes.
+    # No default: an unset key must fail startup, never silently encrypt with a guessed value.
+    encryption-key: ${HELYX_EMPLOYEE_ENCRYPTION_KEY}
+    termination-job:
+      enabled: true
+      # Once a day is enough: termination_date is a date, not a timestamp, so nothing is
+      # lost by not reacting within the same minute the clock crosses midnight.
+      cron: "0 0 0 * * *"
 
 logging:
   level:

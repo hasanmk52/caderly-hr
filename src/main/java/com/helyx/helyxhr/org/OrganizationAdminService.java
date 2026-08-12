@@ -71,8 +71,8 @@ public class OrganizationAdminService {
     }
 
     @Transactional
-    public DeleteResult deleteDepartment(UUID id) {
-        DeleteOutcome outcome = departments.delete(id);
+    public DeleteResult deleteDepartment(UUID id, boolean hasActiveEmployees) {
+        DeleteOutcome outcome = departments.deleteOrArchive(id, hasActiveEmployees);
         return new DeleteResult(outcome, snapshot());
     }
 

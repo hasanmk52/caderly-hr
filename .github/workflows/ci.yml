@@ -30,7 +30,9 @@ jobs:
 
       - name: OWASP Dependency-Check (fail-soft in Phase 0)
         continue-on-error: true
-        run: ./mvnw -B org.owasp:dependency-check-maven:check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: ./mvnw -B org.owasp:dependency-check-maven:check -DnvdApiKey="$NVD_API_KEY"
 
       - name: Upload Dependency-Check report
         if: always()

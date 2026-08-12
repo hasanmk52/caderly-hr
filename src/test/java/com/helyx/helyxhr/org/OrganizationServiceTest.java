@@ -119,18 +119,33 @@ class OrganizationServiceTest extends TenantIsolationTestBase {
     }
 
     @Test
-    void deleteDepartment_alwaysHardDeletesInPhase1_3() {
-        // No Employee entity exists yet, so nothing can block a Department delete — see
-        // DepartmentService#delete's Javadoc and CURRENT_PHASE.md's carried-forward note.
+    void deleteOrArchiveDepartment_withNoActiveEmployees_hardDeletes() {
         UUID divisionId = asTenant(tenantA, () -> divisions.create("Engineering", null).requireId());
         UUID departmentId =
                 asTenant(tenantA, () -> departments.create("Backend", null, divisionId).requireId());
 
-        DeleteOutcome outcome = asTenant(tenantA, () -> departments.delete(departmentId));
+        DeleteOutcome outcome =
+                asTenant(tenantA, () -> departments.deleteOrArchive(departmentId, false));
 
         assertThat(outcome).isEqualTo(DeleteOutcome.DELETED);
         assertThatThrownBy(() -> asTenant(tenantA, () -> departments.require(departmentId)))
                 .isInstanceOf(com.helyx.helyxhr.common.NotFoundException.class);
+    }
+
+    @Test
+    void deleteOrArchiveDepartment_withActiveEmployees_archivesInstead() {
+        // The employee count itself is computed by web.AdminOrganizationController via
+        // people.PeopleFacade (PRD §6.4 FR-4.2) — this service only implements the branch once
+        // told the answer, which is exactly what this test drives directly.
+        UUID divisionId = asTenant(tenantA, () -> divisions.create("Engineering", null).requireId());
+        UUID departmentId =
+                asTenant(tenantA, () -> departments.create("Backend", null, divisionId).requireId());
+
+        DeleteOutcome outcome = asTenant(tenantA, () -> departments.deleteOrArchive(departmentId, true));
+
+        assertThat(outcome).isEqualTo(DeleteOutcome.ARCHIVED);
+        Department archived = asTenant(tenantA, () -> departments.require(departmentId));
+        assertThat(archived.archived()).isTrue();
     }
 
     @Test

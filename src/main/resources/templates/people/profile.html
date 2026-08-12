@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<th:block th:replace="~{layout :: layout(${employee.fullName}, ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+
+    <div class="row g-4">
+
+      <!--/* Left column (UI Guidelines §8.5): avatar, name, badge, tenure, department, manager. */-->
+      <div class="col-12 col-md-3">
+        <div class="card">
+          <div class="card-body text-center">
+            <!--/* Avatars: initials in a circle, no upload until Phase 1.7 (UI Guidelines §6). */-->
+            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-3"
+                 style="width: 96px; height: 96px; font-size: 2rem;"
+                 th:text="${#strings.substring(employee.firstName,0,1)} + ${#strings.substring(employee.lastName,0,1)}">JD</div>
+            <h2 class="h5 mb-1" th:text="${employee.fullName}">Jane Doe</h2>
+            <span class="badge mb-2"
+                  th:classappend="${employee.status.name() == 'ACTIVE'} ? 'text-bg-success' : (${employee.status.name() == 'INVITED'} ? 'text-bg-warning' : 'text-bg-secondary')"
+                  th:text="${employee.status}">ACTIVE</span>
+            <p class="text-muted small mb-1" th:if="${tenureYears != null}">
+              <i class="bi bi-clock-history" aria-hidden="true"></i>
+              <span th:text="${tenureYears}">2</span> yr<span th:if="${tenureYears != 1}">s</span> tenure
+            </p>
+            <p class="text-muted small mb-1" th:if="${employee.department != null}">
+              <i class="bi bi-diagram-2" aria-hidden="true"></i> <span th:text="${employee.department.name}">Engineering</span>
+            </p>
+            <p class="text-muted small mb-0" th:if="${employee.jobTitle}" th:text="${employee.jobTitle}">Software Engineer</p>
+          </div>
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+              <div class="small text-muted">Email</div>
+              <div th:text="${employee.email}">jane@example.com</div>
+            </li>
+            <li class="list-group-item" th:if="${employee.phone}">
+              <div class="small text-muted">Phone</div>
+              <div th:text="${employee.phone}">+971 50 000 0000</div>
+            </li>
+            <li class="list-group-item" th:if="${employee.manager != null}">
+              <div class="small text-muted">Manager</div>
+              <a th:href="@{/profile/{id}(id=${employee.manager.id})}" th:text="${employee.manager.fullName}">Sam Lee</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!--/* Right column: tabs (UI Guidelines §6/§8.5). Personal/Education/Job/Documents only —
+             Tasks and Time Off are omitted until their owning phases land (Phase 2, 1.5/1.6). */-->
+      <div class="col-12 col-md-9">
+        <ul class="nav nav-tabs mb-3">
+          <li class="nav-item" th:each="t : ${ {'personal','education','job','documents'} }">
+            <a class="nav-link" th:classappend="${activeTab == t} ? 'active'"
+               th:text="${#strings.capitalize(t)}"
+               th:href="@{/profile/{id}(id=${employee.id},tab=${t})}"
+               th:hx-get="@{/profile/{id}(id=${employee.id},tab=${t})}"
+               hx-select="#tab-content" hx-target="#tab-content" hx-push-url="true">Personal</a>
+          </li>
+        </ul>
+
+        <div id="tab-content" th:fragment="tabContent">
+          <div th:switch="${activeTab}">
+
+            <!--/* Personal: self-editable contact/address (PRD FR-3.10) + emergency contacts +
+                   government IDs + bank detail. Read-only when viewing someone else. */-->
+            <div th:case="'personal'">
+              <div th:if="${isSelf}" class="card mb-4">
+                <div class="card-body">
+                  <h3 class="h6 mb-3">Contact &amp; address</h3>
+                  <form th:object="${selfPatch}" hx-patch="/profile" hx-target="#tab-content" hx-swap="innerHTML">
+                    <div class="row g-2 mb-2">
+                      <div class="col-6">
+                        <label class="form-label" for="profile-phone">Phone</label>
+                        <input class="form-control" type="tel" id="profile-phone" th:field="*{phone}" maxlength="30" />
+                      </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                      <div class="col-6">
+                        <label class="form-label" for="profile-address1">Address line 1</label>
+                        <input class="form-control" type="text" id="profile-address1" th:field="*{addressLine1}" maxlength="200" />
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label" for="profile-address2">Address line 2</label>
+                        <input class="form-control" type="text" id="profile-address2" th:field="*{addressLine2}" maxlength="200" />
+                      </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                      <div class="col-4">
+                        <label class="form-label" for="profile-city">City</label>
+                        <input class="form-control" type="text" id="profile-city" th:field="*{city}" maxlength="100" />
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label" for="profile-country">Country</label>
+                        <input class="form-control" type="text" id="profile-country" th:field="*{country}" maxlength="100" />
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label" for="profile-postalCode">Postal code</label>
+                        <input class="form-control" type="text" id="profile-postalCode" th:field="*{postalCode}" maxlength="20" />
+                      </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                  </form>
+                </div>
+              </div>
+              <div th:unless="${isSelf}" class="card mb-4">
+                <div class="card-body">
+                  <h3 class="h6 mb-3">Address</h3>
+                  <p class="text-muted mb-0" th:text="${employee.addressLine1} ?: 'No address on file'">No address on file</p>
+                </div>
+              </div>
+
+              <div class="card mb-4" th:if="${isSelf}">
+                <div class="card-body">
+                  <h3 class="h6 mb-3">Emergency contacts</h3>
+                  <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                        th:each="contact : ${emergencyContacts}">
+                      <span>
+                        <strong th:text="${contact.name}">Alex Doe</strong>
+                        <span class="text-muted" th:text="${contact.relationship} ?: ''"> (Sibling)</span>
+                        — <span th:text="${contact.phone} ?: contact.email">+971 50 000 0000</span>
+                      </span>
+                      <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Remove contact"
+                              th:hx-delete="@{/profile/emergency-contacts/{id}(id=${contact.id})}"
+                              hx-target="#tab-content" hx-swap="innerHTML">
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                      </button>
+                    </li>
+                    <li class="list-group-item text-muted" th:if="${#lists.isEmpty(emergencyContacts)}">None on file.</li>
+                  </ul>
+                  <form th:object="${emergencyContactForm}" hx-post="/profile/emergency-contacts"
+                        hx-target="#tab-content" hx-swap="innerHTML" class="row g-2">
+                    <div class="col-3"><input class="form-control form-control-sm" placeholder="Name" th:field="*{name}" /></div>
+                    <div class="col-3"><input class="form-control form-control-sm" placeholder="Relationship" th:field="*{relationship}" /></div>
+                    <div class="col-3"><input class="form-control form-control-sm" placeholder="Phone" th:field="*{phone}" /></div>
+                    <div class="col-3"><button class="btn btn-outline-secondary btn-sm" type="submit">Add</button></div>
+                  </form>
+                </div>
+              </div>
+
+              <div class="card" th:if="${isSelf}">
+                <div class="card-body">
+                  <h3 class="h6 mb-3">Government IDs</h3>
+                  <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                        th:each="govId : ${governmentIds}">
+                      <span th:text="${govId.idType}">PASSPORT</span>
+                      <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Remove ID"
+                              th:hx-delete="@{/profile/government-ids/{id}(id=${govId.id})}"
+                              hx-target="#tab-content" hx-swap="innerHTML">
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                      </button>
+                    </li>
+                    <li class="list-group-item text-muted" th:if="${#lists.isEmpty(governmentIds)}">None on file.</li>
+                  </ul>
+                  <form th:object="${governmentIdForm}" hx-post="/profile/government-ids"
+                        hx-target="#tab-content" hx-swap="innerHTML" class="row g-2">
+                    <div class="col-4">
+                      <select class="form-select form-select-sm" th:field="*{idType}">
+                        <option value="PASSPORT">Passport</option>
+                        <option value="NATIONAL_ID">National ID</option>
+                        <option value="VISA">Visa</option>
+                        <option value="EMIRATES_ID">Emirates ID</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+                    <div class="col-4"><input class="form-control form-control-sm" placeholder="ID number" th:field="*{idNumber}" /></div>
+                    <div class="col-4"><button class="btn btn-outline-secondary btn-sm" type="submit">Add</button></div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <!--/* Education: read-only in this pass; add/remove is a straightforward extension of
+                   the same list+form pattern above, trimmed here for scope. */-->
+            <div th:case="'education'">
+              <div class="card">
+                <div class="card-body">
+                  <h3 class="h6 mb-3">Education</h3>
+                  <ul class="list-group list-group-flush">
+                    <li class="list-group-item" th:each="entry : ${education}">
+                      <strong th:text="${entry.degree} ?: 'Degree'">BSc</strong>
+                      <span th:if="${entry.field}" th:text="', ' + ${entry.field}">, Computer Science</span>
+                      — <span th:text="${entry.institution} ?: '—'">University</span>
+                    </li>
+                    <li class="list-group-item text-muted" th:if="${#lists.isEmpty(education)}">Nothing on file.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!--/* Job: Admin-editable only (via People list's edit offcanvas), read-only here. */-->
+            <div th:case="'job'">
+              <div class="card mb-4">
+                <div class="card-body">
+                  <h3 class="h6 mb-3">Job</h3>
+                  <dl class="row mb-0">
+                    <dt class="col-4">Hire date</dt><dd class="col-8" th:text="${employee.hireDate} ?: '—'">—</dd>
+                    <dt class="col-4">Employment type</dt><dd class="col-8" th:text="${employee.employmentType} ?: '—'">—</dd>
+                    <dt class="col-4">Department</dt>
+                    <dd class="col-8" th:text="${employee.department != null ? employee.department.name : '—'}">—</dd>
+                    <dt class="col-4">Job title</dt><dd class="col-8" th:text="${employee.jobTitle} ?: '—'">—</dd>
+                    <dt class="col-4">Work location</dt><dd class="col-8" th:text="${employee.workLocation} ?: '—'">—</dd>
+                  </dl>
+                </div>
+              </div>
+              <!--/* PRD §26: compensation is Admin-only, whoever is viewing. */-->
+              <div class="card" sec:authorize="hasRole('ADMIN')">
+                <div class="card-body">
+                  <h3 class="h6 mb-3">Compensation</h3>
+                  <dl class="row mb-0">
+                    <dt class="col-4">Currency</dt><dd class="col-8" th:text="${employee.currency} ?: '—'">—</dd>
+                    <dt class="col-4">Base pay</dt><dd class="col-8" th:text="${employee.baseCompensation} ?: '—'">—</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+            <!--/* Documents: stub, not a disabled control — FileStorage doesn't exist until Phase
+                   1.7 (CURRENT_PHASE.md's explicit allowance; CLAUDE.md: no half-finished UI). */-->
+            <div th:case="'documents'">
+              <div class="text-center text-muted py-5">
+                <i class="bi bi-file-earmark fs-1 d-block mb-2" aria-hidden="true"></i>
+                <p class="mb-0">Document uploads are coming in a later phase.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</th:block>
+</body>
+</html>

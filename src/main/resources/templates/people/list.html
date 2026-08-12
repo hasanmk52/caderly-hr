@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:replace="~{layout :: layout('People', ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+      <h1>People</h1>
+    </div>
+
+    <!--/* Mirrors admin/organization.html's #organization-content pattern: everything a
+           mutation response touches lives in here, the offcanvas forms live outside it. */-->
+    <div id="people-content" hx-swap-oob="true" th:fragment="content">
+
+      <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/employees}">
+        <div class="col-auto">
+          <label class="form-label" for="filter-department">Department</label>
+          <select class="form-select" id="filter-department" name="departmentId" onchange="this.form.submit()">
+            <option value="">All departments</option>
+            <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}"
+                    th:selected="${option.id == selectedDepartmentId}">Engineering</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label" for="filter-status">Status</label>
+          <select class="form-select" id="filter-status" name="status" onchange="this.form.submit()">
+            <option value="">All statuses</option>
+            <option th:each="option : ${statusOptions}" th:value="${option}" th:text="${option}"
+                    th:selected="${option == selectedStatus}">ACTIVE</option>
+          </select>
+        </div>
+        <div class="col-auto ms-auto">
+          <button type="button" class="btn btn-primary btn-sm"
+                  th:hx-get="@{/admin/employees/new-form}"
+                  hx-target="#employeeOffcanvasBody" hx-swap="innerHTML">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Employee
+          </button>
+        </div>
+      </form>
+
+      <div th:if="${#lists.isEmpty(employees)}" class="text-center text-muted py-5 mb-5">
+        <i class="bi bi-people fs-1 d-block mb-2" aria-hidden="true"></i>
+        <p class="mb-0">No employees yet. Add one to get started.</p>
+      </div>
+
+      <div th:unless="${#lists.isEmpty(employees)}" class="table-responsive mb-5">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Email</th>
+              <th scope="col">Department</th>
+              <th scope="col">Job title</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="employee : ${employees}">
+              <td>
+                <a th:href="@{/profile/{id}(id=${employee.id})}" th:text="${employee.fullName}">Jane Doe</a>
+              </td>
+              <td th:text="${employee.email}">jane@example.com</td>
+              <td class="text-muted" th:text="${employee.departmentName} ?: '—'">—</td>
+              <td class="text-muted" th:text="${employee.jobTitle} ?: '—'">—</td>
+              <td>
+                <span class="badge"
+                      th:classappend="${employee.status == 'ACTIVE'} ? 'text-bg-success' : (${employee.status == 'INVITED'} ? 'text-bg-warning' : 'text-bg-secondary')"
+                      th:text="${employee.status}">ACTIVE</span>
+              </td>
+              <td class="text-end">
+                <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Edit employee"
+                        th:hx-get="@{/admin/employees/{id}/edit-form(id=${employee.id})}"
+                        hx-target="#employeeOffcanvasBody" hx-swap="innerHTML">
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Terminate employee"
+                        th:if="${employee.status != 'TERMINATED'}"
+                        data-bs-toggle="modal"
+                        th:attr="data-bs-target='#confirmTerminate-' + ${employee.id}">
+                  <i class="bi bi-person-x" aria-hidden="true"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div th:each="employee : ${employees}" class="modal fade" tabindex="-1" aria-hidden="true"
+           th:id="'confirmTerminate-' + ${employee.id}">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form th:hx-post="@{/admin/employees/{id}/terminate(id=${employee.id})}"
+                  hx-target="#people-content" hx-swap="outerHTML">
+              <div class="modal-header">
+                <h5 class="modal-title">Terminate <span th:text="${employee.fullName}">this employee</span>?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <p>The employee record is kept, never deleted. A past or today's date terminates
+                  immediately and revokes their login; a future date schedules it.</p>
+                <label class="form-label" th:for="'terminationDate-' + ${employee.id}">Termination date</label>
+                <input class="form-control" type="date" name="terminationDate"
+                       th:id="'terminationDate-' + ${employee.id}" required />
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger btn-sm">Terminate</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!--/* Slide-over panel (UI Guidelines §6). Never part of an htmx response — only the body
+           (#employeeOffcanvasBody) is swapped, same rule as admin/organization.html. */-->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="employeeOffcanvas" style="width: 560px"
+         aria-labelledby="employeeOffcanvasLabel">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="employeeOffcanvasLabel">Employee</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body" id="employeeOffcanvasBody">
+
+        <!--/* Two independent forms, not one shared field fragment: th:object differs
+               (createForm vs adminPatch), and Thymeleaf's selection expression (*{...}) does not
+               reliably carry across a th:replace fragment boundary into a differently-scoped
+               th:object — tried it, broke #fields.hasErrors() at render time. Field names line up
+               between CreateEmployee and AdminEmployeePatch, so this is pure duplication, not
+               drift-prone duplication: renaming a field means updating both here. */-->
+        <th:block th:fragment="createForm">
+  <form th:object="${createForm}" hx-post="/admin/employees"
+        hx-target="#employeeOffcanvasBody" hx-swap="innerHTML" hx-indicator="#employeeFormSpinner">
+    <h6 class="text-muted mb-3">Creating new</h6>
+
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label class="form-label" for="create-firstName">First name <span class="text-danger" aria-hidden="true">*</span></label>
+        <input class="form-control" type="text" id="create-firstName" th:field="*{firstName}" maxlength="100" required
+               th:classappend="${#fields.hasErrors('firstName')} ? 'is-invalid'" />
+        <div class="invalid-feedback" th:if="${#fields.hasErrors('firstName')}" th:errors="*{firstName}">Invalid</div>
+      </div>
+      <div class="col-6">
+        <label class="form-label" for="create-lastName">Last name <span class="text-danger" aria-hidden="true">*</span></label>
+        <input class="form-control" type="text" id="create-lastName" th:field="*{lastName}" maxlength="100" required
+               th:classappend="${#fields.hasErrors('lastName')} ? 'is-invalid'" />
+        <div class="invalid-feedback" th:if="${#fields.hasErrors('lastName')}" th:errors="*{lastName}">Invalid</div>
+      </div>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-8">
+        <label class="form-label" for="create-email">Email <span class="text-danger" aria-hidden="true">*</span></label>
+        <input class="form-control" type="email" id="create-email" th:field="*{email}" maxlength="255" required
+               th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'" />
+        <div class="invalid-feedback" th:if="${#fields.hasErrors('email')}" th:errors="*{email}">Invalid</div>
+      </div>
+      <div class="col-4">
+        <label class="form-label" for="create-phone">Phone</label>
+        <input class="form-control" type="tel" id="create-phone" th:field="*{phone}" maxlength="30" />
+      </div>
+    </div>
+
+    <hr class="my-3" />
+    <h6 class="text-muted mb-2">Job</h6>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label class="form-label" for="create-hireDate">Hire date</label>
+        <input class="form-control" type="date" id="create-hireDate" th:field="*{hireDate}" />
+      </div>
+      <div class="col-6">
+        <label class="form-label" for="create-employmentType">Employment type</label>
+        <select class="form-select" id="create-employmentType" th:field="*{employmentType}">
+          <option value="">—</option>
+          <option th:each="option : ${employmentTypeOptions}" th:value="${option}" th:text="${option}">FULL_TIME</option>
+        </select>
+      </div>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label class="form-label" for="create-departmentId">Department</label>
+        <select class="form-select" id="create-departmentId" th:field="*{departmentId}">
+          <option value="">—</option>
+          <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}">Engineering</option>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label" for="create-managerId">Manager</label>
+        <select class="form-select" id="create-managerId" th:field="*{managerId}">
+          <option value="">—</option>
+          <option th:each="option : ${managerOptions}" th:value="${option.id}" th:text="${option.fullName}">Jane Doe</option>
+        </select>
+      </div>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label class="form-label" for="create-jobTitle">Job title</label>
+        <input class="form-control" type="text" id="create-jobTitle" th:field="*{jobTitle}" maxlength="150" />
+      </div>
+      <div class="col-6">
+        <label class="form-label" for="create-workLocation">Work location</label>
+        <input class="form-control" type="text" id="create-workLocation" th:field="*{workLocation}" maxlength="150" />
+      </div>
+    </div>
+
+    <hr class="my-3" />
+    <h6 class="text-muted mb-2">Compensation <span class="text-muted small">(Admin only)</span></h6>
+    <div class="row g-2 mb-2">
+      <div class="col-4">
+        <label class="form-label" for="create-workingHoursPerDay">Hours/day</label>
+        <input class="form-control" type="number" step="0.5" min="0" max="24"
+               id="create-workingHoursPerDay" th:field="*{workingHoursPerDay}" />
+      </div>
+      <div class="col-4">
+        <label class="form-label" for="create-currency">Currency</label>
+        <input class="form-control" type="text" id="create-currency" th:field="*{currency}" maxlength="3" placeholder="AED" />
+      </div>
+      <div class="col-4">
+        <label class="form-label" for="create-baseCompensation">Base pay</label>
+        <input class="form-control" type="text" id="create-baseCompensation" th:field="*{baseCompensation}" />
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-4">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas">Cancel</button>
+      <button class="btn btn-primary btn-sm" type="submit">
+        <span id="employeeFormSpinner" class="spinner-border spinner-border-sm htmx-indicator me-1" aria-hidden="true"></span>
+        Create &amp; send invite
+      </button>
+    </div>
+  </form>
+  <th:block th:if="${refreshTable}">
+    <div th:replace="~{::content}"></div>
+  </th:block>
+        </th:block>
+
+        <th:block th:fragment="editForm">
+  <form th:object="${adminPatch}" th:attr="hx-patch=@{/admin/employees/{id}(id=${editingEmployeeId})}"
+        hx-target="#employeeOffcanvasBody" hx-swap="innerHTML" hx-indicator="#employeeFormSpinner">
+    <h6 class="text-muted mb-3">Editing</h6>
+
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label class="form-label" for="edit-firstName">First name <span class="text-danger" aria-hidden="true">*</span></label>
+        <input class="form-control" type="text" id="edit-firstName" th:field="*{firstName}" maxlength="100" required
+               th:classappend="${#fields.hasErrors('firstName')} ? 'is-invalid'" />
+        <div class="invalid-feedback" th:if="${#fields.hasErrors('firstName')}" th:errors="*{firstName}">Invalid</div>
+      </div>
+      <div class="col-6">
+        <label class="form-label" for="edit-lastName">Last name <span class="text-danger" aria-hidden="true">*</span></label>
+        <input class="form-control" type="text" id="edit-lastName" th:field="*{lastName}" maxlength="100" required
+               th:classappend="${#fields.hasErrors('lastName')} ? 'is-invalid'" />
+        <div class="invalid-feedback" th:if="${#fields.hasErrors('lastName')}" th:errors="*{lastName}">Invalid</div>
+      </div>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-8">
+        <label class="form-label" for="edit-email">Email <span class="text-danger" aria-hidden="true">*</span></label>
+        <input class="form-control" type="email" id="edit-email" th:field="*{email}" maxlength="255" required
+               th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'" />
+        <div class="invalid-feedback" th:if="${#fields.hasErrors('email')}" th:errors="*{email}">Invalid</div>
+      </div>
+      <div class="col-4">
+        <label class="form-label" for="edit-phone">Phone</label>
+        <input class="form-control" type="tel" id="edit-phone" th:field="*{phone}" maxlength="30" />
+      </div>
+    </div>
+
+    <hr class="my-3" />
+    <h6 class="text-muted mb-2">Job</h6>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label class="form-label" for="edit-hireDate">Hire date</label>
+        <input class="form-control" type="date" id="edit-hireDate" th:field="*{hireDate}" />
+      </div>
+      <div class="col-6">
+        <label class="form-label" for="edit-employmentType">Employment type</label>
+        <select class="form-select" id="edit-employmentType" th:field="*{employmentType}">
+          <option value="">—</option>
+          <option th:each="option : ${employmentTypeOptions}" th:value="${option}" th:text="${option}">FULL_TIME</option>
+        </select>
+      </div>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label class="form-label" for="edit-departmentId">Department</label>
+        <select class="form-select" id="edit-departmentId" th:field="*{departmentId}">
+          <option value="">—</option>
+          <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}">Engineering</option>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label" for="edit-managerId">Manager</label>
+        <select class="form-select" id="edit-managerId" th:field="*{managerId}">
+          <option value="">—</option>
+          <option th:each="option : ${managerOptions}" th:value="${option.id}" th:text="${option.fullName}">Jane Doe</option>
+        </select>
+      </div>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label class="form-label" for="edit-jobTitle">Job title</label>
+        <input class="form-control" type="text" id="edit-jobTitle" th:field="*{jobTitle}" maxlength="150" />
+      </div>
+      <div class="col-6">
+        <label class="form-label" for="edit-workLocation">Work location</label>
+        <input class="form-control" type="text" id="edit-workLocation" th:field="*{workLocation}" maxlength="150" />
+      </div>
+    </div>
+
+    <hr class="my-3" />
+    <h6 class="text-muted mb-2">Compensation <span class="text-muted small">(Admin only)</span></h6>
+    <div class="row g-2 mb-2">
+      <div class="col-4">
+        <label class="form-label" for="edit-workingHoursPerDay">Hours/day</label>
+        <input class="form-control" type="number" step="0.5" min="0" max="24"
+               id="edit-workingHoursPerDay" th:field="*{workingHoursPerDay}" />
+      </div>
+      <div class="col-4">
+        <label class="form-label" for="edit-currency">Currency</label>
+        <input class="form-control" type="text" id="edit-currency" th:field="*{currency}" maxlength="3" placeholder="AED" />
+      </div>
+      <div class="col-4">
+        <label class="form-label" for="edit-baseCompensation">Base pay</label>
+        <input class="form-control" type="text" id="edit-baseCompensation" th:field="*{baseCompensation}" />
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-4">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas">Cancel</button>
+      <button class="btn btn-primary btn-sm" type="submit">
+        <span id="employeeFormSpinner" class="spinner-border spinner-border-sm htmx-indicator me-1" aria-hidden="true"></span>
+        Save employee
+      </button>
+    </div>
+  </form>
+  <th:block th:if="${refreshTable}">
+    <div th:replace="~{::content}"></div>
+  </th:block>
+        </th:block>
+
+      </div>
+    </div>
+
+  </div>
+</th:block>
+</body>
+</html>
