@@ -122,6 +122,7 @@ class AdminEmployeeController {
                 toast(response, "Employee updated");
                 populateContentAttributes(model);
                 model.addAttribute("refreshTable", true);
+                model.addAttribute("editingEmployeeId", id);
                 return "people/list :: editForm";
             } catch (HelyxException exception) {
                 binding.rejectValue("email", exception.errorCode(), exception.getMessage());

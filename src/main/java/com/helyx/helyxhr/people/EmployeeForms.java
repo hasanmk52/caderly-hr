@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.format.annotation.DateTimeFormat;
 
 /**
  * Form-backing records for Employee create/edit (CLAUDE.md §7: DTOs are records).
@@ -37,12 +38,12 @@ public final class EmployeeForms {
             @NotBlank @Email @Size(max = 255) String email,
             @Nullable @Size(max = 50) String employeeCode,
             @Nullable @Size(max = 30) String phone,
-            @Nullable LocalDate birthDate,
+            @Nullable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate birthDate,
             @Nullable @Size(max = 20) String gender,
             @Nullable @Size(max = 20) String maritalStatus,
             @Nullable @Size(max = 100) String nationality,
             @Nullable @Size(max = 100) String citizenship,
-            @Nullable LocalDate hireDate,
+            @Nullable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hireDate,
             @Nullable EmploymentType employmentType,
             @Nullable UUID departmentId,
             @Nullable UUID managerId,
@@ -82,12 +83,12 @@ public final class EmployeeForms {
             @NotBlank @Size(max = 100) String lastName,
             @NotBlank @Email @Size(max = 255) String email,
             @Nullable @Size(max = 30) String phone,
-            @Nullable LocalDate birthDate,
+            @Nullable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate birthDate,
             @Nullable @Size(max = 20) String gender,
             @Nullable @Size(max = 20) String maritalStatus,
             @Nullable @Size(max = 100) String nationality,
             @Nullable @Size(max = 100) String citizenship,
-            @Nullable LocalDate hireDate,
+            @Nullable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hireDate,
             @Nullable EmploymentType employmentType,
             @Nullable UUID departmentId,
             @Nullable UUID managerId,
@@ -105,5 +106,6 @@ public final class EmployeeForms {
             @Nullable @Size(max = 100) String country,
             @Nullable @Size(max = 20) String postalCode) {}
 
-    public record TerminateEmployee(@NotNull LocalDate terminationDate) {}
+    public record TerminateEmployee(
+            @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate terminationDate) {}
 }
