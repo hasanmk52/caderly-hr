@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -133,8 +134,21 @@ public class EmployeeService {
         return employee;
     }
 
-    /** Called by {@link EmployeeInviteAcceptedListener} after the invite's AppUser activates. */
-    @Transactional
+    /**
+     * Called by {@link EmployeeInviteAcceptedListener} after the invite's AppUser activates.
+     *
+     * <p>{@code REQUIRES_NEW}, not the default propagation: this runs from an {@code
+     * AFTER_COMMIT} transactional event listener, where Spring's transaction-synchronization
+     * bookkeeping for the triggering transaction is still bound to the thread (cleanup hasn't run
+     * yet) even though it has already physically committed. Default {@code REQUIRED} propagation
+     * would join that finishing transaction instead of opening a real new one — {@link
+     * com.helyx.helyxhr.tenant.TenantSessionVariableListener}'s {@code afterBegin} would never
+     * fire, RLS's transaction-scoped {@code app.tenant_id} (set via {@code SET LOCAL}, which dies
+     * at the original transaction's {@code COMMIT}) would read as unset, and {@code
+     * findByUserId} below would silently see zero rows — exactly what happened before this was
+     * forced to open its own transaction.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void activateForUser(UUID userId) {
         employees
                 .findByUserId(userId)
