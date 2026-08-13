@@ -8,56 +8,17 @@
       <h1>Users</h1>
     </div>
 
-    <div th:if="${invited}" class="alert alert-success" role="status">
-      <i class="bi bi-check-circle me-1" aria-hidden="true"></i>
-      Invite sent to <strong th:text="${invited}">someone@example.com</strong>.
-    </div>
-
-    <div class="card shadow-sm mb-5">
-      <div class="card-header">
-        <h3 class="card-title h5 mb-0">Invite a user</h3>
-      </div>
-      <div class="card-body">
-        <form th:action="@{/admin/users}" th:object="${form}" method="post" class="row g-3">
-
-          <div class="col-md-5">
-            <label class="form-label" for="email">
-              Email <span class="text-danger" aria-hidden="true">*</span>
-            </label>
-            <input class="form-control" type="email" id="email" th:field="*{email}"
-                   th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'" required />
-            <div class="invalid-feedback" th:if="${#fields.hasErrors('email')}"
-                 th:errors="*{email}">Invalid email</div>
-          </div>
-
-          <div class="col-md-5">
-            <fieldset>
-              <legend class="form-label fs-6">
-                Roles <span class="text-danger" aria-hidden="true">*</span>
-              </legend>
-              <div class="d-flex gap-3">
-                <div class="form-check" th:each="role : ${allRoles}">
-                  <input class="form-check-input" type="checkbox" th:field="*{roles}"
-                         th:value="${role}" th:id="'role-' + ${role}" />
-                  <label class="form-check-label" th:for="'role-' + ${role}"
-                         th:text="${role}">EMPLOYEE</label>
-                </div>
-              </div>
-              <div class="text-danger small mt-1" th:if="${#fields.hasErrors('roles')}"
-                   th:errors="*{roles}">Pick at least one role</div>
-            </fieldset>
-          </div>
-
-          <div class="col-md-2 d-flex align-items-end">
-            <button class="btn btn-primary w-100" type="submit">Send invite</button>
-          </div>
-        </form>
-      </div>
+    <div class="alert alert-info d-flex align-items-center mb-4" role="status">
+      <i class="bi bi-info-circle me-2" aria-hidden="true"></i>
+      <span>
+        To add a new person, use <a th:href="@{/admin/employees}" class="alert-link">People &gt; Add Employee</a>
+        — it creates their login and their profile together.
+      </span>
     </div>
 
     <div th:if="${#lists.isEmpty(users)}" class="text-center text-muted py-5">
       <i class="bi bi-people fs-1 d-block mb-2" aria-hidden="true"></i>
-      <p class="mb-0">No users yet. Invite someone above to get started.</p>
+      <p class="mb-0">No users yet.</p>
     </div>
 
     <div th:unless="${#lists.isEmpty(users)}" class="table-responsive">
@@ -82,7 +43,7 @@
                 <i class="bi" aria-hidden="true"
                    th:classappend="${user.status == 'ACTIVE'} ? 'bi-check-circle'
                                  : (${user.status == 'INVITED'} ? 'bi-hourglass-split' : 'bi-slash-circle')"></i>
-                <span th:text="${user.status}">ACTIVE</span>
+                <span th:text="${user.statusLabel}">Active</span>
               </span>
             </td>
             <td th:text="${#strings.listJoin(user.roles, ', ')}">EMPLOYEE</td>

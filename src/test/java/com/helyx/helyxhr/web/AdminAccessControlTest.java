@@ -1,9 +1,7 @@
 package com.helyx.helyxhr.web;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.helyx.helyxhr.TestcontainersConfiguration;
@@ -26,7 +24,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * CLAUDE.md §8: one 200 test and one 403 test per protected endpoint per role. The permissions
- * being asserted come from PRD §26 — only Admin may create users.
+ * being asserted come from PRD §26 — only Admin may view the user list ({@code /admin/users}).
+ * Creating a user is covered by {@code AdminEmployeeAccessControlTest} instead: {@code
+ * AdminUserController} no longer writes anything (see its class javadoc).
  */
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
@@ -74,30 +74,6 @@ class AdminAccessControlTest {
     @Test
     void listUsers_whenAnonymous_redirectsToLogin() throws Exception {
         mockMvc.perform(adminUsers()).andExpect(status().is3xxRedirection());
-    }
-
-    @Test
-    void inviteUser_asEmployee_returns403() throws Exception {
-        // Checked separately from the GET: a read-only 403 says nothing about the write path.
-        mockMvc
-                .perform(
-                        post(URI.create("http://" + slug + ".localhost/admin/users"))
-                                .param("email", "new@rbac.test")
-                                .param("roles", "EMPLOYEE")
-                                .with(user("employee@rbac.test").roles("EMPLOYEE"))
-                                .with(csrf()))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void inviteUser_asAdminWithoutCsrfToken_isForbidden() throws Exception {
-        mockMvc
-                .perform(
-                        post(URI.create("http://" + slug + ".localhost/admin/users"))
-                                .param("email", "new@rbac.test")
-                                .param("roles", "EMPLOYEE")
-                                .with(user("admin@rbac.test").roles("ADMIN")))
-                .andExpect(status().isForbidden());
     }
 
     @Test

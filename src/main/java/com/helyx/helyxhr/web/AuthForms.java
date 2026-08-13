@@ -1,11 +1,8 @@
 package com.helyx.helyxhr.web;
 
-import com.helyx.helyxhr.identity.Role;
 import com.helyx.helyxhr.security.ValidPassword;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import java.util.Set;
 
 /**
  * Form-backing records for the auth pages (CLAUDE.md §7: DTOs are records).
@@ -31,6 +28,4 @@ final class AuthForms {
             return password != null && password.equals(confirmPassword);
         }
     }
-
-    record InviteUser(@NotBlank @Email String email, @NotEmpty Set<Role> roles) {}
 }
