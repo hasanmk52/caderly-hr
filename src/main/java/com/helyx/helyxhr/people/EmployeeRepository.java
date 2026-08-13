@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -17,18 +18,35 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
 
     boolean existsByEmailIgnoreCaseAndIdNot(String email, UUID id);
 
+    /**
+     * {@code department}/{@code manager} are {@code FetchType.LAZY} (Employee's doc comment), and
+     * {@code spring.jpa.open-in-view: false} means no Hibernate session survives past the owning
+     * {@code @Transactional} method — every caller that reads this outside that boundary (every
+     * web-layer DTO mapping and every Thymeleaf template touching {@code employee.department.name}
+     * or {@code employee.manager.fullName}) would otherwise hit {@code LazyInitializationException}.
+     * Fetching both eagerly here, once, is simpler than remembering it at every call site.
+     */
+    @EntityGraph(attributePaths = {"department", "manager"})
+    @Override
+    Optional<Employee> findById(UUID id);
+
+    @EntityGraph(attributePaths = {"department", "manager"})
     Optional<Employee> findByUserId(UUID userId);
 
     /** Drives the Department delete-guard's employee count (via {@link PeopleFacade}). */
     long countByDepartmentIdAndStatusNot(UUID departmentId, EmployeeStatus status);
 
+    @EntityGraph(attributePaths = {"department", "manager"})
     List<Employee> findAllByOrderByLastNameAscFirstNameAsc();
 
+    @EntityGraph(attributePaths = {"department", "manager"})
     List<Employee> findAllByDepartmentIdAndStatusOrderByLastNameAscFirstNameAsc(
             UUID departmentId, EmployeeStatus status);
 
+    @EntityGraph(attributePaths = {"department", "manager"})
     List<Employee> findAllByStatusOrderByLastNameAscFirstNameAsc(EmployeeStatus status);
 
+    @EntityGraph(attributePaths = {"department", "manager"})
     List<Employee> findAllByDepartmentIdOrderByLastNameAscFirstNameAsc(UUID departmentId);
 
     /** Drives {@link EmployeeTerminationJob}: future-dated terminations that have now arrived. */
