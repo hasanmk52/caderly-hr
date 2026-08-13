@@ -137,7 +137,10 @@
                 </div>
               </div>
 
-              <div class="card" th:if="${isSelf}">
+              <!--/* PRD §26: Admin/Manager get full read access to a report's/peer's profile, but
+                     only the owning employee may add or remove entries — data is always loaded
+                     (ProfileController#populateTab), only the mutation controls are self-gated. */-->
+              <div class="card">
                 <div class="card-body">
                   <h3 class="h6 mb-3">Government IDs</h3>
                   <ul class="list-group list-group-flush mb-3">
@@ -149,6 +152,7 @@
                         <span class="text-muted" th:if="${govId.country}" th:text="'(' + ${govId.country} + ')'">(UAE)</span>
                       </span>
                       <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Remove ID"
+                              th:if="${isSelf}"
                               th:hx-delete="@{/profile/government-ids/{id}(id=${govId.id})}"
                               hx-target="#tab-content" hx-swap="innerHTML">
                         <i class="bi bi-trash" aria-hidden="true"></i>
@@ -156,7 +160,7 @@
                     </li>
                     <li class="list-group-item text-muted" th:if="${#lists.isEmpty(governmentIds)}">None on file.</li>
                   </ul>
-                  <form th:object="${governmentIdForm}" hx-post="/profile/government-ids"
+                  <form th:if="${isSelf}" th:object="${governmentIdForm}" hx-post="/profile/government-ids"
                         hx-target="#tab-content" hx-swap="innerHTML" class="row g-2">
                     <div class="col-4">
                       <select class="form-select form-select-sm" th:field="*{idType}">
