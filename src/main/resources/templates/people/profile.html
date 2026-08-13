@@ -143,7 +143,11 @@
                   <ul class="list-group list-group-flush mb-3">
                     <li class="list-group-item d-flex justify-content-between align-items-center"
                         th:each="govId : ${governmentIds}">
-                      <span th:text="${govId.idType.label}">Passport</span>
+                      <span>
+                        <strong th:text="${govId.idType.label}">Passport</strong>
+                        — <span th:text="${govId.idNumber}">A1234567</span>
+                        <span class="text-muted" th:if="${govId.country}" th:text="'(' + ${govId.country} + ')'">(UAE)</span>
+                      </span>
                       <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Remove ID"
                               th:hx-delete="@{/profile/government-ids/{id}(id=${govId.id})}"
                               hx-target="#tab-content" hx-swap="innerHTML">
