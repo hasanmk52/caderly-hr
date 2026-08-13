@@ -212,11 +212,18 @@ class AdminEmployeeController {
                                         e.fullName(),
                                         e.email(),
                                         e.status().name(),
+                                        e.status().label(),
                                         e.department() == null ? null : e.department().name(),
                                         e.jobTitle()))
                 .toList();
     }
 
     record EmployeeRow(
-            UUID id, String fullName, String email, String status, @Nullable String departmentName, @Nullable String jobTitle) {}
+            UUID id,
+            String fullName,
+            String email,
+            String status,
+            String statusLabel,
+            @Nullable String departmentName,
+            @Nullable String jobTitle) {}
 }

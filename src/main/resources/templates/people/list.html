@@ -25,8 +25,8 @@
           <label class="form-label" for="filter-status">Status</label>
           <select class="form-select" id="filter-status" name="status" onchange="this.form.submit()">
             <option value="">All statuses</option>
-            <option th:each="option : ${statusOptions}" th:value="${option}" th:text="${option}"
-                    th:selected="${option == selectedStatus}">ACTIVE</option>
+            <option th:each="option : ${statusOptions}" th:value="${option}" th:text="${option.label}"
+                    th:selected="${option == selectedStatus}">Active</option>
           </select>
         </div>
         <div class="col-auto ms-auto">
@@ -66,7 +66,7 @@
               <td>
                 <span class="badge"
                       th:classappend="${employee.status == 'ACTIVE'} ? 'text-bg-success' : (${employee.status == 'INVITED'} ? 'text-bg-warning' : 'text-bg-secondary')"
-                      th:text="${employee.status}">ACTIVE</span>
+                      th:text="${employee.statusLabel}">Active</span>
               </td>
               <td class="text-end">
                 <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Edit employee"
@@ -173,7 +173,7 @@
         <label class="form-label" for="create-employmentType">Employment type</label>
         <select class="form-select" id="create-employmentType" th:field="*{employmentType}">
           <option value="">—</option>
-          <option th:each="option : ${employmentTypeOptions}" th:value="${option}" th:text="${option}">FULL_TIME</option>
+          <option th:each="option : ${employmentTypeOptions}" th:value="${option}" th:text="${option.label}">Full-Time</option>
         </select>
       </div>
     </div>
@@ -278,7 +278,7 @@
         <label class="form-label" for="edit-employmentType">Employment type</label>
         <select class="form-select" id="edit-employmentType" th:field="*{employmentType}">
           <option value="">—</option>
-          <option th:each="option : ${employmentTypeOptions}" th:value="${option}" th:text="${option}">FULL_TIME</option>
+          <option th:each="option : ${employmentTypeOptions}" th:value="${option}" th:text="${option.label}">Full-Time</option>
         </select>
       </div>
     </div>

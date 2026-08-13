@@ -17,7 +17,7 @@
             <h2 class="h5 mb-1" th:text="${employee.fullName}">Jane Doe</h2>
             <span class="badge mb-2"
                   th:classappend="${employee.status.name() == 'ACTIVE'} ? 'text-bg-success' : (${employee.status.name() == 'INVITED'} ? 'text-bg-warning' : 'text-bg-secondary')"
-                  th:text="${employee.status}">ACTIVE</span>
+                  th:text="${employee.status.label}">Active</span>
             <p class="text-muted small mb-1" th:if="${tenureYears != null}">
               <i class="bi bi-clock-history" aria-hidden="true"></i>
               <span th:text="${tenureYears}">2</span> yr<span th:if="${tenureYears != 1}">s</span> tenure
@@ -143,7 +143,7 @@
                   <ul class="list-group list-group-flush mb-3">
                     <li class="list-group-item d-flex justify-content-between align-items-center"
                         th:each="govId : ${governmentIds}">
-                      <span th:text="${govId.idType}">PASSPORT</span>
+                      <span th:text="${govId.idType.label}">Passport</span>
                       <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Remove ID"
                               th:hx-delete="@{/profile/government-ids/{id}(id=${govId.id})}"
                               hx-target="#tab-content" hx-swap="innerHTML">
@@ -156,11 +156,8 @@
                         hx-target="#tab-content" hx-swap="innerHTML" class="row g-2">
                     <div class="col-4">
                       <select class="form-select form-select-sm" th:field="*{idType}">
-                        <option value="PASSPORT">Passport</option>
-                        <option value="NATIONAL_ID">National ID</option>
-                        <option value="VISA">Visa</option>
-                        <option value="EMIRATES_ID">Emirates ID</option>
-                        <option value="OTHER">Other</option>
+                        <option th:each="option : ${governmentIdTypeOptions}"
+                                th:value="${option}" th:text="${option.label}">Passport</option>
                       </select>
                     </div>
                     <div class="col-4"><input class="form-control form-control-sm" placeholder="ID number" th:field="*{idNumber}" /></div>
@@ -195,7 +192,7 @@
                   <h3 class="h6 mb-3">Job</h3>
                   <dl class="row mb-0">
                     <dt class="col-4">Hire date</dt><dd class="col-8" th:text="${employee.hireDate} ?: '—'">—</dd>
-                    <dt class="col-4">Employment type</dt><dd class="col-8" th:text="${employee.employmentType} ?: '—'">—</dd>
+                    <dt class="col-4">Employment type</dt><dd class="col-8" th:text="${employee.employmentType?.label} ?: '—'">—</dd>
                     <dt class="col-4">Department</dt>
                     <dd class="col-8" th:text="${employee.department != null ? employee.department.name : '—'}">—</dd>
                     <dt class="col-4">Job title</dt><dd class="col-8" th:text="${employee.jobTitle} ?: '—'">—</dd>

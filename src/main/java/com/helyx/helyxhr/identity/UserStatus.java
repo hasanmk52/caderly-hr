@@ -18,5 +18,15 @@ public enum UserStatus {
     LOCKED,
 
     /** Deactivated by an Admin, or offboarded. Cannot log in; not self-clearing. */
-    DISABLED
+    DISABLED;
+
+    /** Display label for UI status badges. */
+    public String label() {
+        return switch (this) {
+            case INVITED -> "Invited";
+            case ACTIVE -> "Active";
+            case LOCKED -> "Locked";
+            case DISABLED -> "Disabled";
+        };
+    }
 }

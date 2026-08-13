@@ -17,4 +17,13 @@ public enum Role {
     public String authority() {
         return "ROLE_" + name();
     }
+
+    /** Display label for UI dropdowns, checkboxes, and read views. */
+    public String label() {
+        return switch (this) {
+            case EMPLOYEE -> "Employee";
+            case MANAGER -> "Manager";
+            case ADMIN -> "Admin";
+        };
+    }
 }

@@ -185,6 +185,7 @@ class ProfileController {
             default -> {
                 model.addAttribute("emergencyContacts", employees.listEmergencyContacts(employeeId));
                 model.addAttribute("governmentIds", employees.listGovernmentIds(employeeId));
+                model.addAttribute("governmentIdTypeOptions", GovernmentIdType.values());
                 model.addAttribute("bankDetail", employees.findBankDetail(employeeId).orElse(null));
                 if (!model.containsAttribute("emergencyContactForm")) {
                     model.addAttribute("emergencyContactForm", new EmergencyContactForm("", null, null, null));

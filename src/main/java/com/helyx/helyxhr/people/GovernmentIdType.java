@@ -6,5 +6,16 @@ public enum GovernmentIdType {
     NATIONAL_ID,
     VISA,
     EMIRATES_ID,
-    OTHER
+    OTHER;
+
+    /** Display label for UI dropdowns and read views. */
+    public String label() {
+        return switch (this) {
+            case PASSPORT -> "Passport";
+            case NATIONAL_ID -> "National ID";
+            case VISA -> "Visa";
+            case EMIRATES_ID -> "Emirates ID";
+            case OTHER -> "Other";
+        };
+    }
 }

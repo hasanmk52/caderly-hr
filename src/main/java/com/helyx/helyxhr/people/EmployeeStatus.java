@@ -14,5 +14,14 @@ public enum EmployeeStatus {
     ACTIVE,
 
     /** Termination has taken effect. The row is retained, never deleted (PRD §14.4). */
-    TERMINATED
+    TERMINATED;
+
+    /** Display label for UI dropdowns, filters, and status badges. */
+    public String label() {
+        return switch (this) {
+            case INVITED -> "Invited";
+            case ACTIVE -> "Active";
+            case TERMINATED -> "Terminated";
+        };
+    }
 }
