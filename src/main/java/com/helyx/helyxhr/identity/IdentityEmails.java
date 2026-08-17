@@ -25,8 +25,8 @@ final class IdentityEmails {
                 <h2>Welcome to %s</h2>
                 <p>An administrator has invited you to Helyx. Choose a password to activate your \
                 account.</p>
-                <p><a href="%s" style="background:#2f6fed;color:#fff;padding:10px 18px;\
-                border-radius:6px;text-decoration:none;display:inline-block">Set your password</a></p>
+                <p><a href="%s" style="background:#4f46e5;color:#fff;padding:10px 18px;\
+                border-radius:8px;text-decoration:none;display:inline-block">Set your password</a></p>
                 <p>Or paste this link into your browser:<br><span>%s</span></p>
                 <p><small>This link can be used once and expires in 24 hours.</small></p>
                 """
@@ -43,8 +43,8 @@ final class IdentityEmails {
                 <h2>Password reset</h2>
                 <p>We received a request to reset your %s password. If that was you, choose a new \
                 one below.</p>
-                <p><a href="%s" style="background:#2f6fed;color:#fff;padding:10px 18px;\
-                border-radius:6px;text-decoration:none;display:inline-block">Reset password</a></p>
+                <p><a href="%s" style="background:#4f46e5;color:#fff;padding:10px 18px;\
+                border-radius:8px;text-decoration:none;display:inline-block">Reset password</a></p>
                 <p>Or paste this link into your browser:<br><span>%s</span></p>
                 <p><small>This link can be used once and expires in 24 hours. If you did not \
                 request it, you can ignore this email — your password will not change.</small></p>

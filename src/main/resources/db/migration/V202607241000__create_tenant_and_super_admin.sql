@@ -6,7 +6,7 @@ CREATE TABLE tenant (
   slug varchar(50) NOT NULL UNIQUE,
   name varchar(200) NOT NULL,
   logo_url varchar(500),
-  primary_color varchar(7) DEFAULT '#2563EB',
+  primary_color varchar(7) DEFAULT '#4f46e5',
   timezone varchar(50) NOT NULL DEFAULT 'UTC',
   locale varchar(10) NOT NULL DEFAULT 'en',
   -- Bitmask of weekend days: Sat=64, Sun=32 -> 96 (PRD §21)

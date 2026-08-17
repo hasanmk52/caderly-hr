@@ -23,8 +23,8 @@ Grounded in the TalentHR screenshots the PRD was derived from, but Helyx should 
 - Admin (only role=ADMIN)
 - Reports (only role=ADMIN)
 
-Active nav item: solid background (`--bs-primary-bg-subtle`) + primary-color left border 3 px.
-Inactive: default text color, hover raises background to `--bs-secondary-bg`.
+Active nav item: `--bs-primary-bg-subtle` tint background + `--bs-primary` left border (3 px) + `--bs-primary-text-emphasis` text + 600 weight.
+Inactive: default text color, hover raises background to `--bs-tertiary-bg`. Every nav-link carries a transparent 3 px left border at baseline so activating one doesn't shift layout.
 
 **Content area:** `max-width: none` (use full width) with `--bs-body-bg` background, page-scoped `container-fluid` with `py-4 px-4`. First element is always a page header (`<h1>` + optional right-aligned actions).
 
@@ -39,20 +39,43 @@ Two layers: **system colors** (Bootstrap 5 semantic) and **tenant brand color** 
 ### System (defaults)
 | Token | Value | Use |
 |---|---|---|
-| `--bs-primary` | tenant.primary_color, default `#2563EB` | Primary buttons, links, active nav, focus rings |
+| `--bs-primary` | tenant.primary_color, default `#4f46e5` | Primary buttons, links, active nav, focus rings |
+| `--bs-primary-rgb` | `79, 70, 229` | rgba() derivatives of primary |
+| `--bs-primary-text-emphasis` | `#3730a3` | Text on primary-subtle backgrounds (Admin badge, sidebar active) |
+| `--bs-primary-bg-subtle` | `#e0e7ff` | Tinted backgrounds (Admin badge, sidebar active) |
+| `--bs-primary-border-subtle` | `#c7d2fe` | Borders on primary-tinted surfaces |
 | `--bs-secondary` | `#6C757D` | Secondary buttons |
 | `--bs-success` | `#16A34A` | Approved chip, success toast |
 | `--bs-warning` | `#F59E0B` | Pending chip, warning toast, orange CTA accent |
 | `--bs-danger` | `#DC2626` | Rejected chip, delete buttons, error toast |
 | `--bs-info` | `#0EA5E9` | Informational callouts |
-| `--bs-body-bg` | `#F7F8FA` | Content area background |
-| `--bs-body-color` | `#1F2937` | Body text |
-| Sidebar bg | `#1E3A8A` | Left sidebar solid color (dark blue) |
-| Sidebar text | `#F3F4F6` | Sidebar labels |
-| Sidebar active bg | `#3B82F6` | Active sidebar item |
+| `--bs-body-bg` | `#f8f9fb` | Content area background |
+| `--bs-body-color` | `#1f2328` | Body text |
+| `--bs-border-color` | `#e5e7eb` | Default hairline borders, table dividers |
+| `--bs-tertiary-bg` | `#f3f4f6` | Hover backgrounds (sidebar inactive hover, dropdown-item hover) |
+
+Sidebar is **not** a solid dark color — it's `bg-white` with a `border-end`, per the fragment actually shipped (`fragments/sidebar.html`). Active item: `--bs-primary-bg-subtle` tint + `--bs-primary` 3 px left border + `--bs-primary-text-emphasis` text. Inactive hover: `--bs-tertiary-bg`. (An earlier version of this doc specified a solid dark-navy sidebar with a solid-fill active state; that was never built. This section now documents the light sidebar that exists.)
+
+**Bootstrap 5.3 gotcha:** `-bg-subtle`, `-text-emphasis`, `-border-subtle`, and `-rgb` tokens (and `--bs-focus-ring-color`) are static hex values compiled into Bootstrap's CSS — they are *not* derived from `var(--bs-primary)` at runtime. Changing `--bs-primary` alone leaves the Admin badge, sidebar active state, and focus ring on stock Bootstrap blue. Always override the whole primary family together (see `static/css/theme-overrides.css`).
+
+### Radius scale
+| Token | Value |
+|---|---|
+| `--bs-border-radius-sm` | `0.375rem` — small controls (`btn-sm`, `form-control-sm`) |
+| `--bs-border-radius` | `0.5rem` — base (buttons, inputs, cards, badges) |
+| `--bs-border-radius-lg` | `0.75rem` — modal/offcanvas content |
+
+### Elevation scale
+| Token | Value | Use |
+|---|---|---|
+| `--bs-box-shadow-sm` | `0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08)` | Cards (`shadow-sm`) |
+| `--bs-box-shadow` | `0 4px 12px rgba(16,24,40,.08), 0 2px 4px rgba(16,24,40,.06)` | Dropdowns, modals |
+| `--bs-box-shadow-lg` | `0 12px 32px rgba(16,24,40,.12), 0 4px 8px rgba(16,24,40,.06)` | Offcanvas (targeted override — Bootstrap ships no shadow var for it by default) |
 
 ### Tenant primary color
-`tenant.primary_color` (hex, per PRD §5) is injected into `--bs-primary` at layout render via a `<style>` tag in `head.html`. Nothing else changes per tenant.
+`tenant.primary_color` (hex, per PRD §5) is injected into `--bs-primary` at layout render via a `<style>` tag in `head.html`. **Not yet implemented** (Phase 1.10 owns this, per `docs/CURRENT_PHASE.md`'s carried-forward items). When it is: per the gotcha above, the tenant `<style>` block must set the *whole* primary token family (rgb / text-emphasis / bg-subtle / border-subtle / focus-ring / link colors), computed from the tenant's hex the same way `theme-overrides.css` derives it from `#4f46e5` — not just `--bs-primary` — or a custom tenant color will look inconsistent against the Admin badge and sidebar active state.
+
+**Resolved:** the `tenant.primary_color` column's DB default originally shipped as `#2563EB` (`V202607241000__create_tenant_and_super_admin.sql`) — the color this document specified before this pass, not the `#4f46e5` it specifies now, and MHZ's own row still held it since nothing sets `primary_color` explicitly at seed time. The migration's default and MHZ's row were both updated to `#4f46e5`, and the PRD's schema snippet (Helyx_PRD.md §5) was updated to match. Phase 1.10 can now wire up the `<style>` injection without inheriting a stale default.
 
 ### Do not
 - Hardcode hex values in templates. Use `var(--bs-primary)` or Bootstrap utility classes.
@@ -63,7 +86,7 @@ Two layers: **system colors** (Bootstrap 5 semantic) and **tenant brand color** 
 
 ## 3. Typography
 
-- **Family:** `Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`. Load Inter from Bunny Fonts (privacy-friendly, no Google tracking) via CDN in `head.html`.
+- **Family:** `"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`. `SecurityConfig`'s CSP (PRD §19.6) deliberately locks `font-src`/`style-src` to `'self'` — "every asset is served from WebJars on our own origin" — so a CDN webfont (e.g. Bunny Fonts) was ruled out. Inter is instead **self-hosted** via `org.webjars.npm:fontsource__inter` (pom.xml), the same webjar mechanism already used for Bootstrap/Bootstrap Icons/Alpine: the actual woff2 files ship inside the jar with local relative `@font-face` paths, served same-origin through `/webjars/**`, so no CSP change was needed. `head.html` links only the `400.css`/`500.css`/`600.css` weight files — matching this section's "no 700+" rule — not the full weight set the webjar ships. `system-ui` remains as the fallback while the webfont loads or if it fails.
 - **Scale:**
   - `h1`: 1.75 rem / 600 weight — page titles
   - `h2`: 1.5 rem / 600 — section headers within a page
@@ -108,6 +131,9 @@ Prefer: `mb-2` (0.5rem), `mb-3` (1rem), `mb-4` (1.5rem), `mb-5` (3rem). Same sca
 - **Cancel is always a button, never a link:** `btn-outline-secondary`, whether it dismisses a modal/offcanvas or navigates away (an `<a class="btn btn-outline-secondary">` for the latter). `btn-link` is for genuinely link-like actions (sortable column headers, "Forgot password?"), not for Cancel.
 - **Icon-only:** always add `aria-label` and use `btn` + Bootstrap Icon child.
 - **Sizes:** default for main CTAs, `btn-sm` in tables and toolbars, avoid `btn-lg`. Modal and offcanvas action bars (§ Modals, § Slide-over panels) use `btn-sm` for both buttons — these sit inside an already-compact panel, not the main page CTA.
+
+### Links
+Both `.btn-link` (sortable column headers, "Forgot password?") and plain in-content `<a>` (table row → detail links, empty-state "How-to guide" links) share one treatment, overridden in `theme-overrides.css`: 500 weight, no underline at rest, underline on hover/focus. Nav links, dropdown items, the navbar brand, and buttons are excluded — they keep their own component styling. Do not hand-roll a different link style; extend the shared selector in `theme-overrides.css` if a new case doesn't fit.
 
 ### Cards
 - Use `card` for all widgets, list items with heavy content, dashboard tiles.
@@ -159,6 +185,8 @@ Standard pill mapping — never invent new colors:
 | Employee role | `badge bg-dark text-white` | — |
 | Manager role | `badge bg-info-subtle text-info-emphasis` | — |
 | Admin role | `badge bg-primary-subtle text-primary-emphasis` | — |
+
+Existing code in `people/list.html`, `people/profile.html`, `admin/users.html`, `admin/leave-types.html` predates this table and uses Bootstrap's stock solid `badge text-bg-{color}` helpers instead of the subtle/emphasis pair above. `theme-overrides.css` repoints `.badge.text-bg-*` to the matching subtle/emphasis colors via CSS override, so those existing badges already render with the soft-pill look this table specifies — no template edit needed. New code should still prefer writing `bg-*-subtle text-*-emphasis` directly per the table; both forms now look identical.
 
 ### Avatars
 - Circle with initials fallback (first + last, uppercased) when no photo.

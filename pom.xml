@@ -41,6 +41,7 @@
 		<bootstrap-icons.version>1.13.1</bootstrap-icons.version>
 		<htmx.version>2.0.10</htmx.version>
 		<alpinejs.version>3.15.12</alpinejs.version>
+		<fontsource-inter.version>5.2.5</fontsource-inter.version>
 
 		<!-- Application dependency versions (CLAUDE.md §7: one place per dependency) -->
 		<bucket4j.version>8.14.0</bucket4j.version>
@@ -129,6 +130,15 @@
 			<groupId>org.webjars.npm</groupId>
 			<artifactId>alpinejs__csp</artifactId>
 			<version>${alpinejs.version}</version>
+		</dependency>
+		<!-- Self-hosted Inter (UI_Guidelines.md §3): Fontsource's npm package, mirrored as a
+		     webjar, ships the actual woff2 files inside the jar with local relative @font-face
+		     src paths - served same-origin via /webjars/**, so SecurityConfig's font-src 'self'
+		     needs no change. -->
+		<dependency>
+			<groupId>org.webjars.npm</groupId>
+			<artifactId>fontsource__inter</artifactId>
+			<version>${fontsource-inter.version}</version>
 		</dependency>
 
 		<!-- Tenant lookup cache in TenantResolutionFilter (CLAUDE.md §3 stack: Caffeine,

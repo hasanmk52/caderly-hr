@@ -732,7 +732,7 @@ CREATE TABLE tenant (
   slug varchar(50) NOT NULL UNIQUE,
   name varchar(200) NOT NULL,
   logo_url varchar(500),
-  primary_color varchar(7) DEFAULT '#2563EB',
+  primary_color varchar(7) DEFAULT '#4f46e5', -- was #2563EB; matches UI_Guidelines.md §2
   timezone varchar(50) NOT NULL DEFAULT 'UTC',
   locale varchar(10) NOT NULL DEFAULT 'en',
   weekend_days int NOT NULL DEFAULT 96, -- bitmask: Sat=64, Sun=32 -> 96

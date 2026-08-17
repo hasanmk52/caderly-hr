@@ -17,7 +17,13 @@
   <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}" />
   <link rel="stylesheet" th:href="@{/webjars/bootstrap/css/bootstrap.min.css}" />
   <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/font/bootstrap-icons.min.css}" />
+  <!--/* UI Guidelines §3: only the weights the type scale actually uses (400/500/600 - no
+         700+). Self-hosted via the fontsource webjar, not a CDN - see SecurityConfig's CSP. */-->
+  <link rel="stylesheet" th:href="@{/webjars/fontsource__inter/400.css}" />
+  <link rel="stylesheet" th:href="@{/webjars/fontsource__inter/500.css}" />
+  <link rel="stylesheet" th:href="@{/webjars/fontsource__inter/600.css}" />
   <link rel="stylesheet" th:href="@{/css/helyx.css}" />
+  <link rel="stylesheet" th:href="@{/css/theme-overrides.css}" />
 </head>
 <body></body>
 </html>
