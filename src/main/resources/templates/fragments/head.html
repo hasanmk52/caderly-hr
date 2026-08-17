@@ -11,6 +11,10 @@
   <meta name="_csrf" th:content="${_csrf.token}" />
   <meta name="_csrf_header" th:content="${_csrf.headerName}" />
   <title th:text="${title} + ' · Helyx HR'">Helyx HR</title>
+  <link rel="icon" th:href="@{/favicon.ico}" sizes="any" />
+  <link rel="icon" type="image/png" th:href="@{/favicon-32x32.png}" sizes="32x32" />
+  <link rel="icon" type="image/png" th:href="@{/favicon-16x16.png}" sizes="16x16" />
+  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}" />
   <link rel="stylesheet" th:href="@{/webjars/bootstrap/css/bootstrap.min.css}" />
   <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/font/bootstrap-icons.min.css}" />
   <link rel="stylesheet" th:href="@{/css/helyx.css}" />
