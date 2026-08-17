@@ -2,8 +2,10 @@ package com.helyx.helyxhr.people;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import com.helyx.helyxhr.common.ConflictException;
+import com.helyx.helyxhr.common.NotFoundException;
 import com.helyx.helyxhr.common.ValidationException;
 import com.helyx.helyxhr.identity.AppUser;
 import com.helyx.helyxhr.identity.AppUserDetailsService;
@@ -23,6 +25,7 @@ import com.helyx.helyxhr.tenant.TenantContext;
 import com.helyx.helyxhr.tenantisolation.TenantIsolationTestBase;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.net.URLDecoder;
 import java.util.List;
@@ -58,6 +61,7 @@ class EmployeeServiceTest extends TenantIsolationTestBase {
     @Autowired private MutableClock clock;
     @Autowired private InviteService inviteService;
     @Autowired private EmailOutboxRepository emailOutbox;
+    @Autowired private org.springframework.transaction.support.TransactionTemplate transactions;
 
     private static final Pattern TOKEN_IN_LINK = Pattern.compile("[?&]token=([A-Za-z0-9_%\\-]+)");
 
@@ -237,6 +241,177 @@ class EmployeeServiceTest extends TenantIsolationTestBase {
     }
 
     @Test
+    void reassignManager_toAManagerWhoAlreadyReportsToTheEmployee_throwsValidation() {
+        Employee boss = createActiveEmployee("Boss", "Person");
+        Employee report = createActiveEmployee("Report", "Person");
+        asTenant(tenantA, () -> employeeService.reassignManager(report.requireId(), boss.requireId()));
+
+        // Closing the loop the other way round: boss would report to their own report.
+        assertThatThrownBy(
+                        () -> asTenant(tenantA, () -> employeeService.reassignManager(boss.requireId(), report.requireId())))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    /** The same rule two levels up: the loop does not have to be direct to be a loop. */
+    @Test
+    void reassignManager_toAManagerWhoReportsIndirectlyToTheEmployee_throwsValidation() {
+        Employee top = createActiveEmployee("Top", "Person");
+        Employee middle = createActiveEmployee("Middle", "Person");
+        Employee bottom = createActiveEmployee("Bottom", "Person");
+        asTenant(tenantA, () -> employeeService.reassignManager(middle.requireId(), top.requireId()));
+        asTenant(tenantA, () -> employeeService.reassignManager(bottom.requireId(), middle.requireId()));
+
+        assertThatThrownBy(
+                        () -> asTenant(tenantA, () -> employeeService.reassignManager(top.requireId(), bottom.requireId())))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    /**
+     * The other half of the cycle fix, and the reason the guard alone is not enough: the guard
+     * cannot repair a loop written before it existed, and {@code isManagerOf} is itself the query
+     * that walks the chain.
+     *
+     * <p>The failing case is specifically a <em>false</em> answer. {@code EXISTS} short-circuits
+     * the moment it finds a match, so a question whose answer is "yes" returns even from a cyclic
+     * chain; a question whose answer is "no" has to exhaust the recursion, which under {@code
+     * UNION ALL} never ends. That is the access-<em>denied</em> path — a manager viewing someone
+     * who is not their report — so the hang landed on the branch that protects data, not the one
+     * that serves it.
+     *
+     * <p>Wrapped in a preemptive timeout because the pre-fix failure mode is an unbounded query,
+     * not a wrong answer: without it a regression here would hang the build instead of failing it.
+     */
+    @Test
+    void isManagerOf_whenTheChainAlreadyContainsACycle_terminatesAndReturnsFalse() {
+        Employee a = createActiveEmployee("Cycle", "Aye");
+        Employee b = createActiveEmployee("Cycle", "Bee");
+        Employee outsider = createActiveEmployee("Outside", "Person");
+        asTenant(tenantA, () -> employeeService.reassignManager(a.requireId(), b.requireId()));
+
+        // Deliberately bypasses reassignManager's new guard, writing the entity field directly:
+        // this reproduces a loop that predates the guard, which is exactly what the guard cannot
+        // help with.
+        asTenant(
+                tenantA,
+                () ->
+                        transactions.execute(
+                                status -> {
+                                    Employee managed = employees.findById(b.requireId()).orElseThrow();
+                                    managed.reassignManager(employees.findById(a.requireId()).orElseThrow());
+                                    return null;
+                                }));
+
+        boolean reachable =
+                assertTimeoutPreemptively(
+                        Duration.ofSeconds(20),
+                        () -> asTenant(tenantA, () -> employees.isManagerOf(outsider.requireId(), a.requireId())));
+        assertThat(reachable).isFalse();
+    }
+
+    /**
+     * Regression test for two defects that shared six lines of {@code create}. The manager was
+     * assigned by {@code applyAdminFields} <em>before</em> {@code employees.save(employee)}, so
+     * {@code reassignManagerInternal}'s {@code employee.requireId()} blew up on an entity whose
+     * {@code @UuidGenerator} id is not assigned until {@code persist()} — every attempt to create
+     * an employee with a manager was a 500. Behind that, {@code create} then wrote a *second*
+     * manager-history row for the manager {@code reassignManagerInternal} had already recorded.
+     *
+     * <p>Both are asserted here on purpose: fixing only the ordering turns a loud failure into a
+     * silent duplicate, which is strictly worse. No test created an employee with a manager
+     * before this one — every other manager test reassigns on an already-persisted record, which
+     * is exactly the shape that cannot catch either bug.
+     */
+    @Test
+    void create_withManager_linksManagerAndOpensExactlyOneHistoryRow() {
+        Employee manager = createActiveEmployee("Manager", "One");
+
+        Employee created =
+                asTenant(
+                        tenantA,
+                        () ->
+                                employeeService.create(
+                                        formWithManager("Report", "Ee", uniqueEmail(), manager.requireId()),
+                                        BASE_URL,
+                                        TENANT_NAME));
+
+        Employee reloaded = asTenant(tenantA, () -> employeeService.require(created.requireId()));
+        assertThat(reloaded.manager()).isNotNull();
+        assertThat(reloaded.manager().requireId()).isEqualTo(manager.requireId());
+
+        var history =
+                asTenant(
+                        tenantA,
+                        () -> managerHistory.findAllByEmployeeIdOrderByEffectiveFromDescCreatedAtDesc(created.requireId()));
+        assertThat(history).hasSize(1);
+        assertThat(history.getFirst().effectiveTo()).isNull();
+    }
+
+    /**
+     * What the duplicate row actually costs. {@code
+     * findFirstByEmployeeIdAndEffectiveToIsNullOrderByEffectiveFromDesc} closes one open row, so
+     * a create that opened two leaves one open forever and the history stops being a chain.
+     */
+    @Test
+    void create_withManager_thenReassign_leavesExactlyOneOpenHistoryRow() {
+        Employee manager1 = createActiveEmployee("Manager", "One");
+        Employee manager2 = createActiveEmployee("Manager", "Two");
+        Employee report =
+                asTenant(
+                        tenantA,
+                        () ->
+                                employeeService.create(
+                                        formWithManager("Report", "Ee", uniqueEmail(), manager1.requireId()),
+                                        BASE_URL,
+                                        TENANT_NAME));
+
+        asTenant(tenantA, () -> employeeService.reassignManager(report.requireId(), manager2.requireId()));
+
+        var history =
+                asTenant(
+                        tenantA,
+                        () -> managerHistory.findAllByEmployeeIdOrderByEffectiveFromDescCreatedAtDesc(report.requireId()));
+        assertThat(history).hasSize(2);
+        assertThat(history).filteredOn(row -> row.effectiveTo() == null).hasSize(1);
+    }
+
+    /** Pins the no-manager path: a new hire without one must not get a null-manager history row. */
+    @Test
+    void create_withoutManager_writesNoManagerHistoryRow() {
+        Employee created =
+                asTenant(tenantA, () -> employeeService.create(form("Jane", "Doe", uniqueEmail()), BASE_URL, TENANT_NAME));
+
+        var history =
+                asTenant(
+                        tenantA,
+                        () -> managerHistory.findAllByEmployeeIdOrderByEffectiveFromDescCreatedAtDesc(created.requireId()));
+        assertThat(history).isEmpty();
+    }
+
+    /**
+     * CLAUDE.md §5 rule 8. The manager is resolved through {@code require(managerId)}, which is
+     * {@code @TenantId}-scoped, so another tenant's employee id must read as not-found rather
+     * than linking across the boundary.
+     */
+    @Test
+    void create_withManagerFromAnotherTenant_throwsNotFound() {
+        Employee foreignManager =
+                asTenant(
+                        tenantB,
+                        () -> employeeService.create(form("Foreign", "Manager", uniqueEmail()), BASE_URL, TENANT_NAME));
+
+        assertThatThrownBy(
+                        () ->
+                                asTenant(
+                                        tenantA,
+                                        () ->
+                                                employeeService.create(
+                                                        formWithManager("Report", "Ee", uniqueEmail(), foreignManager.requireId()),
+                                                        BASE_URL,
+                                                        TENANT_NAME)))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
     void terminate_withPastDate_appliesImmediatelyAndClosesStatusHistory() {
         Employee employee = createActiveEmployee("Jane", "Doe");
 
@@ -376,6 +551,14 @@ class EmployeeServiceTest extends TenantIsolationTestBase {
     private static EmployeeForms.CreateEmployee form(String firstName, String lastName, String email) {
         return new EmployeeForms.CreateEmployee(
                 firstName, lastName, email, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null);
+    }
+
+    /** {@link #form} with the 14th field, {@code managerId}, filled in — the Add Employee form's Manager select. */
+    private static EmployeeForms.CreateEmployee formWithManager(
+            String firstName, String lastName, String email, UUID managerId) {
+        return new EmployeeForms.CreateEmployee(
+                firstName, lastName, email, null, null, null, null, null, null, null, null, null, null, managerId,
                 null, null, null, null, null);
     }
 

@@ -127,9 +127,11 @@ public class EmployeeService {
         employees.save(employee);
 
         statusHistory.save(EmployeeStatusHistory.open(employee, EmployeeStatus.INVITED, form.employmentType(), today));
-        if (employee.manager() != null) {
-            managerHistory.save(EmployeeManagerHistory.open(employee, employee.manager(), today));
-        }
+        // After save(), because the manager transition needs the employee's id (see
+        // applyManagerChange). This is also the only place a manager-history row is written on
+        // create: a second managerHistory.save() used to sit here, duplicating the row
+        // reassignManagerInternal already writes, which left two rows open on the same day.
+        applyManagerChange(employee, form.managerId());
 
         UUID userId = inviteService.invite(form.email(), Set.of(Role.EMPLOYEE), appBaseUrl, tenantName);
         employee.linkUser(userId);
@@ -188,6 +190,7 @@ public class EmployeeService {
                     "EMPLOYEE_EMAIL_TAKEN", "An employee with that email already exists");
         }
         applyAdminFields(employee, patch);
+        applyManagerChange(employee, patch.managerId());
         return employee;
     }
 
@@ -213,11 +216,21 @@ public class EmployeeService {
                 patch.workingHoursPerDay() == null ? BigDecimal.valueOf(8.0) : patch.workingHoursPerDay(),
                 patch.currency(),
                 patch.baseCompensation());
-        if (patch.managerId() != null || employee.manager() != null) {
-            UUID currentManagerId = employee.manager() == null ? null : employee.manager().requireId();
-            if (!java.util.Objects.equals(currentManagerId, patch.managerId())) {
-                reassignManagerInternal(employee, patch.managerId());
-            }
+    }
+
+    /**
+     * Deliberately not part of {@link #applyAdminFields}: this needs a <em>persisted</em>
+     * employee, and that one does not. Both the self-management guard and the open-history
+     * lookup below call {@code requireId()}, and {@code @UuidGenerator} does not assign an id
+     * until {@code persist()} — so running this before {@code save()} threw "Employee has not
+     * been persisted" and made every create-with-a-manager a 500. {@link #create} therefore
+     * calls it after {@code save()}; {@link #updateAdminFields} calls it straight after
+     * {@link #applyAdminFields} on a record that is already persisted.
+     */
+    private void applyManagerChange(Employee employee, @Nullable UUID managerId) {
+        UUID currentManagerId = employee.manager() == null ? null : employee.manager().requireId();
+        if (!java.util.Objects.equals(currentManagerId, managerId)) {
+            reassignManagerInternal(employee, managerId);
         }
     }
 
@@ -248,6 +261,11 @@ public class EmployeeService {
         if (managerId != null && managerId.equals(employee.requireId())) {
             throw new ValidationException(
                     "EMPLOYEE_CANNOT_MANAGE_SELF", "An employee cannot be their own manager");
+        }
+        if (managerId != null && wouldCloseAReportingLoop(employee.requireId(), managerId)) {
+            throw new ValidationException(
+                    "EMPLOYEE_MANAGER_CYCLE",
+                    "That person already reports to this employee, directly or through their team");
         }
         Employee manager = managerId == null ? null : require(managerId);
         LocalDate today = LocalDate.now(clock);
@@ -296,6 +314,22 @@ public class EmployeeService {
         // Cancelling future leave requests (PRD §14.4) is a no-op until leave_request exists
         // (Phase 1.5/1.6) — reserved gap, not an oversight (see CURRENT_PHASE.md carried-forward).
         log.info("Terminated employee {}", employee.requireId());
+    }
+
+    /**
+     * Whether pointing {@code employeeId} at {@code proposedManagerId} would close a loop in the
+     * reporting line — which it does exactly when the proposed manager already reports up to this
+     * employee, so that the employee would end up an ancestor of their own manager.
+     *
+     * <p>Reads as the mirror image of {@link EmployeeRepository#isManagerOf}, and exists to name
+     * that inversion: the arguments are the caller's swapped round, which is easy to get backwards
+     * and impossible to notice at the call site.
+     *
+     * <p>Only reachable from a reassignment. A newly created employee has no reports yet, so the
+     * create path cannot close a loop however its manager is chosen.
+     */
+    private boolean wouldCloseAReportingLoop(UUID employeeId, UUID proposedManagerId) {
+        return employees.isManagerOf(employeeId, proposedManagerId);
     }
 
     /**

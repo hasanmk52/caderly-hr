@@ -1,11 +1,14 @@
 package com.helyx.helyxhr.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.helyx.helyxhr.TestcontainersConfiguration;
@@ -13,6 +16,7 @@ import com.helyx.helyxhr.org.Department;
 import com.helyx.helyxhr.org.DepartmentRepository;
 import com.helyx.helyxhr.org.Division;
 import com.helyx.helyxhr.org.DivisionRepository;
+import com.helyx.helyxhr.people.EmployeeRepository;
 import com.helyx.helyxhr.tenant.Tenant;
 import com.helyx.helyxhr.tenant.TenantContext;
 import com.helyx.helyxhr.tenant.TenantRepository;
@@ -27,7 +31,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.validation.BindingResult;
 
 /**
  * Regression coverage for the {@code LazyInitializationException} an Employee with a
@@ -49,6 +56,7 @@ class AdminEmployeeControllerTest {
     @Autowired private TenantRepository tenants;
     @Autowired private DivisionRepository divisions;
     @Autowired private DepartmentRepository departments;
+    @Autowired private EmployeeRepository employees;
     @Autowired private TransactionTemplate transactions;
 
     private String slug;
@@ -92,6 +100,116 @@ class AdminEmployeeControllerTest {
                 .perform(get(URI.create("http://" + slug + ".localhost/admin/employees")).with(admin()))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Engineering")));
+    }
+
+    /**
+     * The user-facing half of the {@code create}-with-a-manager fix: the service-level proof lives
+     * in {@code EmployeeServiceTest}, but only a real form POST shows that the Manager select on
+     * the Add Employee offcanvas ({@code people/list.html}) no longer produces a 500. Before the
+     * fix this returned an error page, because {@code create} performed the manager transition
+     * before {@code save()} had assigned the employee an id.
+     */
+    @Test
+    void createEmployeeWithManager_returnsOkRatherThanServerError() throws Exception {
+        UUID departmentId = seedDepartment("Operations");
+        UUID managerId = createEmployeeReturningId("Boss", "Person", "boss@emp-ctrl.test", departmentId);
+
+        mockMvc
+                .perform(
+                        post(URI.create("http://" + slug + ".localhost/admin/employees"))
+                                .param("firstName", "Report")
+                                .param("lastName", "Person")
+                                .param("email", "report@emp-ctrl.test")
+                                .param("departmentId", departmentId.toString())
+                                .param("managerId", managerId.toString())
+                                .with(admin())
+                                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Report")));
+    }
+
+    /**
+     * A business error has to land on the field that caused it. Every {@code HelyxException} used
+     * to be rejected onto {@code email} — correct when the only possible failure was a duplicate
+     * address, but it meant the reporting-loop refusal rendered a red message under Email with
+     * the Manager select left looking fine.
+     */
+    @Test
+    void updateIntoAReportingLoop_reportsTheErrorAgainstTheManagerField() throws Exception {
+        UUID departmentId = seedDepartment("Delivery");
+        UUID bossId = createEmployeeReturningId("Boss", "Person", "loop-boss@emp-ctrl.test", departmentId);
+        UUID reportId = createEmployeeReturningId("Report", "Person", "loop-report@emp-ctrl.test", departmentId);
+        patchEmployee(reportId, "Report", "Person", "loop-report@emp-ctrl.test", departmentId, bossId)
+                .andExpect(status().isOk());
+
+        // Boss would now report to their own report.
+        patchEmployee(bossId, "Boss", "Person", "loop-boss@emp-ctrl.test", departmentId, reportId)
+                .andExpect(status().isOk())
+                .andExpect(model().attributeHasFieldErrorCode("adminPatch", "managerId", "EMPLOYEE_MANAGER_CYCLE"))
+                .andExpect(
+                        result -> {
+                            BindingResult binding =
+                                    (BindingResult)
+                                            result.getModelAndView()
+                                                    .getModel()
+                                                    .get(BindingResult.MODEL_KEY_PREFIX + "adminPatch");
+                            assertThat(binding.getFieldErrors("email")).isEmpty();
+                        });
+    }
+
+    /** The mapping must not regress the case it was originally written for. */
+    @Test
+    void updateToAnAlreadyTakenEmail_stillReportsTheErrorAgainstTheEmailField() throws Exception {
+        UUID departmentId = seedDepartment("Support");
+        createEmployeeReturningId("Taken", "Person", "taken@emp-ctrl.test", departmentId);
+        UUID otherId = createEmployeeReturningId("Other", "Person", "other@emp-ctrl.test", departmentId);
+
+        patchEmployee(otherId, "Other", "Person", "taken@emp-ctrl.test", departmentId, null)
+                .andExpect(status().isOk())
+                .andExpect(model().attributeHasFieldErrorCode("adminPatch", "email", "EMPLOYEE_EMAIL_TAKEN"));
+    }
+
+    private ResultActions patchEmployee(
+            UUID id, String firstName, String lastName, String email, UUID departmentId, UUID managerId)
+            throws Exception {
+        MockHttpServletRequestBuilder request =
+                patch(URI.create("http://" + slug + ".localhost/admin/employees/" + id))
+                        .param("firstName", firstName)
+                        .param("lastName", lastName)
+                        .param("email", email)
+                        .param("departmentId", departmentId.toString());
+        if (managerId != null) {
+            request = request.param("managerId", managerId.toString());
+        }
+        return mockMvc.perform(request.with(admin()).with(csrf()));
+    }
+
+    /** Creates through the real endpoint, then reads the id back the way a follow-up request would. */
+    private UUID createEmployeeReturningId(
+            String firstName, String lastName, String email, UUID departmentId) throws Exception {
+        mockMvc
+                .perform(
+                        post(URI.create("http://" + slug + ".localhost/admin/employees"))
+                                .param("firstName", firstName)
+                                .param("lastName", lastName)
+                                .param("email", email)
+                                .param("departmentId", departmentId.toString())
+                                .with(admin())
+                                .with(csrf()))
+                .andExpect(status().isOk());
+
+        TenantContext.set(tenantId);
+        try {
+            return transactions.execute(
+                    status ->
+                            employees.findAllByOrderByLastNameAscFirstNameAsc().stream()
+                                    .filter(employee -> employee.email().equals(email))
+                                    .findFirst()
+                                    .orElseThrow()
+                                    .requireId());
+        } finally {
+            TenantContext.clear();
+        }
     }
 
     private UUID seedDepartment(String name) {
