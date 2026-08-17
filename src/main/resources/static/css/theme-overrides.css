@@ -1,0 +1,208 @@
+/*
+ * Theme tokens layered on top of Bootstrap 5.3's CSS custom properties. No Sass
+ * recompile, no webjar fork — see docs/UI_Guidelines.md §2 for the source-of-truth
+ * palette these values implement.
+ *
+ * IMPORTANT: Bootstrap 5.3's "-bg-subtle" / "-text-emphasis" / "-border-subtle" /
+ * "-rgb" tokens and --bs-focus-ring-color are hardcoded static hex values baked
+ * into the compiled CSS, NOT derived from var(--bs-primary) at runtime. Changing
+ * --bs-primary alone would leave the Admin badge, sidebar active state, and focus
+ * ring on stock Bootstrap blue — the whole primary family below must move together.
+ */
+
+:root {
+  /* Primary — indigo-600, with the matching tint/shade family (Tailwind indigo
+     scale) so -bg-subtle/-text-emphasis pairings stay one consistent hue. */
+  --bs-primary: #4f46e5;
+  --bs-primary-rgb: 79, 70, 229;
+  --bs-primary-text-emphasis: #3730a3;
+  --bs-primary-bg-subtle: #e0e7ff;
+  --bs-primary-border-subtle: #c7d2fe;
+  --bs-link-color: #4f46e5;
+  --bs-link-color-rgb: 79, 70, 229;
+  --bs-link-hover-color: #4338ca;
+  --bs-link-hover-color-rgb: 67, 56, 202;
+  --bs-focus-ring-color: rgba(79, 70, 229, 0.25);
+
+  /* Neutrals */
+  --bs-body-bg: #f8f9fb;
+  --bs-body-color: #1f2328;
+  --bs-border-color: #e5e7eb;
+  --bs-border-color-translucent: rgba(31, 35, 40, 0.08);
+  --bs-secondary-color: rgba(31, 35, 40, 0.65);
+  --bs-tertiary-bg: #f3f4f6;
+
+  /* Radius — one step softer than Bootstrap's defaults across the board. */
+  --bs-border-radius: 0.5rem;
+  --bs-border-radius-sm: 0.375rem;
+  --bs-border-radius-lg: 0.75rem;
+
+  /* Elevation — softer, cool-toned multi-layer shadows in place of Bootstrap's
+     flat-black ones. Cards (shadow-sm), dropdowns, and modals all reference these
+     vars directly, so this alone re-elevates them. */
+  --bs-box-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+  --bs-box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 4px rgba(16, 24, 40, 0.06);
+  --bs-box-shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.12), 0 4px 8px rgba(16, 24, 40, 0.06);
+
+  /* Typography — Inter, self-hosted via the fontsource webjar (see head.html and
+     pom.xml) since CSP's font-src is locked to 'self' and a CDN font was ruled
+     out. system-ui remains as the fallback while the webfont loads/if it fails. */
+  --bs-body-font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Component-local overrides for primary color.
+ *
+ * The gotcha above goes further than the -subtle/-emphasis/-rgb tokens: Bootstrap
+ * 5.3's component MIXINS (button-variant, nav-pills, form focus) bake the original
+ * $primary Sass value into their OWN local CSS variables at compile time too —
+ * e.g. .btn-primary's --bs-btn-bg is a static #0d6efd in the shipped CSS, not
+ * var(--bs-primary). Verified in a running instance: the login button and every
+ * form-control focus ring rendered stock Bootstrap blue despite the :root tokens
+ * above being correct. Per Bootstrap's own CSS-variables docs, the fix is the same
+ * pattern Bootstrap uses internally — override each component's local vars, not
+ * the property directly. Scoped to what's actually used in these templates
+ * (.btn-primary, form focus rings, checkboxes) — no .btn-outline-primary,
+ * pagination, or dropdown-active styling exists in the templates today.
+ */
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #4338ca;
+  --bs-btn-hover-border-color: #4338ca;
+  --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #3730a3;
+  --bs-btn-active-border-color: #3730a3;
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-bg: var(--bs-primary);
+  --bs-btn-disabled-border-color: var(--bs-primary);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-primary-border-subtle);
+  box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color);
+}
+
+.form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+.form-check-input:focus {
+  border-color: var(--bs-primary-border-subtle);
+  box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color);
+}
+
+/* Status badges: existing templates emit Bootstrap's stock solid `text-bg-*`
+   helpers. Repointing them to the matching subtle/emphasis pair gives every
+   existing badge the softer pill look without touching template markup.
+   `!important` is required here to match specificity: Bootstrap's own
+   `.text-bg-*` utility classes are generated with `!important` (verified via
+   the served stylesheet, e.g. `.text-bg-success { ... !important; }`), so a
+   plain override loses to them regardless of source order or selector count. */
+.badge.text-bg-primary {
+  background-color: var(--bs-primary-bg-subtle) !important;
+  color: var(--bs-primary-text-emphasis) !important;
+}
+.badge.text-bg-success {
+  background-color: var(--bs-success-bg-subtle) !important;
+  color: var(--bs-success-text-emphasis) !important;
+}
+.badge.text-bg-warning {
+  background-color: var(--bs-warning-bg-subtle) !important;
+  color: var(--bs-warning-text-emphasis) !important;
+}
+.badge.text-bg-danger {
+  background-color: var(--bs-danger-bg-subtle) !important;
+  color: var(--bs-danger-text-emphasis) !important;
+}
+.badge.text-bg-info {
+  background-color: var(--bs-info-bg-subtle) !important;
+  color: var(--bs-info-text-emphasis) !important;
+}
+.badge.text-bg-secondary {
+  background-color: var(--bs-secondary-bg-subtle) !important;
+  color: var(--bs-secondary-text-emphasis) !important;
+}
+
+/* Alerts: same subtle/emphasis treatment via each alert's own local CSS vars. */
+.alert-info {
+  --bs-alert-bg: var(--bs-info-bg-subtle);
+  --bs-alert-color: var(--bs-info-text-emphasis);
+  --bs-alert-border-color: var(--bs-info-border-subtle);
+}
+.alert-success {
+  --bs-alert-bg: var(--bs-success-bg-subtle);
+  --bs-alert-color: var(--bs-success-text-emphasis);
+  --bs-alert-border-color: var(--bs-success-border-subtle);
+}
+.alert-warning {
+  --bs-alert-bg: var(--bs-warning-bg-subtle);
+  --bs-alert-color: var(--bs-warning-text-emphasis);
+  --bs-alert-border-color: var(--bs-warning-border-subtle);
+}
+.alert-danger {
+  --bs-alert-bg: var(--bs-danger-bg-subtle);
+  --bs-alert-color: var(--bs-danger-text-emphasis);
+  --bs-alert-border-color: var(--bs-danger-border-subtle);
+}
+
+/* Sidebar nav: replace the flat solid-primary active state with a soft tint +
+   left border. The transparent border on every link (not just .active) keeps
+   activation from shifting layout. */
+.helyx-sidebar .nav-pills .nav-link {
+  border-left: 3px solid transparent;
+  border-radius: 0 var(--bs-border-radius) var(--bs-border-radius) 0;
+}
+.helyx-sidebar .nav-pills .nav-link.active {
+  background-color: var(--bs-primary-bg-subtle);
+  color: var(--bs-primary-text-emphasis);
+  border-left-color: var(--bs-primary);
+  font-weight: 600;
+}
+.helyx-sidebar .nav-pills .nav-link:hover:not(.active) {
+  background-color: var(--bs-tertiary-bg);
+}
+
+/* Tables: hairline dividers + subtle hover via the component's own local vars,
+   plus header styling that has no Bootstrap variable equivalent. */
+.table {
+  --bs-table-hover-bg: var(--bs-tertiary-bg);
+  --bs-table-border-color: var(--bs-border-color);
+}
+.table > thead > tr > th {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--bs-secondary-color);
+}
+
+/* Offcanvas: Bootstrap ships no box-shadow variable for this component by
+   default (only a border), so this is an explicit one-off. */
+.offcanvas {
+  box-shadow: var(--bs-box-shadow-lg);
+}
+
+/* Content links (table row names, "Forgot password?", sortable column headers,
+   empty-state secondary links) and .btn-link default to Bootstrap's raw
+   always-underlined anchor look. Medium weight + underline-on-hover-only reads
+   calmer and more deliberate, matching the rest of the palette. Nav links,
+   dropdown items, the navbar brand, and generic .btn/.card-link already have
+   their own hover treatment and are excluded so this doesn't fight them. */
+a:not(.nav-link):not(.dropdown-item):not(.navbar-brand):not(.btn):not(.card-link) {
+  text-decoration: none;
+  font-weight: 500;
+}
+a:not(.nav-link):not(.dropdown-item):not(.navbar-brand):not(.btn):not(.card-link):hover {
+  text-decoration: underline;
+}
+.btn-link {
+  text-decoration: none;
+}
+.btn-link:hover,
+.btn-link:focus-visible {
+  text-decoration: underline;
+}
