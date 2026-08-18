@@ -1,7 +1,9 @@
 package com.helyx.helyxhr.timeoff;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.helyx.helyxhr.common.ValidationException;
 import com.helyx.helyxhr.people.Employee;
 import com.helyx.helyxhr.people.EmployeeForms;
 import com.helyx.helyxhr.people.EmployeeService;
@@ -210,6 +212,100 @@ class BalanceServiceTest extends TenantIsolationTestBase {
     // AnnualGrantJobTest (two tenants, two different allowances, asserting each tenant's
     // grant reflects only its own leave type) and by TimeoffTenantIsolationTest (the general
     // RLS mechanism for leave_balance) — no need to re-prove it a third time here.
+
+    @Test
+    void bookUsed_incrementsUsed() {
+        LeaveTypeAndEmployee fixture = fullYearAnnualBalance();
+
+        asTenant(tenantA, () -> balanceService.bookUsed(
+                fixture.employeeId(), fixture.leaveTypeId(), fixture.year(), new BigDecimal("5")));
+
+        assertThat(currentBalance(fixture).used()).isEqualByComparingTo("5.00");
+    }
+
+    @Test
+    void releaseUsed_decrementsUsed() {
+        LeaveTypeAndEmployee fixture = fullYearAnnualBalance();
+        asTenant(tenantA, () -> balanceService.bookUsed(
+                fixture.employeeId(), fixture.leaveTypeId(), fixture.year(), new BigDecimal("5")));
+
+        asTenant(tenantA, () -> balanceService.releaseUsed(
+                fixture.employeeId(), fixture.leaveTypeId(), fixture.year(), new BigDecimal("2")));
+
+        assertThat(currentBalance(fixture).used()).isEqualByComparingTo("3.00");
+    }
+
+    @Test
+    void adjustManually_whenNewGrantedBelowUsed_throwsValidationException() {
+        // M7 (post-1.5 review): reject pushing granted below used, backstopped by the DB CHECK.
+        LeaveTypeAndEmployee fixture = fullYearAnnualBalance();
+        asTenant(tenantA, () -> balanceService.bookUsed(
+                fixture.employeeId(), fixture.leaveTypeId(), fixture.year(), new BigDecimal("10")));
+
+        assertThatThrownBy(
+                        () ->
+                                asTenant(
+                                        tenantA,
+                                        () ->
+                                                balanceService.adjustManually(
+                                                        fixture.employeeId(),
+                                                        fixture.leaveTypeId(),
+                                                        new BigDecimal("5"),
+                                                        "correction",
+                                                        "admin@acme.test")))
+                .isInstanceOf(ValidationException.class)
+                .extracting(exception -> ((ValidationException) exception).errorCode())
+                .isEqualTo("LEAVE_BALANCE_BELOW_USED");
+    }
+
+    @Test
+    void adjustManually_whenAtOrAboveUsed_succeeds() {
+        LeaveTypeAndEmployee fixture = fullYearAnnualBalance();
+        asTenant(tenantA, () -> balanceService.bookUsed(
+                fixture.employeeId(), fixture.leaveTypeId(), fixture.year(), new BigDecimal("10")));
+
+        asTenant(
+                tenantA,
+                () ->
+                        balanceService.adjustManually(
+                                fixture.employeeId(),
+                                fixture.leaveTypeId(),
+                                new BigDecimal("10"),
+                                "correction",
+                                "admin@acme.test"));
+
+        assertThat(currentBalance(fixture).granted()).isEqualByComparingTo("10.00");
+    }
+
+    /** Historical hire date (2020) always grants a full-year balance for the current test-clock year. */
+    private LeaveTypeAndEmployee fullYearAnnualBalance() {
+        LeaveType type =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveTypeService.create(
+                                        "Annual", null, null, true, true, false, true, new BigDecimal("30"), null));
+        Employee employee =
+                asTenant(
+                        tenantA,
+                        () ->
+                                employeeService.create(
+                                        createEmployeeForm(LocalDate.of(2020, 1, 1)), BASE_URL, TENANT_NAME));
+        int year = LocalDate.now(clock).getYear();
+        return new LeaveTypeAndEmployee(employee.requireId(), type.requireId(), year);
+    }
+
+    private LeaveBalance currentBalance(LeaveTypeAndEmployee fixture) {
+        return asTenant(
+                tenantA,
+                () ->
+                        balances
+                                .findByEmployeeIdAndLeaveTypeIdAndYear(
+                                        fixture.employeeId(), fixture.leaveTypeId(), fixture.year())
+                                .orElseThrow());
+    }
+
+    private record LeaveTypeAndEmployee(UUID employeeId, UUID leaveTypeId, int year) {}
 
     private EmployeeForms.CreateEmployee createEmployeeForm(LocalDate hireDate) {
         return new EmployeeForms.CreateEmployee(

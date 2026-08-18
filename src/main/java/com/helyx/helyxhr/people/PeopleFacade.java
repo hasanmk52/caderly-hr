@@ -36,5 +36,33 @@ public interface PeopleFacade {
      */
     EmployeeHireInfo requireEmployeeHireInfo(UUID employeeId);
 
+    /**
+     * Approval routing info for {@code timeoff.LeaveRequestService} (PRD §12.4 steps 2-3):
+     * booking looks up the requester's own row (for {@code managerId}) and, when routing to a
+     * manager, the manager's own row (for name/email to put in the notification).
+     *
+     * @throws com.helyx.helyxhr.common.NotFoundException if the employee doesn't exist.
+     */
+    EmployeeApprovalInfo requireEmployeeApprovalInfo(UUID employeeId);
+
+    /**
+     * Every ACTIVE login holding {@code Role.ADMIN}, resolved to their linked Employee (PRD §12.4
+     * step 2's "Admin(s)" fallback when a requester has no manager). An Admin login with no linked
+     * Employee (e.g. a dev-bootstrap account) is silently skipped — there is no employee identity
+     * to notify or to check {@code isManagerOf} against.
+     */
+    List<EmployeeApprovalInfo> listActiveAdminApprovalInfo();
+
+    /**
+     * Whether {@code managerId} is a direct or indirect manager of {@code employeeId} (PRD §26:
+     * Manager approval authority is transitive). Delegates straight to {@code
+     * EmployeeRepository#isManagerOf}, the same recursive-CTE query {@code
+     * EmployeeService#getProfileForViewer} already relies on.
+     */
+    boolean isManagerOf(UUID managerId, UUID employeeId);
+
     record EmployeeHireInfo(UUID employeeId, @Nullable LocalDate hireDate) {}
+
+    record EmployeeApprovalInfo(
+            UUID employeeId, String fullName, String email, @Nullable UUID managerId) {}
 }

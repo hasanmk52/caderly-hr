@@ -22,4 +22,7 @@ public interface AppUserRepository extends TenantAwareRepository<AppUser> {
     Optional<AppUser> findByInviteTokenHash(String inviteTokenHash);
 
     List<AppUser> findAllByOrderByEmailAsc();
+
+    /** Backs {@code people.PeopleFacade#listActiveAdminApprovalInfo} (PRD §12.4's Admin fallback). */
+    List<AppUser> findAllByStatus(UserStatus status);
 }

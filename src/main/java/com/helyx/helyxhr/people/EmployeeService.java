@@ -311,8 +311,13 @@ public class EmployeeService {
             appUsers.findById(employee.userId()).ifPresent(AppUser::disable);
             sessionRevoker.revokeAllFor(employee.userId());
         }
-        // Cancelling future leave requests (PRD §14.4) is a no-op until leave_request exists
-        // (Phase 1.5/1.6) — reserved gap, not an oversight (see CURRENT_PHASE.md carried-forward).
+        // Published, not called directly: people must not depend on timeoff (see
+        // EmployeeTerminatedEvent's doc comment, mirrors EmployeeHiredEvent/ADR 0009). Plain
+        // @EventListener, not @TransactionalEventListener AFTER_COMMIT — cancelling future leave
+        // requests is an internal DB write with no reason to survive this transaction failing to
+        // commit, so it belongs in the same transaction as the termination itself.
+        LocalDate effectiveDate = java.util.Objects.requireNonNull(employee.terminationDate());
+        events.publishEvent(new EmployeeTerminatedEvent(employee.requireId(), effectiveDate));
         log.info("Terminated employee {}", employee.requireId());
     }
 

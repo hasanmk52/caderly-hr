@@ -1,6 +1,7 @@
 package com.helyx.helyxhr.timeoff;
 
 import com.helyx.helyxhr.common.NotFoundException;
+import com.helyx.helyxhr.common.ValidationException;
 import com.helyx.helyxhr.people.PeopleFacade;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -123,14 +124,15 @@ public class BalanceService {
     public LeaveBalance adjustManually(
             UUID employeeId, UUID leaveTypeId, BigDecimal newGranted, String reason, String actorEmail) {
         int year = LocalDate.now(clock).getYear();
-        LeaveBalance balance =
-                balances
-                        .findByEmployeeIdAndLeaveTypeIdAndYear(employeeId, leaveTypeId, year)
-                        .orElseThrow(
-                                () ->
-                                        new NotFoundException(
-                                                "LEAVE_BALANCE_NOT_FOUND",
-                                                "No " + year + " balance found for this employee/leave type"));
+        LeaveBalance balance = requireBalance(employeeId, leaveTypeId, year);
+        // M7 (post-1.5 review): reject rather than silently push granted below used — used is no
+        // longer dormant once booking/approval exists (Phase 1.6). Backstopped by the
+        // leave_balance_granted_used_check DB constraint (V202608171000).
+        if (newGranted.compareTo(balance.used()) < 0) {
+            throw new ValidationException(
+                    "LEAVE_BALANCE_BELOW_USED",
+                    "Granted (" + newGranted + ") cannot be less than already-used (" + balance.used() + ")");
+        }
         BigDecimal previous = balance.granted();
         balance.adjustGranted(newGranted);
         log.info(
@@ -143,6 +145,31 @@ public class BalanceService {
                 reason,
                 actorEmail);
         return balance;
+    }
+
+    /** Booking approval debits the balance (PRD §12.4 step 5). Called by {@code LeaveRequestService}. */
+    @Transactional
+    public void bookUsed(UUID employeeId, UUID leaveTypeId, int year, BigDecimal amount) {
+        requireBalance(employeeId, leaveTypeId, year).recordUsage(amount);
+    }
+
+    /**
+     * Cancelling an approved request, or a termination cascade, credits the balance back. Called
+     * by {@code LeaveRequestService}.
+     */
+    @Transactional
+    public void releaseUsed(UUID employeeId, UUID leaveTypeId, int year, BigDecimal amount) {
+        requireBalance(employeeId, leaveTypeId, year).releaseUsage(amount);
+    }
+
+    private LeaveBalance requireBalance(UUID employeeId, UUID leaveTypeId, int year) {
+        return balances
+                .findByEmployeeIdAndLeaveTypeIdAndYear(employeeId, leaveTypeId, year)
+                .orElseThrow(
+                        () ->
+                                new NotFoundException(
+                                        "LEAVE_BALANCE_NOT_FOUND",
+                                        "No " + year + " balance found for this employee/leave type"));
     }
 
     /** @return true if a new row was created; false if one already existed (idempotent no-op). */
