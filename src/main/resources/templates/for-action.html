@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:replace="~{layout :: layout('For Action', ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+    <h1 class="mb-4">For Action</h1>
+
+    <!--/* UI Guidelines §8.6: "Tasks · Time off requests" pills — Tasks doesn't exist yet
+           (Phase 2), so this page is Time off requests only for now. */-->
+    <ul class="nav nav-pills mb-3">
+      <li class="nav-item"><span class="nav-link active">Time off requests</span></li>
+    </ul>
+
+    <ul class="nav nav-tabs mb-3" id="forActionTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending-pane"
+                type="button" role="tab" aria-controls="pending-pane" aria-selected="true">
+          Pending <span class="badge bg-secondary-subtle text-secondary-emphasis" th:text="${#lists.size(pending)}">0</span>
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-pane"
+                type="button" role="tab" aria-controls="completed-pane" aria-selected="false">
+          Completed <span class="badge bg-secondary-subtle text-secondary-emphasis" th:text="${#lists.size(completed)}">0</span>
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="pending-pane" role="tabpanel" aria-labelledby="pending-tab">
+        <div id="pendingList" th:replace="~{::pendingList}"></div>
+      </div>
+
+      <div class="tab-pane fade" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
+        <div th:if="${#lists.isEmpty(completed)}" class="text-center text-muted py-5">
+          <i class="bi bi-check2-circle fs-1 d-block mb-2" aria-hidden="true"></i>
+          <p class="mb-0">No decisions yet.</p>
+        </div>
+        <div th:unless="${#lists.isEmpty(completed)}" class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th scope="col">Employee</th>
+                <th scope="col">Type</th>
+                <th scope="col">Dates</th>
+                <th scope="col">Duration</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="row : ${completed}">
+                <td th:text="${row.employeeName}">Jane Doe</td>
+                <td th:text="${row.leaveTypeName}">Vacation</td>
+                <td><span th:text="${row.startDate}">2026-08-17</span> - <span th:text="${row.endDate}">2026-08-21</span></td>
+                <td th:text="${row.durationDays}">5.00</td>
+                <td>
+                  <span class="badge" th:text="${row.statusLabel}"
+                        th:classappend="${row.statusLabel == 'Approved'} ? 'bg-success-subtle text-success-emphasis' : (${row.statusLabel == 'Rejected'} ? 'bg-danger-subtle text-danger-emphasis' : 'bg-secondary-subtle text-secondary-emphasis')">
+                    Approved
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!--/* Reject modal (UI Guidelines §6/§8.6): opens for a specific request id, posts the
+           optional reason. Page-local — unlike the Book Time Off modal, this only exists here. */-->
+    <div class="modal fade" id="rejectLeaveModal" tabindex="-1" aria-hidden="true" aria-labelledby="rejectLeaveModalLabel">
+      <div class="modal-dialog">
+        <div class="modal-content" id="rejectLeaveModalBody" th:replace="~{::rejectForm}"></div>
+      </div>
+    </div>
+  </div>
+</th:block>
+
+<!--/* Swapped into #pendingList after approve/reject (row removed, counts implicitly refresh on
+       next full load — UI Guidelines §8.6: "row removed via htmx"). */-->
+<div id="pendingList" th:fragment="pendingList">
+  <div th:if="${#lists.isEmpty(pending)}" class="text-center text-muted py-5">
+    <i class="bi bi-inbox fs-1 d-block mb-2" aria-hidden="true"></i>
+    <p class="mb-0">Nothing waiting on you.</p>
+  </div>
+  <ul th:unless="${#lists.isEmpty(pending)}" class="list-group">
+    <li class="list-group-item" th:each="row : ${pending}" th:id="'leave-request-row-' + ${row.requestId}">
+      <div class="d-flex justify-content-between align-items-start gap-3">
+        <div class="d-flex align-items-start gap-2">
+          <i th:if="${row.icon != null}" th:class="'bi ' + ${row.icon} + ' fs-5'"
+             th:style="${row.color != null} ? 'color:' + ${row.color}" aria-hidden="true"></i>
+          <div>
+            <div class="fw-semibold" th:text="${row.employeeName}">Jane Doe</div>
+            <div class="text-muted small">
+              <span th:text="${row.leaveTypeName}">Vacation</span> &middot;
+              <span th:text="${row.startDate}">2026-08-17</span> - <span th:text="${row.endDate}">2026-08-21</span>
+              &middot; <span th:text="${row.durationDays}">5.00</span> day(s)
+            </div>
+            <div class="text-muted small" th:if="${row.note}" th:text="${row.note}">Family trip</div>
+          </div>
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal"
+                  data-bs-target="#rejectLeaveModal"
+                  th:hx-get="@{/for-action/leave-requests/{id}/reject-form(id=${row.requestId})}"
+                  hx-target="#rejectLeaveModalBody" hx-swap="outerHTML">
+            Reject
+          </button>
+          <button type="button" class="btn btn-primary btn-sm"
+                  th:hx-post="@{/for-action/leave-requests/{id}/approve(id=${row.requestId})}"
+                  hx-target="#pendingList" hx-swap="outerHTML">
+            Approve
+          </button>
+        </div>
+      </div>
+    </li>
+  </ul>
+</div>
+
+<div class="modal-content" th:fragment="rejectForm" id="rejectLeaveModalBody">
+  <form th:object="${rejectForm}" th:hx-post="@{/for-action/leave-requests/{id}/reject(id=${rejectRequestId})}"
+        hx-target="#pendingList" hx-swap="outerHTML">
+    <div class="modal-header">
+      <h5 class="modal-title" id="rejectLeaveModalLabel">Reject request</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+      <label class="form-label" for="reject-note">Reason (optional)</label>
+      <textarea class="form-control" id="reject-note" th:field="*{decisionNote}" rows="2" maxlength="500"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+      <button class="btn btn-danger btn-sm" type="submit">Reject request</button>
+    </div>
+  </form>
+</div>
+
+</body>
+</html>

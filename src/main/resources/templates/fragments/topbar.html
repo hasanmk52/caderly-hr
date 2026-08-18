@@ -10,7 +10,10 @@
     <input class="form-control" type="search" placeholder="Search" aria-label="Search" disabled />
   </form>
   <div class="d-flex align-items-center gap-3">
-    <button class="btn btn-primary btn-sm" type="button" disabled>Book time off</button>
+    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#bookLeaveModal"
+            th:hx-get="@{/leave/new}" hx-target="#bookLeaveModalBody" hx-swap="innerHTML">
+      Book time off
+    </button>
 
     <div class="dropdown">
       <button class="btn p-0 rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center"

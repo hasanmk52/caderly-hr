@@ -53,6 +53,7 @@ class HomeController {
                 .map(
                         (LeaveBalance b) ->
                                 new BalanceCard(
+                                        b.leaveType().requireId(),
                                         b.leaveType().name(),
                                         b.leaveType().icon(),
                                         b.leaveType().color(),
@@ -63,6 +64,7 @@ class HomeController {
     }
 
     record BalanceCard(
+            UUID leaveTypeId,
             String leaveTypeName,
             @Nullable String icon,
             @Nullable String color,

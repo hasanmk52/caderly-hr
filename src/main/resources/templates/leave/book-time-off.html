@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="modalBody">
+
+  <div class="modal-header">
+    <h5 class="modal-title" id="bookLeaveModalLabel">Book time off</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  </div>
+
+  <form th:object="${leaveForm}" th:hx-post="@{/leave}" hx-target="#bookLeaveModalBody" hx-swap="innerHTML"
+        hx-indicator="#bookLeaveFormSpinner" x-data="{ halfDayAllowed: false }">
+    <div class="modal-body">
+
+      <div th:if="${#lists.isEmpty(bookableTypes)}" class="text-center text-muted py-4">
+        <i class="bi bi-calendar-x fs-1 d-block mb-2" aria-hidden="true"></i>
+        <p class="mb-0">No leave types are available to book yet.</p>
+      </div>
+
+      <div th:unless="${#lists.isEmpty(bookableTypes)}">
+        <!--/* Step 1: leave type chip row (UI Guidelines §8.1). */-->
+        <fieldset class="mb-3">
+          <legend class="form-label h6">Leave type <span class="text-danger" aria-hidden="true">*</span></legend>
+          <div class="d-flex flex-wrap gap-2">
+            <!--/* th:field repeated in a loop auto-suffixes the id (leaveTypeId1, leaveTypeId2, ...)
+                   and sets checked/value/name for us; #ids.prev looks up that same generated id so
+                   the <label for> stays in sync (the documented Thymeleaf idiom for radio groups). */-->
+            <div th:each="type : ${bookableTypes}">
+              <input type="radio" class="btn-check" autocomplete="off"
+                     th:field="*{leaveTypeId}" th:value="${type.leaveTypeId}"
+                     th:attr="data-allows-half-day=${type.allowsHalfDay}"
+                     @change="halfDayAllowed = ($event.target.dataset.allowsHalfDay === 'true')"
+                     hx-post="/leave/preview" hx-trigger="change" hx-include="closest form"
+                     hx-target="#leavePreview" hx-swap="innerHTML" />
+              <label class="btn btn-outline-secondary btn-sm" th:for="${#ids.prev('leaveTypeId')}">
+                <i th:if="${type.icon != null}" th:class="'bi ' + ${type.icon}" aria-hidden="true"></i>
+                <span th:text="${type.name}">Vacation</span>
+                &middot; <span th:text="${type.remainingAfterPending}">18</span>/<span th:text="${type.granted}">30</span>
+              </label>
+            </div>
+          </div>
+          <div class="invalid-feedback d-block" th:if="${#fields.hasErrors('leaveTypeId')}" th:errors="*{leaveTypeId}">
+            Choose a leave type
+          </div>
+        </fieldset>
+
+        <!--/* Step 2: date range — two plain date inputs (CLAUDE.md §3: no new dependency without
+               an ADR; no date-range-picker library is authorized). */-->
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label" for="leave-start-date">Start date <span class="text-danger" aria-hidden="true">*</span></label>
+            <input class="form-control" type="date" id="leave-start-date" th:field="*{startDate}" required
+                   th:classappend="${#fields.hasErrors('startDate')} ? 'is-invalid'"
+                   hx-post="/leave/preview" hx-trigger="change" hx-include="closest form"
+                   hx-target="#leavePreview" hx-swap="innerHTML" />
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}">Invalid date</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="leave-end-date">End date <span class="text-danger" aria-hidden="true">*</span></label>
+            <input class="form-control" type="date" id="leave-end-date" th:field="*{endDate}" required
+                   th:classappend="${#fields.hasErrors('endDate')} ? 'is-invalid'"
+                   hx-post="/leave/preview" hx-trigger="change" hx-include="closest form"
+                   hx-target="#leavePreview" hx-swap="innerHTML" />
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('endDate')}" th:errors="*{endDate}">Invalid date</div>
+          </div>
+        </div>
+
+        <!--/* Step 3: half-day toggles, only visible when the selected type allows them. */-->
+        <div class="row g-2 mb-3" x-show="halfDayAllowed" x-cloak>
+          <div class="col-6 form-check">
+            <input class="form-check-input" type="checkbox" id="leave-start-half-pm" th:field="*{startHalfDayPm}"
+                   hx-post="/leave/preview" hx-trigger="change" hx-include="closest form"
+                   hx-target="#leavePreview" hx-swap="innerHTML" />
+            <label class="form-check-label" for="leave-start-half-pm">Start date is half-day (PM)</label>
+          </div>
+          <div class="col-6 form-check">
+            <input class="form-check-input" type="checkbox" id="leave-end-half-am" th:field="*{endHalfDayAm}"
+                   hx-post="/leave/preview" hx-trigger="change" hx-include="closest form"
+                   hx-target="#leavePreview" hx-swap="innerHTML" />
+            <label class="form-check-label" for="leave-end-half-am">End date is half-day (AM)</label>
+          </div>
+        </div>
+
+        <!--/* Step 4: note. */-->
+        <div class="mb-3">
+          <label class="form-label" for="leave-note">Note</label>
+          <textarea class="form-control" id="leave-note" th:field="*{note}" rows="2" maxlength="1000"></textarea>
+        </div>
+
+        <!--/* Live duration/balance indicator (UI Guidelines §8.1). */-->
+        <div id="leavePreview" th:replace="~{::preview}"></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+      <button class="btn btn-primary btn-sm" type="submit" th:disabled="${#lists.isEmpty(bookableTypes)}">
+        <span id="bookLeaveFormSpinner" class="spinner-border spinner-border-sm htmx-indicator me-1" aria-hidden="true"></span>
+        Submit request
+      </button>
+    </div>
+  </form>
+</th:block>
+
+<!--/* Swapped into #leavePreview on every field change. Server-computed — the duration algorithm
+       (PRD §12.3) has to run with the tenant's real weekend/holiday data, so this cannot be
+       approximated in JS. */-->
+<div th:fragment="preview">
+  <div th:if="${previewError != null}" class="alert alert-danger py-2 mb-0" role="alert" th:text="${previewError}">
+    Not enough remaining balance for this request
+  </div>
+  <div th:if="${preview != null}" class="alert py-2 mb-0"
+       th:classappend="${preview.sufficient} ? 'alert-info' : 'alert-warning'" role="status">
+    This will use <strong th:text="${preview.duration}">1.00</strong> working day(s) of
+    <span th:text="${preview.leaveTypeName}">Vacation</span>.
+    <span th:if="${preview.sufficient}">
+      <span th:text="${preview.remainingAfter}">17.00</span> day(s) would remain.
+    </span>
+    <span th:unless="${preview.sufficient}" class="fw-semibold">Not enough remaining balance for this request.</span>
+  </div>
+</div>
+
+</body>
+</html>

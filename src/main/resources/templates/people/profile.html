@@ -44,13 +44,13 @@
         </div>
       </div>
 
-      <!--/* Right column: tabs (UI Guidelines §6/§8.5). Personal/Education/Job/Documents only —
-             Tasks and Time Off are omitted until their owning phases land (Phase 2, 1.5/1.6). */-->
+      <!--/* Right column: tabs (UI Guidelines §6/§8.5). Personal/Education/Job/Documents/Time off
+             only — Tasks is omitted until Phase 2 lands it. */-->
       <div class="col-12 col-md-9">
         <ul class="nav nav-tabs mb-3">
-          <li class="nav-item" th:each="t : ${ {'personal','education','job','documents'} }">
+          <li class="nav-item" th:each="t : ${ {'personal','education','job','documents','timeoff'} }">
             <a class="nav-link" th:classappend="${activeTab == t} ? 'active'"
-               th:text="${#strings.capitalize(t)}"
+               th:text="${t == 'timeoff'} ? 'Time off' : ${#strings.capitalize(t)}"
                th:href="@{/profile/{id}(id=${employee.id},tab=${t})}"
                th:hx-get="@{/profile/{id}(id=${employee.id},tab=${t})}"
                hx-select="#tab-content" hx-target="#tab-content" hx-push-url="true">Personal</a>
@@ -216,6 +216,79 @@
                     <dt class="col-4">Currency</dt><dd class="col-8" th:text="${employee.currency} ?: '—'">—</dd>
                     <dt class="col-4">Base pay</dt><dd class="col-8" th:text="${employee.baseCompensation} ?: '—'">—</dd>
                   </dl>
+                </div>
+              </div>
+            </div>
+
+            <!--/* Time off: balances + request history (PRD §12, Phase 1.6). Cancel is self-only
+                   (Phase 1.6 plan decision 7) — an Admin cancelling someone else's request is a
+                   service-layer-only path this phase, no button here. */-->
+            <div th:case="'timeoff'">
+              <div class="card mb-4" th:if="${!#lists.isEmpty(bookableTypes)}">
+                <div class="card-body">
+                  <h3 class="h6 mb-3">Balances</h3>
+                  <div class="row row-cols-1 row-cols-md-3 g-3">
+                    <div class="col" th:each="type : ${bookableTypes}">
+                      <div class="border rounded p-3 h-100">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                          <i th:if="${type.icon != null}" th:class="'bi ' + ${type.icon}"
+                             th:style="${type.color != null} ? 'color:' + ${type.color}" aria-hidden="true"></i>
+                          <span class="fw-semibold" th:text="${type.name}">Vacation</span>
+                        </div>
+                        <span th:text="${type.remaining}">15</span> / <span th:text="${type.granted}">30</span> remaining
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-body">
+                  <h3 class="h6 mb-3">Requests</h3>
+                  <div th:if="${#lists.isEmpty(leaveRequestHistory)}" class="text-center text-muted py-4">
+                    <i class="bi bi-calendar-week fs-1 d-block mb-2" aria-hidden="true"></i>
+                    <p class="mb-0">No time off requested yet.</p>
+                  </div>
+                  <div th:unless="${#lists.isEmpty(leaveRequestHistory)}" class="table-responsive">
+                    <table class="table table-hover align-middle">
+                      <thead>
+                        <tr>
+                          <th scope="col">Type</th>
+                          <th scope="col">Dates</th>
+                          <th scope="col">Duration</th>
+                          <th scope="col">Status</th>
+                          <th scope="col" class="text-end" th:if="${isSelf}">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr th:each="req : ${leaveRequestHistory}">
+                          <td th:text="${req.leaveType.name}">Vacation</td>
+                          <td><span th:text="${req.startDate}">2026-08-17</span> - <span th:text="${req.endDate}">2026-08-21</span></td>
+                          <td th:text="${req.durationDays}">5.00</td>
+                          <td>
+                            <span class="badge" th:text="${req.status.label}"
+                                  th:classappend="${req.status.name() == 'APPROVED'} ? 'bg-success-subtle text-success-emphasis' : (${req.status.name() == 'PENDING'} ? 'bg-warning-subtle text-warning-emphasis' : (${req.status.name() == 'REJECTED'} ? 'bg-danger-subtle text-danger-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'))">
+                              Approved
+                            </span>
+                          </td>
+                          <td class="text-end" th:if="${isSelf}">
+                            <!--/* BR-9: PENDING is always cancellable; an APPROVED request that has
+                                   already started needs an Admin override this page doesn't offer —
+                                   the button stays visible and the server is the real enforcement,
+                                   surfacing LEAVE_CANCEL_WINDOW_PASSED as a toast-free inline error
+                                   would need more than this table row, so it is a acceptable gap for
+                                   this pass. */-->
+                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                    th:if="${req.status.name() == 'PENDING' or req.status.name() == 'APPROVED'}"
+                                    th:hx-post="@{/profile/leave-requests/{id}/cancel(id=${req.id})}"
+                                    hx-target="#tab-content" hx-swap="innerHTML">
+                              Cancel
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>

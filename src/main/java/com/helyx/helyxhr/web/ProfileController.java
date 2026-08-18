@@ -6,6 +6,7 @@ import com.helyx.helyxhr.people.Employee;
 import com.helyx.helyxhr.people.EmployeeForms.SelfProfilePatch;
 import com.helyx.helyxhr.people.EmployeeService;
 import com.helyx.helyxhr.people.GovernmentIdType;
+import com.helyx.helyxhr.timeoff.LeaveRequestService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -48,9 +49,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 class ProfileController {
 
     private final EmployeeService employees;
+    private final LeaveRequestService leaveRequests;
 
-    ProfileController(EmployeeService employees) {
+    ProfileController(EmployeeService employees, LeaveRequestService leaveRequests) {
         this.employees = employees;
+        this.leaveRequests = leaveRequests;
     }
 
     @GetMapping("/profile")
@@ -151,6 +154,27 @@ class ProfileController {
         return "people/profile :: tabContent";
     }
 
+    /**
+     * Self-cancel only this phase (Phase 1.6 plan decision 7) — an Admin cancelling someone
+     * else's request is service-layer only, no screen, same precedent as {@code
+     * BalanceService.adjustManually}. {@code actingIsAdmin} is always {@code false} here: {@code
+     * ownEmployee} already guarantees this call can only act on the caller's own record, and
+     * {@code LeaveRequestService.cancel} rejects a request that isn't theirs regardless of role.
+     */
+    @PostMapping("/profile/leave-requests/{requestId}/cancel")
+    @PreAuthorize("isAuthenticated()")
+    String cancelOwnLeaveRequest(
+            @PathVariable UUID requestId,
+            @AuthenticationPrincipal AppUserPrincipal principal,
+            Model model,
+            HttpServletResponse response) {
+        Employee own = ownEmployee(principal);
+        leaveRequests.cancelAndListForEmployee(requestId, principal.userId(), own.requireId(), false);
+        toast(response, "Request cancelled");
+        populateTabModel(own.requireId(), "timeoff", principal, model);
+        return "people/profile :: tabContent";
+    }
+
     private void populateTabModel(UUID id, String tab, AppUserPrincipal principal, Model model) {
         Employee employee = employees.getProfileForViewer(id, principal);
         boolean isSelf = employee.userId() != null && employee.userId().equals(principal.userId());
@@ -177,6 +201,10 @@ class ProfileController {
         switch (tab) {
             case "education" -> model.addAttribute("education", employees.listEducation(employeeId));
             case "job" -> model.addAttribute("benefits", employees.listBenefits(employeeId));
+            case "timeoff" -> {
+                model.addAttribute("bookableTypes", leaveRequests.bookableTypesForEmployee(employeeId));
+                model.addAttribute("leaveRequestHistory", leaveRequests.listForEmployee(employeeId));
+            }
             case "documents" -> {
                 // Intentionally no data: FileStorage doesn't exist until Phase 1.7. The template
                 // renders a stub empty-state, not a disabled upload control (CLAUDE.md: no
