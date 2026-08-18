@@ -1,73 +1,66 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.6 — Leave Requests + Approvals
-**Branch:** `phase-1.6-leave-approvals`
-**Goal:** An Employee books time off against the balances Phase 1.5 granted; their Manager (or an Admin, if no manager is set) approves or rejects it; an approved request debits `leave_balance.used`; a cancellation credits it back. This is the phase that finally makes the "Book Time Off" cards on Home (and the still-placeholder "For Action" nav item) do something.
+**Working on:** Phase 1.7 — Files & Documents
+**Branch:** `phase-1.7-files-documents` (not yet created — create it before writing any code)
+**Goal:** Company-wide files (Admin-uploaded, visible to everyone in the tenant) and per-employee documents (self + Admin uploadable, on the Profile Documents tab that's been a stub since Phase 1.3), backed by a storage abstraction that can be local filesystem today and S3-compatible later without an application-code change.
 
 ## Read these before doing anything
 
-1. `docs/Helyx_Implementation_Plan.md` — the "1.6 Leave Requests + Approvals" section under Phase 1 — MVP
-2. `docs/Helyx_PRD.md` — §12.3 (duration algorithm — the pseudocode is the spec, implement it exactly, exhaustively unit-tested per CLAUDE.md §8), §12.4 (approval flow state machine), §21 (`leave_request` schema), §26 (permissions matrix: booking is self-service for all three roles, approval is Manager-of-reports or Admin-any, no self-approval ever)
-3. `CLAUDE.md` — §5 (tenancy — `leave_request` is a fourth `timeoff` table, same RLS/`@TenantId` template as 1.5's three), §6a (durable outbox — approval/rejection/cancellation notify by email; that's an external side effect and **must** go through `email_outbox`, not an inline `mailSender.send()`), §8 ("critical logic, TDD first" explicitly names the leave duration algorithm), §10 ("Handling a state transition" recipe — sealed interface/enum + `<Entity>StateMachine` + audit + optimistic locking)
-4. `docs/UI_Guidelines.md` — §6 for the Book Time Off modal and the For Action list's layout conventions
-5. `docs/adr/0009` (this phase's direct predecessor: the `people`↔`timeoff` event-based wiring and the `PeopleFacade`/combined-transaction conventions — both apply again here) and `docs/adr/0007` (htmx admin-CRUD transaction pattern, needed again for the approval actions)
+1. `docs/Helyx_Implementation_Plan.md` — the "1.7 Files & Documents" section under Phase 1 — MVP
+2. `docs/Helyx_PRD.md` — §6.7 (FR-7.1–7.5: Company Files, Employee Documents, 25 MB limit, allowed types, storage abstraction), §9.5 and §24.7 (Files UI), §6.3.9 (employee-document data model, if present — check the exact field list), CLAUDE.md §6 A03 ("File upload: MIME + magic-byte check (Apache Tika) + extension whitelist + size limit. No exec-able types")
+3. `CLAUDE.md` — §4 (package structure: `documents` for `CompanyFile`/`EmployeeDocument` entities, `storage` for the `FileStorage` interface + `Local`/`S3` impls — two new packages, not one), §5 (tenancy — both new entities are tenant-scoped, same RLS/`@TenantId` template every prior phase used), §6 A03 (upload validation, verbatim above), §11 ("Storing files in the database. Files go through `FileStorage`." — an explicit anti-pattern already named)
+4. `docs/UI_Guidelines.md` — check for a Files/Documents-specific pattern (table + upload button per §6.7's FR-7.1 description) or whether this phase establishes one
+5. Skim `docs/adr/0008-employee-column-encryption.md` for the nearest precedent on handling sensitive-ish employee data (documents may include ID scans) — not a direct pattern match, but the same "what does this data need beyond CRUD" question applies
 
 ## Already in place — do not redo
 
-- **Everything from 1.1–1.5**: full tenancy/auth/org/people stack; `leave_type`, `public_holiday`, `leave_balance` tables with RLS + `@TenantId`; `timeoff.BalanceService` (grant logic — do not touch its grant paths, this phase only *reads* `leave_balance` and increments `used`); `timeoff.LeaveTypeService`/`PublicHolidayService` admin CRUD; Home dashboard "Book Time Off" balance cards (currently display-only — this phase is what makes them actionable); `people.EmployeeHiredEvent` + `timeoff.EmployeeHiredEventListener` (the event pattern to copy again, see below).
-- **`PeopleFacade`** — already exposes `listActiveEmployeeHireInfo()`/`requireEmployeeHireInfo()`. This phase will likely need employee→manager lookups for approver resolution; check whether `people.Employee.manager()` is reachable through the existing facade surface or needs a new method before assuming a gap.
-- **`timeoff` package and its cross-module wiring pattern (ADR 0009)** — `people` must continue to never import `timeoff`. If this phase needs `people.EmployeeService.applyTermination` to cancel future leave requests (PRD §14.4 — the carried-forward gap from 1.4/1.5), do it the same way `EmployeeHiredEvent` did: `people` publishes an event, `timeoff` listens. Do not add a direct `people → timeoff` call — that reopens the exact package cycle ADR 0009 avoided.
-- **`AnnualGrantJob` fan-out-over-tenants pattern** (`timeoff.AnnualGrantJob`, itself copied from `people.EmployeeTerminationJob`) — not directly reused here (approvals are per-request, not a scheduled job), but the `TenantContext.set/clear` per-tenant-iteration shape is the reference if this phase ends up needing any cross-tenant scheduled job (e.g., auto-expiring stale pending requests, if the PRD calls for it — check before assuming it does).
-- **`email_outbox` + `EmailDispatcher`** (`notifications.system`) — the durable-outbox pattern this phase's approval/rejection/cancellation emails must use. `EmailOutbox`/`EmailDispatcher`/the retry-backoff shape are all already built; this phase adds new email templates/trigger points, not new outbox infrastructure.
-- **htmx + Alpine, offcanvas/modal patterns** — `admin/leave-types.html`, `admin/holidays.html`, `people/profile.html`'s tab-swap pattern are the freshest reference implementations. The Book Time Off modal and the For Action approve/reject modal are new UI shapes (not another list+offcanvas CRUD screen) — check `docs/UI_Guidelines.md` §6 for whether a modal-based flow has its own established pattern yet, or whether this phase is establishing it.
-- **Combined write-then-read `@Transactional` service methods (ADR 0007, reaffirmed by ADR 0009)** — every new controller mutation (book, approve, reject, cancel) needs this shape. Do not let the controller compose a write call and a separate read call itself.
+- **Everything through 1.6**: full tenancy/auth/org/people/leave stack. `people/profile.html`'s Documents tab currently renders a stub empty-state (`ProfileController.populateTab`'s `"documents"` case is intentionally a no-op, commented as waiting on this phase) — this is what makes it real.
+- **`identity`/`people` upload-adjacent precedent**: nothing uploads a file anywhere yet in this codebase. `EmployeeForms`/`AdminEmployeeController`'s multipart CSV upload (`PublicHolidayService.bulkUpload`, Phase 1.5) is the closest existing example of a `MultipartFile` endpoint — read it for the controller-side shape, but note it doesn't persist the file itself (just parses it), so it's not a template for `FileStorage`.
+- **`CLAUDE.md` §6a's durable-outbox pattern** — likely NOT applicable here: a file upload's persistence (DB row + storage write) isn't the same shape as an external async side effect like email. Confirm before assuming either way; do not force-fit the outbox pattern onto file storage without checking whether the PRD or a consistency requirement actually calls for it.
 
-## Remaining Phase 1.6 work
+## Remaining Phase 1.7 work
 
 ### Schema + entities
 
-- Flyway migration for `leave_request` per PRD §21 (reproduced above in this file's git history / the PRD itself). Tenant-scoped: RLS template + `@TenantId`, `rls_probe` grant added to the test isolation-probe migration (following `V202608141000`'s pattern from 1.5 — one more `GRANT SELECT` line).
-- `LeaveRequest` entity: `employeeId` as a plain `UUID` (not a JPA relation), matching `LeaveBalance.employeeId`'s established convention (ADR-adjacent reasoning: `timeoff` doesn't hold a `people.Employee` JPA reference); `leaveType` as a real `@ManyToOne` (same-package, like `LeaveBalance.leaveType`); `deciderId`/`cancelledBy` as plain `UUID` referencing `app_user` (cross-module, `identity` package — same plain-id convention).
-- Status as a `sealed interface` or `enum` state machine (`PENDING`/`APPROVED`/`REJECTED`/`CANCELLED`) per CLAUDE.md §10's recipe — a `LeaveRequestStateMachine` class, unit-tested exhaustively for every legal/illegal transition.
-- Consider `@Version` optimistic locking on `LeaveBalance` now (CURRENT_PHASE.md's 1.5 predecessor deferred it exactly to this phase, since concurrent approve/cancel racing on `used` is the first real case that needs it — decide and record if this ships or if the risk is accepted for MVP scale).
+- Flyway migration for `company_file` and `employee_document` (exact columns per PRD §6.3.9/§6.7 — check for both, the two may have different shapes). Tenant-scoped: RLS template + `@TenantId`, `rls_probe` grant added to the test isolation-probe migration.
+- `CompanyFile`/`EmployeeDocument` entities in a new `documents` package (CLAUDE.md §4) — do not put them in `people` even though `EmployeeDocument` is employee-scoped; the package structure names `documents` explicitly.
+- Neither entity stores file bytes (CLAUDE.md §11) — only metadata (name, size, MIME type, storage key/path, uploaded-by, uploaded-at). The actual bytes go through `FileStorage`.
 
 ### Backend
 
-- `LeaveDurationCalculator` — PRD §12.3's pseudocode, implemented exactly, unit-tested exhaustively (weekend/holiday skipping, half-day edge cases, same-day-both-halves rejection, tenant-specific weekend days from `TenantConfig`/`Tenant.weekendDays`).
-- `LeaveRequestService.book(...)` — balance check (sufficient `remaining()` on the current year's `LeaveBalance`), compute duration, create `PENDING`, resolve approver (`employee.manager()` → fallback to any tenant Admin — check PRD §12.4 step 2 for the exact fallback rule), enqueue approver notification via `email_outbox`, log for the interim audit trail (real `audit_entry` is still Phase 1.11).
-- `LeaveRequestService.approve/reject/cancel(...)` — state machine transitions + `leave_balance.used` adjustment (approved: `+= duration`; rejected: no change; cancelled: `-= duration` if it was approved). No self-approval, ever (PRD BR-6) — enforce in the service, not just the UI.
-- Approver resolution needs a manager→approver read from `people` — go through `PeopleFacade`, adding a method if the current surface doesn't cover it (see "Already in place" above).
+- `storage.FileStorage` interface + `LocalFileStorage` + `S3FileStorage` (CLAUDE.md §4). Check `application.yml`/`application-*.yml` for whether a storage-backend selection property convention already exists, or this phase establishes one.
+- Multipart upload endpoint(s): MIME + magic-byte validation via Apache Tika (already a listed dependency in CLAUDE.md §3 — check `pom.xml` for whether it's already added or needs one, following §7's "version in `<properties>`" rule if not), extension whitelist (PDF/PNG/JPG/DOCX/XLSX/PPTX per FR-7.4), 25 MB size limit (FR-7.3, "configurable" — check whether that means per-tenant or a static app property), reject executables explicitly even if disguised by extension (the magic-byte check is what catches this).
+- Download: presigned URL for S3, streaming response for local (FR-7.5).
+- Company Files: Admin uploads, every tenant member can view/download (FR-7.1) — check the exact `@PreAuthorize` shape against PRD §26 if it lists Files there.
+- Employee Documents: self + Admin can upload to a given employee's Documents tab (FR-7.2, mirrors the self-or-Admin pattern `people.EmployeeService`'s emergency-contacts/government-IDs already established — reuse that shape, don't invent a new one).
 
 ### Frontend
 
-- Book Time Off modal (top bar CTA + Home dashboard cards) — type selector scoped to active leave types with remaining balance, date range, half-day toggles, live duration preview, note, submit.
-- Profile → Time Off tab — now real: budget cards (can likely reuse `HomeController.BalanceCard`'s shape) + request history table. This is the tab `people/profile.html`'s comment has been marking as omitted since Phase 1.3.
-- For Action page — pending requests scoped to the signed-in user's approval authority (Manager: direct + indirect reports per PRD §26; Admin: any). Approve/reject modal with an optional note.
-- Sidebar "For Action" nav item currently renders `disabled` — this is the phase that makes it real (see `fragments/sidebar.html`).
+- Files (company) page: table (name, size, uploaded-by, uploaded-at, download) + upload button, Admin-only upload but tenant-wide visibility.
+- Profile → Documents tab: now real — upload control + list, self and Admin can upload, replacing the stub `ProfileController` currently renders.
 
 ### Tests
 
-- Exhaustive unit tests on `LeaveDurationCalculator` (CLAUDE.md §8 names this explicitly): DST transitions, year boundaries, tenant-specific weekend variants, every half-day combination from PRD §12.3's pseudocode including the invalid-combination rejection.
-- Integration: book → approve → balance debited → email queued (assert the outbox row, not a real send). Book → reject → balance unchanged. Approve → cancel → balance credited back.
-- Tenant isolation test for `leave_request`, mirroring `TimeoffTenantIsolationTest`'s 1.5 shape.
-- RBAC: booking is self-service for all three roles; approval is Manager-of-reports-only or Admin-any; a Manager attempting to approve a non-report's request must be denied; self-approval must be denied even for an Admin who is also the requester.
-- E2E: the PRD's own worked example (or equivalent) — Employee books N days, Manager approves, Employee sees APPROVED in history — mirroring `EmployeeLifecycleE2ETest`/`LeaveConfigE2ETest`'s helper-reuse convention.
+- Upload rejected for disguised/wrong-extension executables (`.exe`, `.js`, a `.pdf` that's actually an `.exe` by magic bytes) — CLAUDE.md §6 A03 names this explicitly.
+- Upload over the size limit returns a clear error (413 or an inline validation message — decide and be consistent with the rest of the app's error-handling convention, GlobalExceptionHandler's pattern).
+- Local and S3 backends both pass the same test suite (PRD's own testing note: "test profile toggles impl") — check whether this needs a Testcontainers S3-compatible mock (e.g., MinIO) or a different strategy; do not assume Testcontainers is the answer without checking what's already available.
+- Tenant isolation for both new tables, mirroring every prior phase's `TenantIsolationTestBase` shape.
+- RBAC: Company Files upload is Admin-only; Employee Documents upload is self-or-Admin; download/view permissions per whatever §26 (or common sense if §26 is silent) specifies.
 
-## Definition of Done for Phase 1.6
+## Definition of Done for Phase 1.7
 
-- Full happy path works end-to-end through the browser (book → approve → balance updates → email queued).
-- Insufficient balance blocks booking with a clear error, not a generic 500/validation dump.
-- Cancelling an approved request returns the balance.
-- No self-approval possible, by construction, proven by test — not by review.
-- `leave_request`: RLS + `@TenantId` + a passing tenant-isolation test.
-- `./mvnw verify` green, PMD at zero violations, ArchUnit green with no new exemptions (the `people`↔`timeoff` acyclic boundary from ADR 0009 must still hold if this phase closes the termination-cascade gap).
+- Admin uploads a handbook PDF to Company Files; any signed-in employee can see and download it.
+- Priya (an Employee) uploads a passport scan to her own Documents tab; an Admin can also see/upload to her Documents; another Employee cannot.
+- A `.exe` renamed to `.pdf` is rejected (magic-byte check working, not just extension).
+- A file over the size limit is rejected with a clear message, not a generic 500.
+- Both `company_file`/`employee_document`: RLS + `@TenantId` + passing tenant-isolation tests.
+- `./mvnw verify` green, PMD at zero violations, ArchUnit green with no new exemptions.
 
-## Not in scope for Phase 1.6 — do not start any of this
+## Not in scope for Phase 1.7 — do not start any of this
 
-- Real persisted `audit_entry` — still Phase 1.11. Continue the interim SLF4J-logging convention.
-- Auto-expiring/auto-escalating stale pending requests, unless the PRD explicitly calls for it — check before building it as a "seems obviously needed" addition (CLAUDE.md §11: no speculative features).
-- Team/org-wide leave calendar view (PRD §26 lists "View team calendar" as in scope for all roles, but check whether that's this phase's job or a later reporting-phase concern before building it here).
-- Employee custom fields, grid/tree People views — still Phase 2, unrelated to this phase anyway.
+- Document-expiry reminder emails (PRD FR-9.2 lists "document expiry (30/14/7 days before)" as a notification event) — that's Phase 1.10's job (notification event wiring), not this phase's, even though it directly concerns data this phase creates.
+- Tasks / Action Inbox beyond what 1.6 already built for leave requests (PRD §6.8) — a separate phase concern (1.9 names "Home Dashboard + For Action inbox" as when Tasks-as-a-concept gets real UI); this phase's Documents tab work is unrelated.
+- Team Calendar, Reporting — later phases (1.8, 1.12).
 
 ## Carried forward — open items
 
@@ -78,15 +71,15 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
 - **No common-password blocklist.** ADR 0006 decision F.
 - **Tenant primary colour not yet injected into `--bs-primary`.** Phase 1.10 owns tenant branding.
 - **Peer-to-peer profile viewing (PRD §26 "View peer profile 🔒 basic") is not implemented.** Deferred since Phase 1.4; still not this phase's job.
-- **Termination's "cancel future leave requests" (PRD §14.4) is a no-op.** This is finally this phase's job — `leave_request` now exists. Close it via the event pattern described above under "Already in place," not a direct `people → timeoff` call.
 - **`EmployeeTerminationJob`/`AnnualGrantJob` process tenants serially, not in parallel.** Still fine at current scale (CLAUDE.md §11) — revisit only with a benchmark showing a problem.
-- **Manual leave-balance adjustment (`BalanceService.adjustManually`, added in 1.5) has no dedicated admin screen**, by design — it's a backend capability tested via RBAC only. Revisit if a real need for an adjustment UI surfaces; not assumed needed by this phase.
-- **`BalanceService.adjustManually` can set `granted` below `used`, making `remaining()` negative.** Nothing compares the two: `LeaveBalance.adjustGranted` is a bare assignment, `BalanceAdjustmentForm`'s `@DecimalMin("0.0")` only rejects negative *input*, and `leave_balance` has no `CHECK`. Dormant through 1.5 because `used` is always zero — **this phase is what first increments it**, so it becomes reachable the moment approvals ship. Decide before booking depends on it, because it is a product decision, not just a guard: (a) reject an adjustment below `used`, (b) allow it and treat a negative `remaining()` as a real over-drawn state that 1.6's balance check and the Home/profile balance cards must both render deliberately, or (c) allow with a warning. Option (a) is the simplest but blocks the legitimate "the original grant was wrong" correction, so this needs a call on how MHZ actually handles over-drawn leave. A `CHECK (granted >= 0 AND used >= 0)` is worth adding under whichever option wins. Found in the post-1.5 review (finding M7).
-- **`AdminEmployeeController`'s write-then-separate-read transaction shape has an open correctness question** (ADR 0009's Context/Consequences) — not investigated or fixed in 1.5. If this phase adds any new mutation to `AdminEmployeeController` itself, follow `AdminLeaveController`'s combined-transaction shape instead of extending the unconfirmed pattern further.
+- **Manual leave-balance adjustment (`BalanceService.adjustManually`) has no dedicated admin screen**, by design — backend capability, RBAC-tested only. Revisit if a real need surfaces.
+- **`AdminEmployeeController`'s write-then-separate-read transaction shape has an open correctness question** (ADR 0009's Context/Consequences) — not investigated. If this phase adds any mutation to `AdminEmployeeController` itself, follow the combined-transaction shape instead of extending the unconfirmed pattern further.
+- **A booking whose computed duration is exactly zero working days is not rejected** (Phase 1.6, ADR 0010's Consequences) — no PRD requirement for a minimum-duration guard, and the live preview shows "0 working days" before submit. Not this phase's concern; noted in case a future phase's UI work touches the Book Time Off modal and wants to revisit it.
+- **`listPendingForApprover`'s Manager-scope filter runs one `isManagerOf` CTE call per tenant-wide pending request**, not a single batched query (Phase 1.6, ADR 0010's Consequences). Fine at current tenant sizes; revisit only with a benchmark showing a problem.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to whatever sub-phase comes next (this file's 1.5 → 1.6 update is the template).
-3. Commit `phase-1.6-leave-approvals` and open a PR against `main`.
+2. Update this file to whatever sub-phase comes next (this file's 1.6 → 1.7 update is the template).
+3. Commit `phase-1.7-files-documents` and open a PR against `main`.
 4. Do not start the next phase in the same session.
