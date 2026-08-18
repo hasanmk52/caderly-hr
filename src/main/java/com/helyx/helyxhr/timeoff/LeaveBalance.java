@@ -8,6 +8,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -45,6 +46,15 @@ public class LeaveBalance extends TenantAwareEntity {
     @Column(name = "used", nullable = false)
     private BigDecimal used;
 
+    /**
+     * Optimistic lock (decision 2 in the Phase 1.6 plan): approve/cancel/termination-cascade can
+     * all race to update {@code used} on the same row, which earlier phases never risked since
+     * nothing wrote to it before booking existed.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
     protected LeaveBalance() {}
 
     private LeaveBalance(UUID employeeId, LeaveType leaveType, int year, BigDecimal granted) {
@@ -66,6 +76,16 @@ public class LeaveBalance extends TenantAwareEntity {
      */
     public void adjustGranted(BigDecimal newGranted) {
         this.granted = newGranted;
+    }
+
+    /** Booking approval debits the balance (PRD §12.4 step 5). */
+    public void recordUsage(BigDecimal amount) {
+        this.used = this.used.add(amount);
+    }
+
+    /** Cancelling an approved request, or a termination cascade, credits the balance back. */
+    public void releaseUsage(BigDecimal amount) {
+        this.used = this.used.subtract(amount);
     }
 
     public UUID employeeId() {
