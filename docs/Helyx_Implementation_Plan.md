@@ -117,6 +117,8 @@ Bootstrap the project skeleton, CI, and local dev experience so the first featur
 - `@PreAuthorize` on all controllers.
 - Session revocation on password change.
 
+**Retroactive note (2026-08-22, ADR 0011):** `user_role` grants here were originally invite-time-only (`Set.of(Role.EMPLOYEE)` for every new employee, with no later path to grant `MANAGER`). PRD §5's "MANAGER is derived from the org chart" was never actually wired up — found during Phase 1.6 manual testing, when a real manager (set via `employee.manager_id`) got a 403 on `/for-action`. Closed by an event published from `EmployeeService.reassignManagerInternal` (Phase 1.4) plus a one-time backfill migration for org charts that predate the fix; see ADR 0011. Not a new phase — a fix to this phase's and 1.4's existing scope.
+
 **Frontend tasks:**
 - Login page (matches TalentHR aesthetic — top-center card, logo, email/password, "Forgot password?" link, "Log in" button).
 - Set-password (invite acceptance) page.
@@ -169,6 +171,8 @@ Bootstrap the project skeleton, CI, and local dev experience so the first featur
 **Backend:**
 - `EmployeeService` with create/update/terminate flows.
 - History listeners populate status/manager history on change.
+
+**Retroactive note (2026-08-22, ADR 0011):** manager reassignment (`EmployeeService.reassignManagerInternal`) now also publishes `ManagerRoleSyncEvent`, so the affected employees' `MANAGER` role in `user_role` (Phase 1.2) stays in sync with the org chart, per PRD §5. Found missing during Phase 1.6 manual testing; see ADR 0011.
 - Column encryption via a `CryptoConverter` for `government_id.id_number`, `bank_detail.*`, optional `employee.base_compensation`.
 - Field-level permission: `PatchEmployeeDto` filters mutable fields based on requester role.
 - Invite email on employee creation (reuses 1.2).
