@@ -187,6 +187,61 @@ class LeaveApprovalAccessControlTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void reject_asEmployee_returns403() throws Exception {
+        Employee manager = createEmployee("Direct", "Manager", null);
+        Employee report = createEmployee("Direct", "Report", manager.requireId());
+        LeaveRequest request = bookLeaveRequest(report);
+        UserDetails principal = loadPrincipal(report.email());
+
+        mockMvc
+                .perform(
+                        post(URI.create("http://" + slug + ".localhost/for-action/leave-requests/" + request.requireId() + "/reject"))
+                                .with(user(principal))
+                                .with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void reject_asUnrelatedManager_returns403() throws Exception {
+        Employee actualManager = createEmployee("Direct", "Manager", null);
+        Employee report = createEmployee("Direct", "Report", actualManager.requireId());
+        LeaveRequest request = bookLeaveRequest(report);
+
+        Employee unrelatedManager = createEmployee("Unrelated", "Manager", null);
+        grantRole(unrelatedManager, Role.MANAGER);
+        UserDetails principal = loadPrincipal(unrelatedManager.email());
+
+        mockMvc
+                .perform(
+                        post(URI.create("http://" + slug + ".localhost/for-action/leave-requests/" + request.requireId() + "/reject"))
+                                .with(user(principal))
+                                .with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void reject_selfApprovalAsAdmin_returns403() throws Exception {
+        // BR-6 applies to reject() too, via the same requireApprovalAuthority guard as approve().
+        Employee admin = createEmployee("Self", "Admin", null);
+        grantRole(admin, Role.ADMIN);
+        run(
+                () -> {
+                    AppUser user = appUsers.findById(admin.userId()).orElseThrow();
+                    user.acceptInvite("test-hash");
+                    return appUsers.save(user);
+                });
+        LeaveRequest request = bookLeaveRequest(admin);
+        UserDetails principal = loadPrincipal(admin.email());
+
+        mockMvc
+                .perform(
+                        post(URI.create("http://" + slug + ".localhost/for-action/leave-requests/" + request.requireId() + "/reject"))
+                                .with(user(principal))
+                                .with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
     private LeaveRequest bookLeaveRequest(Employee requester) {
         LocalDate start = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY));
         return run(

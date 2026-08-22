@@ -349,6 +349,60 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
                 .isEqualTo("LEAVE_BOOKING_WINDOW_EXCEEDED");
     }
 
+    @Test
+    void book_atExactlyTwelveMonthsBoundary_succeeds() {
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+        LocalDate boundary = today().plusMonths(12); // exactly 12 months out: allowed, only *beyond* it is not
+        // The boundary date falls in next year; only this year's balance is auto-granted on hire
+        // (AnnualGrantJob is what creates next year's row in production, out of scope here), so
+        // seed it directly.
+        asTenant(
+                tenantA,
+                () -> balances.save(LeaveBalance.grant(report.requireId(), type, boundary.getYear(), new BigDecimal("10"))));
+
+        LeaveRequest request =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequestService.book(
+                                        report.requireId(),
+                                        type.requireId(),
+                                        boundary,
+                                        boundary,
+                                        false,
+                                        false,
+                                        null,
+                                        BASE_URL));
+
+        assertThat(request.status()).isEqualTo(LeaveRequestStatus.PENDING);
+    }
+
+    @Test
+    void book_whenRequestExactlyEqualsRemaining_succeeds() {
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("2"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        LeaveRequest request =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequestService.book(
+                                        report.requireId(),
+                                        type.requireId(),
+                                        nextWeekday(),
+                                        nextWeekday().plusDays(1), // Mon-Tue: 2 working days == 2 remaining
+                                        false,
+                                        false,
+                                        null,
+                                        BASE_URL));
+
+        assertThat(request.status()).isEqualTo(LeaveRequestStatus.PENDING);
+        assertThat(request.durationDays()).isEqualByComparingTo("2.00");
+    }
+
     // ---- approve / reject ----
 
     @Test
@@ -468,6 +522,53 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
         assertThat(requireBalance(report.requireId(), type.requireId()).used()).isEqualByComparingTo("0.00");
     }
 
+    @Test
+    void reject_selfRejectionEvenAsAdmin_throwsAccessDenied() {
+        // BR-6 applies to reject() too: requireApprovalAuthority is the same guard approve() uses,
+        // and it fires before any role branch — mirrors approve_selfApprovalEvenAsAdmin_*.
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee admin = asTenant(tenantA, () -> createEmployee("Self", "Admin", manager.requireId()));
+        LeaveRequest request = bookOneDay(admin, type, nextWeekday());
+
+        assertThatThrownBy(
+                        () ->
+                                asTenant(
+                                        tenantA,
+                                        () ->
+                                                leaveRequestService.reject(
+                                                        request.requireId(),
+                                                        admin.userId(),
+                                                        admin.requireId(),
+                                                        admin.fullName(),
+                                                        true,
+                                                        null)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void reject_byNonManagerNonAdmin_throwsAccessDenied() {
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+        Employee stranger = asTenant(tenantA, () -> createEmployee("Stranger", "Person", null));
+        LeaveRequest request = bookOneDay(report, type, nextWeekday());
+
+        assertThatThrownBy(
+                        () ->
+                                asTenant(
+                                        tenantA,
+                                        () ->
+                                                leaveRequestService.reject(
+                                                        request.requireId(),
+                                                        stranger.userId(),
+                                                        stranger.requireId(),
+                                                        stranger.fullName(),
+                                                        false,
+                                                        null)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
     // ---- cancel ----
 
     @Test
@@ -557,6 +658,26 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
                 .isInstanceOf(ConflictException.class)
                 .extracting(exception -> ((ConflictException) exception).errorCode())
                 .isEqualTo("LEAVE_REQUEST_ILLEGAL_TRANSITION");
+    }
+
+    @Test
+    void cancel_byUnrelatedNonAdminEmployee_throwsAccessDenied() {
+        // Self-cancel only this phase (Phase 1.6 plan decision 7): cancelling someone else's
+        // request requires actingIsAdmin=true, regardless of any manager relationship.
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+        Employee stranger = asTenant(tenantA, () -> createEmployee("Stranger", "Person", null));
+        LeaveRequest request = bookOneDay(report, type, nextWeekday());
+
+        assertThatThrownBy(
+                        () ->
+                                asTenant(
+                                        tenantA,
+                                        () ->
+                                                leaveRequestService.cancel(
+                                                        request.requireId(), stranger.userId(), stranger.requireId(), false)))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     // ---- termination cascade ----
