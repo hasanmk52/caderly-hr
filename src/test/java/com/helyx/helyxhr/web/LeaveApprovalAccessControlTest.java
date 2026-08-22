@@ -111,6 +111,18 @@ class LeaveApprovalAccessControlTest {
     }
 
     @Test
+    void forAction_asManagerWithRealReports_returns200_withoutManuallyGrantingTheRole() throws Exception {
+        // Proves the original bug (ADR 0011) is fixed: a real manager, set via manager_id, no
+        // longer needs a manual grantRole(...) to pass hasRole('MANAGER') on /for-action. Unlike
+        // every other test in this class, there is deliberately no grantRole call here.
+        Employee manager = createEmployee("Real", "Manager", null);
+        createEmployee("Direct", "Report", manager.requireId());
+        UserDetails principal = loadPrincipal(manager.email());
+
+        mockMvc.perform(url("/for-action").with(user(principal))).andExpect(status().isOk());
+    }
+
+    @Test
     void approve_asReportsManager_returns200() throws Exception {
         Employee manager = createEmployee("Direct", "Manager", null);
         grantRole(manager, Role.MANAGER);

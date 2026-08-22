@@ -128,6 +128,25 @@ class AppUserTest {
     }
 
     @Test
+    void revoke_whenRoleHeld_removesIt() {
+        AppUser user = activeUser();
+        user.grant(Role.MANAGER);
+
+        user.revoke(Role.MANAGER);
+
+        assertThat(user.roles()).doesNotContain(Role.MANAGER);
+    }
+
+    @Test
+    void revoke_whenRoleNeverGranted_isNoOp() {
+        AppUser user = activeUser();
+
+        user.revoke(Role.MANAGER);
+
+        assertThat(user.roles()).isEmpty();
+    }
+
+    @Test
     void changePassword_whenAccountWasLocked_clearsTheLock() {
         // A successful reset is proof of mailbox control, so it should not leave the user
         // locked out by the failures that prompted the reset in the first place.

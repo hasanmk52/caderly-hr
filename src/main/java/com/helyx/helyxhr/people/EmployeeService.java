@@ -268,12 +268,30 @@ public class EmployeeService {
                     "That person already reports to this employee, directly or through their team");
         }
         Employee manager = managerId == null ? null : require(managerId);
+
+        // Captured before employee.reassignManager(manager) mutates in-memory state below, and
+        // excluding this employee explicitly by id rather than relying on flush timing (ADR 0011).
+        Employee oldManager = employee.manager();
+        boolean oldManagerRetainsOtherReports =
+                oldManager != null
+                        && employees.countByManagerIdAndIdNotAndStatusNot(
+                                        oldManager.requireId(), employee.requireId(), EmployeeStatus.TERMINATED)
+                                > 0;
+
         LocalDate today = LocalDate.now(clock);
         managerHistory
                 .findFirstByEmployeeIdAndEffectiveToIsNullOrderByEffectiveFromDesc(employee.requireId())
                 .ifPresent(open -> open.close(today));
         managerHistory.save(EmployeeManagerHistory.open(employee, manager, today));
         employee.reassignManager(manager);
+
+        // Published, not applied directly here, mirroring EmployeeHiredEvent/EmployeeTerminatedEvent
+        // above (ADR 0011: keeps MANAGER role sync out of org-chart-reassignment logic).
+        events.publishEvent(
+                new ManagerRoleSyncEvent(
+                        oldManager == null ? null : oldManager.userId(),
+                        oldManagerRetainsOtherReports,
+                        manager == null ? null : manager.userId()));
     }
 
     /**
