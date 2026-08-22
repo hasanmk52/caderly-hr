@@ -109,7 +109,10 @@ public class LeaveRequestService {
                         start, end, startHalfPm, endHalfAm, currentWeekend(), currentHolidays());
 
         int year = start.getYear();
-        LeaveBalance balance = requireBalance(employeeId, leaveTypeId, year);
+        // Lock the balance row so a second concurrent booking for the same employee/leave type/
+        // year blocks until this transaction commits, instead of both reading the same pending
+        // sum and jointly overdrawing the balance.
+        LeaveBalance balance = requireBalanceForUpdate(employeeId, leaveTypeId, year);
         BigDecimal pending = leaveRequests.sumPendingDuration(employeeId, leaveTypeId, yearStart(year), yearEnd(year));
         if (pending.add(duration).compareTo(balance.remaining()) > 0) {
             throw new ValidationException(
@@ -351,6 +354,17 @@ public class LeaveRequestService {
     private LeaveBalance requireBalance(UUID employeeId, UUID leaveTypeId, int year) {
         return balances
                 .findByEmployeeIdAndLeaveTypeIdAndYear(employeeId, leaveTypeId, year)
+                .orElseThrow(
+                        () ->
+                                new NotFoundException(
+                                        "LEAVE_BALANCE_NOT_FOUND",
+                                        "No " + year + " balance found for this employee/leave type"));
+    }
+
+    /** Locking variant of {@link #requireBalance}, used only by {@link #book}. */
+    private LeaveBalance requireBalanceForUpdate(UUID employeeId, UUID leaveTypeId, int year) {
+        return balances
+                .findForUpdateByEmployeeIdAndLeaveTypeIdAndYear(employeeId, leaveTypeId, year)
                 .orElseThrow(
                         () ->
                                 new NotFoundException(

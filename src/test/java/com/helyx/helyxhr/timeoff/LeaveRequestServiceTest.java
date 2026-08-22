@@ -22,6 +22,12 @@ import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -145,6 +151,84 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
                 .isInstanceOf(ValidationException.class)
                 .extracting(exception -> ((ValidationException) exception).errorCode())
                 .isEqualTo("LEAVE_INSUFFICIENT_BALANCE");
+    }
+
+    /**
+     * Regression test for the double-booking race: without the {@code PESSIMISTIC_WRITE} lock in
+     * {@code requireBalanceForUpdate}, both threads could read the same (zero) pending sum before
+     * either insert committed, and both would pass the "2 &lt;= 3" check — overdrawing the balance
+     * to 4. The lock forces the second transaction to wait, re-read, and correctly see the first's
+     * committed PENDING request, so exactly one of the two bookings must fail.
+     */
+    @Test
+    void book_concurrentRequestsExceedingBalance_onlyOneSucceeds() throws Exception {
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("3"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        LocalDate firstStart = nextWeekday();
+        LocalDate firstEnd = nextWeekday().plusDays(1); // Mon-Tue: 2 working days
+        LocalDate secondStart = nextWeekday().plusDays(7);
+        LocalDate secondEnd = nextWeekday().plusDays(8); // next Mon-Tue: 2 working days, disjoint
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> first =
+                    pool.submit(
+                            bookingAttempt(report.requireId(), type.requireId(), firstStart, firstEnd, ready, start));
+            Future<Boolean> second =
+                    pool.submit(
+                            bookingAttempt(
+                                    report.requireId(), type.requireId(), secondStart, secondEnd, ready, start));
+
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            List<Boolean> results = List.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS));
+
+            assertThat(results).containsExactlyInAnyOrder(true, false);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        BigDecimal stillPending =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequestRepository.sumPendingDuration(
+                                        report.requireId(),
+                                        type.requireId(),
+                                        LocalDate.of(today().getYear(), 1, 1),
+                                        LocalDate.of(today().getYear(), 12, 31)));
+        assertThat(stillPending).isEqualByComparingTo("2.00");
+    }
+
+    private Callable<Boolean> bookingAttempt(
+            UUID employeeId,
+            UUID leaveTypeId,
+            LocalDate start,
+            LocalDate end,
+            CountDownLatch ready,
+            CountDownLatch go) {
+        return () -> {
+            ready.countDown();
+            go.await();
+            try {
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequestService.book(
+                                        employeeId, leaveTypeId, start, end, false, false, null, BASE_URL));
+                return true;
+            } catch (ValidationException e) {
+                if ("LEAVE_INSUFFICIENT_BALANCE".equals(e.errorCode())) {
+                    return false;
+                }
+                throw e;
+            }
+        };
     }
 
     @Test
