@@ -57,6 +57,15 @@ public class TenantService implements TenantFacade {
                                 .toList());
     }
 
+    @Override
+    public int currentWeekendDays() {
+        UUID tenantId = TenantContext.require();
+        return repository
+                .findById(tenantId)
+                .map(Tenant::getWeekendDays)
+                .orElseThrow(() -> new IllegalStateException("No tenant row for id " + tenantId));
+    }
+
     // Package-private: only tests need to force freshness.
     void evictCache() {
         bySlug.invalidateAll();

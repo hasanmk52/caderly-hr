@@ -1,9 +1,8 @@
 /*
  * Global htmx glue (UI Guidelines §13: no inline JavaScript in templates).
  *
- * Three responsibilities, the first applying site-wide and the other two specific to the
- * Divisions/Departments admin page (Phase 1.3) but written generically enough to serve any
- * future offcanvas-based admin screen:
+ * Four responsibilities, the first applying site-wide and the rest specific to admin/timeoff
+ * screens but written generically enough to serve any future offcanvas- or modal-based screen:
  *   0. Attaching the CSRF header to every htmx state-changing request. Spring Security's
  *      Thymeleaf dialect only auto-injects a hidden CSRF field into forms it decorates via
  *      th:action; these forms submit through hx-post/hx-patch/hx-delete instead, so nothing
@@ -11,8 +10,12 @@
  *   1. Opening an offcanvas after htmx swaps a form into its body (Add/Edit both work this way —
  *      see AdminOrganizationController's Javadoc for why the offcanvas element itself is never
  *      part of an htmx response).
- *   2. Showing a toast and closing any open offcanvas when the server signals success via the
- *      HX-Trigger response header (UI Guidelines §7.4).
+ *   2. Showing a toast and closing any open offcanvas/modal when the server signals success via
+ *      the HX-Trigger response header (UI Guidelines §7.4).
+ *   3. Book Time Off / Reject leave request (Phase 1.6, UI Guidelines §8.1/§8.6) open via a plain
+ *      Bootstrap data-bs-toggle on their trigger — the modal shell is always present, unlike the
+ *      offcanvas forms — so they need no open-on-swap glue, only the close-on-success handling
+ *      responsibility 2 already covers.
  */
 (function () {
   "use strict";
@@ -32,6 +35,8 @@
     "leaveTypeOffcanvasBody",
     "holidayOffcanvasBody",
   ];
+
+  var MODAL_IDS = ["bookLeaveModal", "rejectLeaveModal"];
 
   document.body.addEventListener("htmx:afterSwap", function (event) {
     if (OFFCANVAS_BODY_IDS.indexOf(event.detail.target.id) === -1) {
@@ -54,6 +59,13 @@
       var body = document.getElementById(id);
       var offcanvasEl = body && body.closest(".offcanvas");
       var instance = offcanvasEl && bootstrap.Offcanvas.getInstance(offcanvasEl);
+      if (instance) {
+        instance.hide();
+      }
+    });
+    MODAL_IDS.forEach(function (id) {
+      var modalEl = document.getElementById(id);
+      var instance = modalEl && bootstrap.Modal.getInstance(modalEl);
       if (instance) {
         instance.hide();
       }

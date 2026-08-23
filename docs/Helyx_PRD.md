@@ -406,6 +406,8 @@ Format: **US-<module>.<n>** — As a **role**, I want **goal**, so that **benefi
 
 **BR-14 Document types.** Only whitelisted MIME types accepted (PDF, PNG, JPG, DOCX, XLSX, PPTX). File extension AND magic-byte check.
 
+**BR-15 No overlapping leave.** An employee cannot have two leave requests (any leave type) with overlapping date ranges while both are PENDING or APPROVED. Booking is rejected outright; the employee must wait for a decision on, or cancel, the conflicting request first.
+
 ---
 
 ## 12. Leave Management Rules — Detailed

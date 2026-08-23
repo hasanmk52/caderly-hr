@@ -10,7 +10,9 @@
     <li class="nav-item"><a class="nav-link" th:href="@{/profile}">My Profile</a></li>
     <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Files</a></li>
     <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Calendar</a></li>
-    <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">For Action</a></li>
+    <li class="nav-item" sec:authorize="hasAnyRole('MANAGER','ADMIN')">
+      <a class="nav-link" th:href="@{/for-action}">For Action</a>
+    </li>
     <!--/* UI Guidelines §1: Admin and Reports are Admin-only. Hiding them is presentation
            only — /admin/** is enforced by @PreAuthorize on the controller, and an Employee
            who types the URL still gets a 403. */-->

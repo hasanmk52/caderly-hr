@@ -232,6 +232,45 @@ class EmployeeServiceTest extends TenantIsolationTestBase {
     }
 
     @Test
+    void reassignManager_grantsManagerRoleToTheNewManager() {
+        Employee manager = createActiveEmployee("New", "Manager");
+        Employee report = createActiveEmployee("A", "Report");
+
+        asTenant(tenantA, () -> employeeService.reassignManager(report.requireId(), manager.requireId()));
+
+        AppUser managerUser = asTenant(tenantA, () -> appUsers.findById(manager.userId())).orElseThrow();
+        assertThat(managerUser.roles()).contains(Role.MANAGER);
+    }
+
+    @Test
+    void reassignManager_awayFromAManagerWithNoOtherReports_revokesManagerRole() {
+        Employee manager = createActiveEmployee("Old", "Manager");
+        Employee report = createActiveEmployee("A", "Report");
+        asTenant(tenantA, () -> employeeService.reassignManager(report.requireId(), manager.requireId()));
+        Employee newManager = createActiveEmployee("New", "Manager");
+
+        asTenant(tenantA, () -> employeeService.reassignManager(report.requireId(), newManager.requireId()));
+
+        AppUser oldManagerUser = asTenant(tenantA, () -> appUsers.findById(manager.userId())).orElseThrow();
+        assertThat(oldManagerUser.roles()).doesNotContain(Role.MANAGER);
+    }
+
+    @Test
+    void reassignManager_awayFromAManagerWhoStillHasOtherReports_keepsManagerRole() {
+        Employee manager = createActiveEmployee("Old", "Manager");
+        Employee reportOne = createActiveEmployee("First", "Report");
+        Employee reportTwo = createActiveEmployee("Second", "Report");
+        asTenant(tenantA, () -> employeeService.reassignManager(reportOne.requireId(), manager.requireId()));
+        asTenant(tenantA, () -> employeeService.reassignManager(reportTwo.requireId(), manager.requireId()));
+        Employee newManager = createActiveEmployee("New", "Manager");
+
+        asTenant(tenantA, () -> employeeService.reassignManager(reportOne.requireId(), newManager.requireId()));
+
+        AppUser managerUser = asTenant(tenantA, () -> appUsers.findById(manager.userId())).orElseThrow();
+        assertThat(managerUser.roles()).contains(Role.MANAGER); // still manages reportTwo
+    }
+
+    @Test
     void reassignManager_toSelf_throwsValidation() {
         Employee employee = createActiveEmployee("Jane", "Doe");
 

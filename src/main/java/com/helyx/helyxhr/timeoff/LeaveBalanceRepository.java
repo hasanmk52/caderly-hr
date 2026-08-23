@@ -1,10 +1,12 @@
 package com.helyx.helyxhr.timeoff;
 
 import com.helyx.helyxhr.common.TenantAwareRepository;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Repository;
 
 /** No method here mentions tenant_id, and none may (CLAUDE.md §5 rule 4). */
@@ -16,6 +18,18 @@ public interface LeaveBalanceRepository extends TenantAwareRepository<LeaveBalan
 
     /** Backs the manual-adjustment endpoint, which only adjusts an existing balance row. */
     Optional<LeaveBalance> findByEmployeeIdAndLeaveTypeIdAndYear(
+            UUID employeeId, UUID leaveTypeId, int year);
+
+    /**
+     * Pessimistic write lock variant of {@link #findByEmployeeIdAndLeaveTypeIdAndYear}, used only
+     * by {@code LeaveRequestService.book()}'s balance-check-then-insert critical section — a
+     * second concurrent booking for the same employee/leave type/year blocks here until the
+     * first transaction commits, then re-reads and correctly sees the first's now-committed
+     * PENDING request via a fresh {@code sumPendingDuration} query. Not used by the read-only
+     * {@code preview()} path or by {@code BalanceService} — those don't need to serialize.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<LeaveBalance> findForUpdateByEmployeeIdAndLeaveTypeIdAndYear(
             UUID employeeId, UUID leaveTypeId, int year);
 
     /**

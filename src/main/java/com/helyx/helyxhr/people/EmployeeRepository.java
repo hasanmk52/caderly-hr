@@ -36,6 +36,15 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
     /** Drives the Department delete-guard's employee count (via {@link PeopleFacade}). */
     long countByDepartmentIdAndStatusNot(UUID departmentId, EmployeeStatus status);
 
+    /**
+     * Whether {@code managerId} has any other non-terminated report besides {@code
+     * excludedEmployeeId} — the "does the old manager still manage anyone" check {@link
+     * EmployeeService#reassignManagerInternal} runs before deciding whether to revoke {@code
+     * MANAGER} (PRD §5). Excludes by id explicitly rather than relying on flush timing, since the
+     * caller runs this before the in-progress reassignment is applied in memory, let alone flushed.
+     */
+    long countByManagerIdAndIdNotAndStatusNot(UUID managerId, UUID excludedEmployeeId, EmployeeStatus status);
+
     /** Drives {@link PeopleFacade#listActiveEmployeeHireInfo()} — no department/manager join needed. */
     List<Employee> findAllByStatusNot(EmployeeStatus status);
 

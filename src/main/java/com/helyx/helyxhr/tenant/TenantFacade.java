@@ -20,4 +20,12 @@ public interface TenantFacade {
      * context is what makes each iteration's reads legitimate rather than a bypass attempt.
      */
     List<UUID> listActiveTenantIds();
+
+    /**
+     * The current tenant's weekend-day bitmask (PRD §12.5, §21) — decoded by {@code
+     * timeoff.LeaveDurationCalculator.decodeWeekend}. Resolved from {@link TenantContext#require()};
+     * {@code tenant} has no {@code tenant_id} of its own to filter by, so no {@code runAsSystem} is
+     * needed the way {@link #bySlug} and {@link #listActiveTenantIds()} require.
+     */
+    int currentWeekendDays();
 }

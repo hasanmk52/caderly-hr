@@ -268,12 +268,30 @@ public class EmployeeService {
                     "That person already reports to this employee, directly or through their team");
         }
         Employee manager = managerId == null ? null : require(managerId);
+
+        // Captured before employee.reassignManager(manager) mutates in-memory state below, and
+        // excluding this employee explicitly by id rather than relying on flush timing (ADR 0011).
+        Employee oldManager = employee.manager();
+        boolean oldManagerRetainsOtherReports =
+                oldManager != null
+                        && employees.countByManagerIdAndIdNotAndStatusNot(
+                                        oldManager.requireId(), employee.requireId(), EmployeeStatus.TERMINATED)
+                                > 0;
+
         LocalDate today = LocalDate.now(clock);
         managerHistory
                 .findFirstByEmployeeIdAndEffectiveToIsNullOrderByEffectiveFromDesc(employee.requireId())
                 .ifPresent(open -> open.close(today));
         managerHistory.save(EmployeeManagerHistory.open(employee, manager, today));
         employee.reassignManager(manager);
+
+        // Published, not applied directly here, mirroring EmployeeHiredEvent/EmployeeTerminatedEvent
+        // above (ADR 0011: keeps MANAGER role sync out of org-chart-reassignment logic).
+        events.publishEvent(
+                new ManagerRoleSyncEvent(
+                        oldManager == null ? null : oldManager.userId(),
+                        oldManagerRetainsOtherReports,
+                        manager == null ? null : manager.userId()));
     }
 
     /**
@@ -311,8 +329,13 @@ public class EmployeeService {
             appUsers.findById(employee.userId()).ifPresent(AppUser::disable);
             sessionRevoker.revokeAllFor(employee.userId());
         }
-        // Cancelling future leave requests (PRD §14.4) is a no-op until leave_request exists
-        // (Phase 1.5/1.6) — reserved gap, not an oversight (see CURRENT_PHASE.md carried-forward).
+        // Published, not called directly: people must not depend on timeoff (see
+        // EmployeeTerminatedEvent's doc comment, mirrors EmployeeHiredEvent/ADR 0009). Plain
+        // @EventListener, not @TransactionalEventListener AFTER_COMMIT — cancelling future leave
+        // requests is an internal DB write with no reason to survive this transaction failing to
+        // commit, so it belongs in the same transaction as the termination itself.
+        LocalDate effectiveDate = java.util.Objects.requireNonNull(employee.terminationDate());
+        events.publishEvent(new EmployeeTerminatedEvent(employee.requireId(), effectiveDate));
         log.info("Terminated employee {}", employee.requireId());
     }
 

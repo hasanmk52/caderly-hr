@@ -32,6 +32,7 @@ class TimeoffTenantIsolationTest extends TenantIsolationTestBase {
     @Autowired private LeaveTypeRepository leaveTypes;
     @Autowired private PublicHolidayRepository holidays;
     @Autowired private LeaveBalanceRepository balances;
+    @Autowired private LeaveRequestRepository leaveRequests;
     @Autowired private EmployeeService employeeService;
     @Autowired private PostgreSQLContainer postgres;
 
@@ -122,6 +123,149 @@ class TimeoffTenantIsolationTest extends TenantIsolationTestBase {
         assertThat(asTenant(tenantB, () -> balances.findById(saved.requireId()))).isEmpty();
         assertThat(asTenant(tenantB, () -> balances.findAllByEmployeeIdAndYear(employee.requireId(), 2026)))
                 .isEmpty();
+    }
+
+    @Test
+    void leaveRequest_seededInTenantA_isInvisibleToTenantB() {
+        LeaveType type =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveTypes.save(
+                                        LeaveType.create(
+                                                "Annual",
+                                                null,
+                                                null,
+                                                true,
+                                                true,
+                                                false,
+                                                true,
+                                                new BigDecimal("30"),
+                                                null)));
+        Employee employee =
+                asTenant(
+                        tenantA,
+                        () ->
+                                employeeService.create(
+                                        new EmployeeForms.CreateEmployee(
+                                                "Priya",
+                                                "Shah",
+                                                UUID.randomUUID() + "@example.test",
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null),
+                                        BASE_URL,
+                                        TENANT_NAME));
+        LeaveRequest saved =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequests.save(
+                                        LeaveRequest.submit(
+                                                employee.requireId(),
+                                                type,
+                                                LocalDate.of(2026, 8, 17),
+                                                LocalDate.of(2026, 8, 17),
+                                                false,
+                                                false,
+                                                BigDecimal.ONE,
+                                                null,
+                                                java.time.Instant.now())));
+
+        assertThat(asTenant(tenantA, () -> leaveRequests.findAllByEmployeeIdOrderBySubmittedAtDesc(employee.requireId())))
+                .hasSize(1);
+        assertThat(asTenant(tenantB, () -> leaveRequests.findById(saved.requireId()))).isEmpty();
+    }
+
+    @Test
+    void rawJdbc_withoutTenantSetting_rlsReturnsNoLeaveRequests() throws Exception {
+        LeaveType type =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveTypes.save(
+                                        LeaveType.create(
+                                                "Sick", null, null, true, false, false, true, new BigDecimal("10"), null)));
+        Employee employee =
+                asTenant(
+                        tenantA,
+                        () ->
+                                employeeService.create(
+                                        new EmployeeForms.CreateEmployee(
+                                                "Sam",
+                                                "Lee",
+                                                UUID.randomUUID() + "@example.test",
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null),
+                                        BASE_URL,
+                                        TENANT_NAME));
+        asTenant(
+                tenantA,
+                () ->
+                        leaveRequests.save(
+                                LeaveRequest.submit(
+                                        employee.requireId(),
+                                        type,
+                                        LocalDate.of(2026, 8, 17),
+                                        LocalDate.of(2026, 8, 17),
+                                        false,
+                                        false,
+                                        BigDecimal.ONE,
+                                        null,
+                                        java.time.Instant.now())));
+
+        assertThat(selectLeaveRequestCountAsRestrictedRole(null)).isZero();
+        assertThat(selectLeaveRequestCountAsRestrictedRole(tenantA)).isEqualTo(1);
+    }
+
+    private int selectLeaveRequestCountAsRestrictedRole(UUID tenantId) throws Exception {
+        try (Connection connection =
+                DriverManager.getConnection(postgres.getJdbcUrl(), "rls_probe", "rls_probe")) {
+            connection.setAutoCommit(false);
+            try {
+                if (tenantId != null) {
+                    try (PreparedStatement ps =
+                            connection.prepareStatement("SELECT set_config('app.tenant_id', ?, true)")) {
+                        ps.setString(1, tenantId.toString());
+                        ps.execute();
+                    }
+                }
+                try (PreparedStatement ps = connection.prepareStatement("SELECT count(*) FROM helyx_hr.leave_request");
+                        ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    return rs.getInt(1);
+                }
+            } finally {
+                connection.rollback();
+            }
+        }
     }
 
     @Test

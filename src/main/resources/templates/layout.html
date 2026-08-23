@@ -9,6 +9,14 @@
   <div th:replace="~{fragments/sidebar :: sidebar}"></div>
   <main id="main-content" class="flex-grow-1 p-4" th:replace="${content}"></main>
 </div>
+<!--/* Book Time Off modal (UI Guidelines §8.1) — global: the topbar CTA (fragments/topbar.html)
+       is present on every page. Only #bookLeaveModalBody is swapped by htmx; the modal element
+       itself is static so Bootstrap's data-bs-toggle can show it immediately on click. */-->
+<div class="modal fade" id="bookLeaveModal" tabindex="-1" aria-hidden="true" aria-labelledby="bookLeaveModalLabel">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" id="bookLeaveModalBody"></div>
+  </div>
+</div>
 <!--/* UI Guidelines §7.4: toasts are the only success-confirmation mechanism. */-->
 <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"
      aria-live="polite" aria-atomic="true"></div>

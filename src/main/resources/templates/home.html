@@ -9,7 +9,12 @@
     <h2 class="h5 mt-4 mb-3" th:if="${!#lists.isEmpty(leaveBalances)}">Book Time Off</h2>
     <div class="row row-cols-1 row-cols-md-3 g-3" th:if="${!#lists.isEmpty(leaveBalances)}">
       <div class="col" th:each="balance : ${leaveBalances}">
-        <div class="card h-100">
+        <!--/* Clicking a balance card opens the Book Time Off modal pre-selected on that type
+               (UI Guidelines §8.1/§8.2). */-->
+        <button type="button" class="card h-100 text-start w-100 border-0"
+                data-bs-toggle="modal" data-bs-target="#bookLeaveModal"
+                th:hx-get="@{/leave/new(leaveTypeId=${balance.leaveTypeId})}"
+                hx-target="#bookLeaveModalBody" hx-swap="innerHTML">
           <div class="card-body">
             <div class="d-flex align-items-center gap-2 mb-2">
               <i th:if="${balance.icon() != null}" th:class="'bi ' + ${balance.icon()}"
@@ -23,7 +28,7 @@
               <span th:text="${balance.used()}">0</span> used
             </p>
           </div>
-        </div>
+        </button>
       </div>
     </div>
   </div>

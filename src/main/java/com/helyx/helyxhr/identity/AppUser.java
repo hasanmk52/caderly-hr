@@ -201,6 +201,15 @@ public class AppUser extends TenantAwareEntity {
         }
     }
 
+    /**
+     * Removes the role if held; a no-op otherwise. {@code orphanRemoval = true} on {@link #roles}
+     * means removing from the set here deletes the underlying {@link UserRole} row on flush — no
+     * separate repository call needed.
+     */
+    public void revoke(Role role) {
+        roles.removeIf(assignment -> assignment.role() == role);
+    }
+
     /** The roles held by this user, as an unmodifiable snapshot. */
     public Set<Role> roles() {
         return roles.stream().map(UserRole::role).collect(Collectors.toUnmodifiableSet());
