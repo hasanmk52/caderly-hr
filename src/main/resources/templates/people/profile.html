@@ -47,17 +47,22 @@
       <!--/* Right column: tabs (UI Guidelines §6/§8.5). Personal/Education/Job/Documents/Time off
              only — Tasks is omitted until Phase 2 lands it. */-->
       <div class="col-12 col-md-9">
-        <ul class="nav nav-tabs mb-3">
-          <li class="nav-item" th:each="t : ${ {'personal','education','job','documents','timeoff'} }">
-            <a class="nav-link" th:classappend="${activeTab == t} ? 'active'"
-               th:text="${t == 'timeoff'} ? 'Time off' : ${#strings.capitalize(t)}"
-               th:href="@{/profile/{id}(id=${employee.id},tab=${t})}"
-               th:hx-get="@{/profile/{id}(id=${employee.id},tab=${t})}"
-               hx-select="#tab-content" hx-target="#tab-content" hx-push-url="true">Personal</a>
-          </li>
-        </ul>
-
+        <!--/* The tab nav lives inside the tabContent fragment (not as a sibling above it) so
+               every htmx swap — clicking a tab, or any mutation handler's response — refreshes
+               which link is marked .active along with the content. Both are driven by the same
+               activeTab model attribute; splitting them across the swap boundary previously left
+               the nav frozen at whichever tab was active on the last full page load. */-->
         <div id="tab-content" th:fragment="tabContent">
+          <ul class="nav nav-tabs mb-3">
+            <li class="nav-item" th:each="t : ${ {'personal','education','job','documents','timeoff'} }">
+              <a class="nav-link" th:classappend="${activeTab == t} ? 'active'"
+                 th:text="${t == 'timeoff'} ? 'Time off' : ${#strings.capitalize(t)}"
+                 th:href="@{/profile/{id}(id=${employee.id},tab=${t})}"
+                 th:hx-get="@{/profile/{id}(id=${employee.id},tab=${t})}"
+                 hx-select="#tab-content" hx-target="#tab-content" hx-push-url="true">Personal</a>
+            </li>
+          </ul>
+
           <div th:switch="${activeTab}">
 
             <!--/* Personal: self-editable contact/address (PRD FR-3.10) + emergency contacts +

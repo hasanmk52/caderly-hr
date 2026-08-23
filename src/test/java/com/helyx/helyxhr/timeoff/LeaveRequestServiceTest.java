@@ -379,6 +379,168 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
         assertThat(request.status()).isEqualTo(LeaveRequestStatus.PENDING);
     }
 
+    // ---- Overlap validation (BR-15) ----
+
+    @Test
+    void book_overlappingAnotherApprovedRequestOfDifferentType_throwsOverlappingRequest() {
+        LeaveType vacation = asTenant(tenantA, () -> createLeaveType("10", "Vacation"));
+        LeaveType sick = asTenant(tenantA, () -> createLeaveType("10", "Sick"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        LeaveRequest vacationRequest =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequestService.book(
+                                        report.requireId(),
+                                        vacation.requireId(),
+                                        nextWeekday(),
+                                        nextWeekday().plusDays(2), // Mon-Wed
+                                        false,
+                                        false,
+                                        null,
+                                        BASE_URL));
+        approveAsManager(vacationRequest, manager);
+
+        // Sick Tue-Thu overlaps the approved Vacation Mon-Wed on Tue-Wed.
+        assertThatThrownBy(
+                        () ->
+                                asTenant(
+                                        tenantA,
+                                        () ->
+                                                leaveRequestService.book(
+                                                        report.requireId(),
+                                                        sick.requireId(),
+                                                        nextWeekday().plusDays(1),
+                                                        nextWeekday().plusDays(3),
+                                                        false,
+                                                        false,
+                                                        null,
+                                                        BASE_URL)))
+                .isInstanceOf(ValidationException.class)
+                .extracting(exception -> ((ValidationException) exception).errorCode())
+                .isEqualTo("LEAVE_OVERLAPPING_REQUEST");
+    }
+
+    @Test
+    void book_adjacentNonOverlappingDates_succeeds() {
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        asTenant(
+                tenantA,
+                () ->
+                        leaveRequestService.book(
+                                report.requireId(),
+                                type.requireId(),
+                                nextWeekday(),
+                                nextWeekday().plusDays(1), // Mon-Tue
+                                false,
+                                false,
+                                null,
+                                BASE_URL));
+
+        // Starts the day right after the first request ends: no shared day, should not conflict.
+        LeaveRequest second =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequestService.book(
+                                        report.requireId(),
+                                        type.requireId(),
+                                        nextWeekday().plusDays(2),
+                                        nextWeekday().plusDays(3), // Wed-Thu
+                                        false,
+                                        false,
+                                        null,
+                                        BASE_URL));
+
+        assertThat(second.status()).isEqualTo(LeaveRequestStatus.PENDING);
+    }
+
+    @Test
+    void book_overlappingButExistingRequestCancelled_succeeds() {
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        LeaveRequest first =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequestService.book(
+                                        report.requireId(),
+                                        type.requireId(),
+                                        nextWeekday(),
+                                        nextWeekday().plusDays(2),
+                                        false,
+                                        false,
+                                        null,
+                                        BASE_URL));
+        asTenant(
+                tenantA,
+                () -> leaveRequestService.cancel(first.requireId(), report.userId(), report.requireId(), false));
+
+        // Same dates as the now-cancelled request: a cancelled request must not block rebooking.
+        LeaveRequest second =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequestService.book(
+                                        report.requireId(),
+                                        type.requireId(),
+                                        nextWeekday(),
+                                        nextWeekday().plusDays(2),
+                                        false,
+                                        false,
+                                        null,
+                                        BASE_URL));
+
+        assertThat(second.status()).isEqualTo(LeaveRequestStatus.PENDING);
+    }
+
+    @Test
+    void book_overlappingRequestInAnotherTenant_doesNotBlock() {
+        LeaveType typeB = asTenant(tenantB, () -> createLeaveType("10"));
+        Employee managerB = asTenant(tenantB, () -> createEmployee("Mgr", "TenantB", null));
+        Employee reportB = asTenant(tenantB, () -> createEmployee("Rep", "TenantB", managerB.requireId()));
+        asTenant(
+                tenantB,
+                () ->
+                        leaveRequestService.book(
+                                reportB.requireId(),
+                                typeB.requireId(),
+                                nextWeekday(),
+                                nextWeekday().plusDays(2),
+                                false,
+                                false,
+                                null,
+                                BASE_URL));
+
+        LeaveType typeA = asTenant(tenantA, () -> createLeaveType("10"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee reportA = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        // Same calendar dates as tenant B's request, but a different tenant entirely.
+        LeaveRequest requestA =
+                asTenant(
+                        tenantA,
+                        () ->
+                                leaveRequestService.book(
+                                        reportA.requireId(),
+                                        typeA.requireId(),
+                                        nextWeekday(),
+                                        nextWeekday().plusDays(2),
+                                        false,
+                                        false,
+                                        null,
+                                        BASE_URL));
+
+        assertThat(requestA.status()).isEqualTo(LeaveRequestStatus.PENDING);
+    }
+
     @Test
     void book_whenRequestExactlyEqualsRemaining_succeeds() {
         LeaveType type = asTenant(tenantA, () -> createLeaveType("2"));
@@ -718,8 +880,13 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
     }
 
     private LeaveType createLeaveType(String allowance) {
+        return createLeaveType(allowance, "Annual");
+    }
+
+    /** Named variant: lets a single test create two distinct leave types (name is unique per tenant). */
+    private LeaveType createLeaveType(String allowance, String name) {
         return leaveTypeService.create(
-                "Annual", null, null, true, true, false, true, new BigDecimal(allowance), null);
+                name, null, null, true, true, false, true, new BigDecimal(allowance), null);
     }
 
     private Employee createEmployee(String firstName, String lastName, UUID managerId) {

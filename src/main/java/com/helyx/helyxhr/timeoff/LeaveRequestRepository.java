@@ -56,4 +56,24 @@ public interface LeaveRequestRepository extends TenantAwareRepository<LeaveReque
             @Param("leaveTypeId") UUID leaveTypeId,
             @Param("yearStart") LocalDate yearStart,
             @Param("yearEnd") LocalDate yearEnd);
+
+    /**
+     * BR-15's overlap check: any of the employee's own requests in one of the given statuses
+     * whose [startDate, endDate] range intersects [start, end] (inclusive), regardless of leave
+     * type.
+     */
+    @Query(
+            """
+            SELECT COUNT(r) > 0
+            FROM LeaveRequest r
+            WHERE r.employeeId = :employeeId
+              AND r.status IN :statuses
+              AND r.startDate <= :end
+              AND r.endDate >= :start
+            """)
+    boolean existsOverlapping(
+            @Param("employeeId") UUID employeeId,
+            @Param("statuses") List<LeaveRequestStatus> statuses,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end);
 }

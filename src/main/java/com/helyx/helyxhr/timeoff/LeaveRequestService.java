@@ -32,7 +32,8 @@ public class LeaveRequestService {
 
     private static final Logger log = LoggerFactory.getLogger(LeaveRequestService.class);
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy");
-    private static final List<LeaveRequestStatus> CASCADE_STATUSES =
+    /** Requests still actionable: not yet REJECTED/CANCELLED. Feeds the termination cascade and BR-15's overlap check. */
+    private static final List<LeaveRequestStatus> ACTIVE_STATUSES =
             List.of(LeaveRequestStatus.PENDING, LeaveRequestStatus.APPROVED);
 
     private final LeaveRequestRepository leaveRequests;
@@ -102,6 +103,15 @@ public class LeaveRequestService {
         if (start.isAfter(today.plusMonths(12))) {
             throw new ValidationException(
                     "LEAVE_BOOKING_WINDOW_EXCEEDED", "Leave can only be booked up to 12 months ahead");
+        }
+
+        // BR-15: fail fast, before taking the balance row lock below, on a booking that
+        // conflicts with this employee's own other active (pending/approved) requests —
+        // regardless of leave type.
+        if (leaveRequests.existsOverlapping(employeeId, ACTIVE_STATUSES, start, end)) {
+            throw new ValidationException(
+                    "LEAVE_OVERLAPPING_REQUEST",
+                    "This request overlaps another pending or approved request for this employee");
         }
 
         BigDecimal duration =
@@ -203,7 +213,7 @@ public class LeaveRequestService {
     public void cancelFutureRequestsForTermination(UUID employeeId, LocalDate effectiveDate) {
         List<LeaveRequest> affected =
                 leaveRequests.findAllByEmployeeIdAndStatusInAndStartDateGreaterThanEqual(
-                        employeeId, CASCADE_STATUSES, effectiveDate);
+                        employeeId, ACTIVE_STATUSES, effectiveDate);
         Instant now = Instant.now(clock);
         for (LeaveRequest request : affected) {
             boolean wasApproved = request.status() == LeaveRequestStatus.APPROVED;

@@ -28,7 +28,7 @@
 
     <div class="tab-content">
       <div class="tab-pane fade show active" id="pending-pane" role="tabpanel" aria-labelledby="pending-tab">
-        <div id="pendingList" th:replace="~{::pendingList}"></div>
+        <div id="pendingList" th:replace="~{leave/for-action :: pendingList}"></div>
       </div>
 
       <div class="tab-pane fade" id="completed-pane" role="tabpanel" aria-labelledby="completed-tab">
@@ -66,74 +66,18 @@
       </div>
     </div>
 
-    <!--/* Reject modal (UI Guidelines §6/§8.6): opens for a specific request id, posts the
-           optional reason. Page-local — unlike the Book Time Off modal, this only exists here. */-->
+    <!--/* Reject modal (UI Guidelines §6/§8.6): page-local shell — unlike the Book Time Off
+           modal, this only exists here. Starts empty and is lazily filled via htmx on click,
+           same convention as layout.html's #bookLeaveModalBody; the fragment itself lives in
+           leave/for-action.html so it's never also rendered as literal body content when this
+           page is requested as a full view (see that file's header comment). */-->
     <div class="modal fade" id="rejectLeaveModal" tabindex="-1" aria-hidden="true" aria-labelledby="rejectLeaveModalLabel">
       <div class="modal-dialog">
-        <div class="modal-content" id="rejectLeaveModalBody" th:replace="~{::rejectForm}"></div>
+        <div class="modal-content" id="rejectLeaveModalBody"></div>
       </div>
     </div>
   </div>
 </th:block>
-
-<!--/* Swapped into #pendingList after approve/reject (row removed, counts implicitly refresh on
-       next full load — UI Guidelines §8.6: "row removed via htmx"). */-->
-<div id="pendingList" th:fragment="pendingList">
-  <div th:if="${#lists.isEmpty(pending)}" class="text-center text-muted py-5">
-    <i class="bi bi-inbox fs-1 d-block mb-2" aria-hidden="true"></i>
-    <p class="mb-0">Nothing waiting on you.</p>
-  </div>
-  <ul th:unless="${#lists.isEmpty(pending)}" class="list-group">
-    <li class="list-group-item" th:each="row : ${pending}" th:id="'leave-request-row-' + ${row.requestId}">
-      <div class="d-flex justify-content-between align-items-start gap-3">
-        <div class="d-flex align-items-start gap-2">
-          <i th:if="${row.icon != null}" th:class="'bi ' + ${row.icon} + ' fs-5'"
-             th:style="${row.color != null} ? 'color:' + ${row.color}" aria-hidden="true"></i>
-          <div>
-            <div class="fw-semibold" th:text="${row.employeeName}">Jane Doe</div>
-            <div class="text-muted small">
-              <span th:text="${row.leaveTypeName}">Vacation</span> &middot;
-              <span th:text="${row.startDate}">2026-08-17</span> - <span th:text="${row.endDate}">2026-08-21</span>
-              &middot; <span th:text="${row.durationDays}">5.00</span> day(s)
-            </div>
-            <div class="text-muted small" th:if="${row.note}" th:text="${row.note}">Family trip</div>
-          </div>
-        </div>
-        <div class="d-flex gap-2 flex-shrink-0">
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal"
-                  data-bs-target="#rejectLeaveModal"
-                  th:hx-get="@{/for-action/leave-requests/{id}/reject-form(id=${row.requestId})}"
-                  hx-target="#rejectLeaveModalBody" hx-swap="outerHTML">
-            Reject
-          </button>
-          <button type="button" class="btn btn-primary btn-sm"
-                  th:hx-post="@{/for-action/leave-requests/{id}/approve(id=${row.requestId})}"
-                  hx-target="#pendingList" hx-swap="outerHTML">
-            Approve
-          </button>
-        </div>
-      </div>
-    </li>
-  </ul>
-</div>
-
-<div class="modal-content" th:fragment="rejectForm" id="rejectLeaveModalBody">
-  <form th:object="${rejectForm}" th:hx-post="@{/for-action/leave-requests/{id}/reject(id=${rejectRequestId})}"
-        hx-target="#pendingList" hx-swap="outerHTML">
-    <div class="modal-header">
-      <h5 class="modal-title" id="rejectLeaveModalLabel">Reject request</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-    </div>
-    <div class="modal-body">
-      <label class="form-label" for="reject-note">Reason (optional)</label>
-      <textarea class="form-control" id="reject-note" th:field="*{decisionNote}" rows="2" maxlength="500"></textarea>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-      <button class="btn btn-danger btn-sm" type="submit">Reject request</button>
-    </div>
-  </form>
-</div>
 
 </body>
 </html>

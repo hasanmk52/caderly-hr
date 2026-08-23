@@ -51,7 +51,6 @@ class LeaveApprovalController {
         model.addAttribute(
                 "pending", toRows(leaveRequests.listPendingForApprover(decider.isAdmin(), decider.employeeId())));
         model.addAttribute("completed", toRows(leaveRequests.listCompletedByApprover(principal.userId())));
-        model.addAttribute("rejectForm", new LeaveForms.RejectForm(null));
         return "for-action";
     }
 
@@ -60,7 +59,7 @@ class LeaveApprovalController {
     String rejectForm(@PathVariable UUID id, Model model) {
         model.addAttribute("rejectRequestId", id);
         model.addAttribute("rejectForm", new LeaveForms.RejectForm(null));
-        return "for-action :: rejectForm";
+        return "leave/for-action :: rejectForm";
     }
 
     @PostMapping("/for-action/leave-requests/{id}/approve")
@@ -76,7 +75,7 @@ class LeaveApprovalController {
                         id, principal.userId(), decider.employeeId(), decider.name(), decider.isAdmin(), null);
         toast(response, "Request approved");
         model.addAttribute("pending", toRows(fresh));
-        return "for-action :: pendingList";
+        return "leave/for-action :: pendingList";
     }
 
     @PostMapping("/for-action/leave-requests/{id}/reject")
@@ -100,10 +99,10 @@ class LeaveApprovalController {
                             form.decisionNote());
             toast(response, "Request rejected");
             model.addAttribute("pending", toRows(fresh));
-            return "for-action :: pendingList";
+            return "leave/for-action :: pendingList";
         }
         model.addAttribute("rejectRequestId", id);
-        return "for-action :: rejectForm";
+        return "leave/for-action :: rejectForm";
     }
 
     private Decider resolveDecider(AppUserPrincipal principal) {

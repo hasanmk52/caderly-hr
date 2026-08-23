@@ -154,6 +154,10 @@ class SecurityConfig {
                                                 "/actuator/health",
                                                 "/error")
                                         .permitAll()
+                                        // BootUI surfaces bean/env/config info like actuator does; treat it
+                                        // with the same sensitivity as §6 A05's actuator restrictions.
+                                        .requestMatchers("/bootui/**")
+                                        .hasRole("ADMIN")
                                         // Default-deny (CLAUDE.md §6 A01): anything not listed above needs
                                         // authentication, and @PreAuthorize decides the role on top of it.
                                         .anyRequest()

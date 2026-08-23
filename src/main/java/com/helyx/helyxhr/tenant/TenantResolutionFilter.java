@@ -33,6 +33,7 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
         // stay reachable for the 404/503 error dispatch itself.
         String path = request.getRequestURI();
         return path.startsWith("/actuator")
+                || path.startsWith("/bootui")
                 || path.startsWith("/webjars/")
                 || path.startsWith("/css/")
                 || path.startsWith("/error");

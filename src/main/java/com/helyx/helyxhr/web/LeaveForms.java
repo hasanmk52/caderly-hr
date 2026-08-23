@@ -13,7 +13,7 @@ final class LeaveForms {
     private LeaveForms() {}
 
     record BookLeaveForm(
-            @NotNull UUID leaveTypeId,
+            @NotNull(message = "Select a leave type") UUID leaveTypeId,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             boolean startHalfDayPm,
