@@ -152,17 +152,17 @@
 /* Sidebar nav: replace the flat solid-primary active state with a soft tint +
    left border. The transparent border on every link (not just .active) keeps
    activation from shifting layout. */
-.helyx-sidebar .nav-pills .nav-link {
+.caderly-sidebar .nav-pills .nav-link {
   border-left: 3px solid transparent;
   border-radius: 0 var(--bs-border-radius) var(--bs-border-radius) 0;
 }
-.helyx-sidebar .nav-pills .nav-link.active {
+.caderly-sidebar .nav-pills .nav-link.active {
   background-color: var(--bs-primary-bg-subtle);
   color: var(--bs-primary-text-emphasis);
   border-left-color: var(--bs-primary);
   font-weight: 600;
 }
-.helyx-sidebar .nav-pills .nav-link:hover:not(.active) {
+.caderly-sidebar .nav-pills .nav-link:hover:not(.active) {
   background-color: var(--bs-tertiary-bg);
 }
 

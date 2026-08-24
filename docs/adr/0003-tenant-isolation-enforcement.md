@@ -10,7 +10,7 @@ Phase 1.1 implements the enforcement layers from PRD §20.4 / CLAUDE.md §5. Sev
 
 ## Decision
 
-- **`FORCE ROW LEVEL SECURITY` on every tenant-scoped table.** The app role (`helyx`) owns the tables, and Postgres exempts table *owners* from RLS unless it is forced. Without FORCE, RLS would be decoration in every environment we run.
+- **`FORCE ROW LEVEL SECURITY` on every tenant-scoped table.** The app role (`caderly`) owns the tables, and Postgres exempts table *owners* from RLS unless it is forced. Without FORCE, RLS would be decoration in every environment we run.
 - **Default-deny via `current_setting('app.tenant_id', true)`.** Unset setting → NULL → policy matches nothing. No tenant context means no rows, not all rows.
 - **One AOP aspect arms both layers.** `TenantEnforcementAspect` (order 100, inside the transaction advisor pinned at order 0) enables the Hibernate `tenantFilter` *and* runs `set_config('app.tenant_id', ?, true)` (= `SET LOCAL`, transaction-scoped, parameterized) on the transactional connection. The tenant module itself is excluded from the pointcut: it only touches cross-tenant tables and must run before a context exists.
 - **`Tenant` does not extend `common.BaseEntity`.** `common` depends on `tenant` (`TenantAssignmentListener` → `TenantContext`), so the reverse edge would create a package cycle (ArchUnit-enforced); the `tenant` table also has no `updated_at`/`tenant_id`, so the superclass shape doesn't fit the cross-tenant root anyway.

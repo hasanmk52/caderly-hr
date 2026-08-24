@@ -7,8 +7,8 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/helyx
-    username: ${DB_USER:helyx}
+    url: jdbc:postgresql://localhost:5432/caderly
+    username: ${DB_USER:caderly}
     password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
   # Local catch-all SMTP inbox. Start one with:
@@ -19,9 +19,9 @@ spring:
     host: ${SMTP_HOST:localhost}
     port: ${SMTP_PORT:1025}
 
-helyx:
+caderly:
   email:
-    from: ${HELYX_EMAIL_FROM:no-reply@helyx.local}
+    from: ${CADERLY_EMAIL_FROM:no-reply@caderly.local}
   people:
     # Dev-only fixed key, never used in prod (see application.yml's no-default line).
-    encryption-key: ${HELYX_EMPLOYEE_ENCRYPTION_KEY:nD7WkJr9yrrNuO/Imc6JN/N8SKo+PsNZi1DAcSFpih4=}
+    encryption-key: ${CADERLY_EMPLOYEE_ENCRYPTION_KEY:nD7WkJr9yrrNuO/Imc6JN/N8SKo+PsNZi1DAcSFpih4=}

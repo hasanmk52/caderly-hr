@@ -8,12 +8,12 @@
 		<version>4.1.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.helyx</groupId>
-	<artifactId>helyxhr</artifactId>
+	<groupId>com.caderly</groupId>
+	<artifactId>caderlyhr</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>Helyx HR</name>
+	<name>Caderly HR</name>
 	<description>Multi-tenant HRIS and Leave Management SaaS.</description>
-	<url>https://helyx.app</url>
+	<url>https://caderly.app</url>
 	<licenses>
 		<license>
 			<name>Proprietary</name>
@@ -24,7 +24,6 @@
 		<developer>
 			<name>Hasan Kagalwala</name>
 			<email>hasanmk52@gmail.com</email>
-			<organization>MHZ Software</organization>
 		</developer>
 	</developers>
 	<properties>

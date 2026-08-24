@@ -41,14 +41,14 @@ Hibernate resolves every `@Converter` through its `ManagedBeanRegistry`, which d
 whatever `BeanContainer` is configured — and Spring Boot auto-configures a Spring-backed one for
 Hibernate. A `@Component @Converter` class therefore gets ordinary constructor injection, not the
 no-arg instantiation a converter gets under a bare JPA provider. This is what lets the encryption
-key arrive via `@Value("${helyx.people.encryption-key}")` instead of a static field or a
+key arrive via `@Value("${caderly.people.encryption-key}")` instead of a static field or a
 hand-rolled bean lookup — one converter instance, managed by Spring like everything else.
 
 ### C. Key sourcing: env var, no default in prod, fixed defaults in dev/test
 
-`helyx.people.encryption-key` (base64, 32 raw bytes) follows the exact pattern
-`HELYX_EMAIL_FROM` already established: `application.yml` has **no default** —
-`${HELYX_EMPLOYEE_ENCRYPTION_KEY}` — so a missing key fails startup rather than silently running
+`caderly.people.encryption-key` (base64, 32 raw bytes) follows the exact pattern
+`CADERLY_EMAIL_FROM` already established: `application.yml` has **no default** —
+`${CADERLY_EMPLOYEE_ENCRYPTION_KEY}` — so a missing key fails startup rather than silently running
 with a guessable one (CLAUDE.md §6 A05). `application-dev.yml` and `application-test.yml` each
 pin a fixed, checked-in key — genuinely fine for those profiles since dev/test databases hold no
 real government IDs or bank details, and Testcontainers-backed integration tests need a working

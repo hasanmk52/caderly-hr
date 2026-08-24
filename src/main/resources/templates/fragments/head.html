@@ -7,10 +7,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!--/* UI Guidelines §13: htmx state-changing requests carry CSRF via a header read from here,
          since they aren't regular form posts that Spring Security's Thymeleaf dialect decorates
-         automatically (no th:action on an hx-post form). See helyx.js's configRequest listener. */-->
+         automatically (no th:action on an hx-post form). See caderly.js's configRequest listener. */-->
   <meta name="_csrf" th:content="${_csrf.token}" />
   <meta name="_csrf_header" th:content="${_csrf.headerName}" />
-  <title th:text="${title} + ' · Helyx HR'">Helyx HR</title>
+  <title th:text="${title} + ' · Caderly HR'">Caderly HR</title>
   <link rel="icon" th:href="@{/favicon.ico}" sizes="any" />
   <link rel="icon" type="image/png" th:href="@{/favicon-32x32.png}" sizes="32x32" />
   <link rel="icon" type="image/png" th:href="@{/favicon-16x16.png}" sizes="16x16" />
@@ -22,7 +22,7 @@
   <link rel="stylesheet" th:href="@{/webjars/fontsource__inter/400.css}" />
   <link rel="stylesheet" th:href="@{/webjars/fontsource__inter/500.css}" />
   <link rel="stylesheet" th:href="@{/webjars/fontsource__inter/600.css}" />
-  <link rel="stylesheet" th:href="@{/css/helyx.css}" />
+  <link rel="stylesheet" th:href="@{/css/caderly.css}" />
   <link rel="stylesheet" th:href="@{/css/theme-overrides.css}" />
 </head>
 <body></body>

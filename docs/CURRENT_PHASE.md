@@ -6,8 +6,8 @@
 
 ## Read these before doing anything
 
-1. `docs/Helyx_Implementation_Plan.md` — the "1.7 Files & Documents" section under Phase 1 — MVP
-2. `docs/Helyx_PRD.md` — §6.7 (FR-7.1–7.5: Company Files, Employee Documents, 25 MB limit, allowed types, storage abstraction), §9.5 and §24.7 (Files UI), §6.3.9 (employee-document data model, if present — check the exact field list), CLAUDE.md §6 A03 ("File upload: MIME + magic-byte check (Apache Tika) + extension whitelist + size limit. No exec-able types")
+1. `docs/Caderly_Implementation_Plan.md` — the "1.7 Files & Documents" section under Phase 1 — MVP
+2. `docs/Caderly_PRD.md` — §6.7 (FR-7.1–7.5: Company Files, Employee Documents, 25 MB limit, allowed types, storage abstraction), §9.5 and §24.7 (Files UI), §6.3.9 (employee-document data model, if present — check the exact field list), CLAUDE.md §6 A03 ("File upload: MIME + magic-byte check (Apache Tika) + extension whitelist + size limit. No exec-able types")
 3. `CLAUDE.md` — §4 (package structure: `documents` for `CompanyFile`/`EmployeeDocument` entities, `storage` for the `FileStorage` interface + `Local`/`S3` impls — two new packages, not one), §5 (tenancy — both new entities are tenant-scoped, same RLS/`@TenantId` template every prior phase used), §6 A03 (upload validation, verbatim above), §11 ("Storing files in the database. Files go through `FileStorage`." — an explicit anti-pattern already named)
 4. `docs/UI_Guidelines.md` — check for a Files/Documents-specific pattern (table + upload button per §6.7's FR-7.1 description) or whether this phase establishes one
 5. Skim `docs/adr/0008-employee-column-encryption.md` for the nearest precedent on handling sensitive-ish employee data (documents may include ID scans) — not a direct pattern match, but the same "what does this data need beyond CRUD" question applies

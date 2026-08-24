@@ -4,8 +4,8 @@
        and the error pages. The main layout hard-wires the topbar and sidebar, both of which
        assume a logged-in user and a navigable app. */-->
 <head th:replace="~{fragments/head :: head(${title})}"></head>
-<body class="helyx-bare-body">
-<main id="main-content" class="helyx-bare-main" th:replace="${content}"></main>
+<body class="caderly-bare-body">
+<main id="main-content" class="caderly-bare-main" th:replace="${content}"></main>
 <script th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}"></script>
 </body>
 </html>

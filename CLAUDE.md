@@ -1,19 +1,19 @@
-# CLAUDE.md — Helyx Codebase Brief
+# CLAUDE.md — Caderly Codebase Brief
 
-You are working on **Helyx**, a multi-tenant HRIS + Leave Management SaaS built by a solo engineer. This file is your standing brief. Follow it every session. When in doubt, ask before deviating.
+You are working on **Caderly**, a multi-tenant HRIS + Leave Management SaaS built by a solo engineer. This file is your standing brief. Follow it every session. When in doubt, ask before deviating.
 
 ---
 
 ## 1. Product one-liner
 
-Multi-tenant SaaS replacing TalentHR's free plan for MHZ Software (customer #1) and 2-5 friendly pilot companies. Region-agnostic: every tenant configures its own leave types, weekend days, holiday calendar, and org units.
+Multi-tenant SaaS replacing TalentHR's free plan for MHZ Group (customer #1) and 2-5 friendly pilot companies. Region-agnostic: every tenant configures its own leave types, weekend days, holiday calendar, and org units.
 
 ---
 
 ## 2. Where to find things
 
-- **Product spec:** `docs/Helyx_PRD.md` — 29 sections. Cite the section number when quoting.
-- **Delivery plan:** `docs/Helyx_Implementation_Plan.md` — phased sub-tasks with DoD.
+- **Product spec:** `docs/Caderly_PRD.md` — 29 sections. Cite the section number when quoting.
+- **Delivery plan:** `docs/Caderly_Implementation_Plan.md` — phased sub-tasks with DoD.
 - **UI guidelines:** `docs/UI_Guidelines.md` — layout, color, typography, component conventions, htmx/Alpine rules. Consult before writing any Thymeleaf template. Any deviation requires updating this document first.
 - **Current sub-phase:** `docs/CURRENT_PHASE.md` — read this at the start of every session.
 - **Architecture Decision Records:** `docs/adr/NNNN-<slug>.md` — one per significant choice. Add an ADR whenever you make a non-obvious design decision.
@@ -48,7 +48,7 @@ Multi-tenant SaaS replacing TalentHR's free plan for MHZ Software (customer #1) 
 ## 4. Package structure (mirror this exactly)
 
 ```
-com.helyx.helyxhr
+com.caderly.caderlyhr
 ├── identity        # AppUser, roles, tokens, MFA
 ├── tenant          # Tenant, TenantContext, TenantResolutionFilter
 ├── org             # Division, Department
@@ -76,7 +76,7 @@ com.helyx.helyxhr
 
 Every violation is a critical bug. Assume nothing.
 
-1. Every tenant-scoped entity **must** extend `com.helyx.helyxhr.common.TenantAwareEntity` (which has `tenant_id UUID NOT NULL`).
+1. Every tenant-scoped entity **must** extend `com.caderly.caderlyhr.common.TenantAwareEntity` (which has `tenant_id UUID NOT NULL`).
 2. Every tenant-scoped table **must** have Postgres RLS enabled with policy `USING (tenant_id::text = current_setting('app.tenant_id', true))`.
 3. `TenantContext` is a `ThreadLocal<UUID>` populated by `TenantResolutionFilter` from the subdomain and cleared in `finally`.
 4. Every tenant-scoped entity's `tenant_id` field is annotated `@TenantId` (Hibernate 7 discriminator multi-tenancy). Hibernate arms this filter itself, from `TenantIdentifierResolver` (a `CurrentTenantIdentifierResolver` bean backed by `TenantContext`), on every query it generates for that entity — including `find(id)`, unlike a hand-written `@Filter`. No manual `WHERE tenant_id = ?` in JPQL, ever.
@@ -122,7 +122,7 @@ Maps to OWASP Top 10 (2021 edition). Every rule is enforced by code + test, not 
 - No default passwords in `application.yml` — everything from env vars.
 - Directory listing off. Server banner hidden.
 - **Error responses never carry internals.** `spring.web.error.include-stacktrace`, `include-exception`, `include-message` and `include-binding-errors` are all pinned to `never`/`false` in `application.yml`. Pinned, not left to Boot's defaults: `spring-boot-devtools` raises all four to `ALWAYS`, which is how a 403 once returned the whole filter chain to the client. Note these moved from `server.error.*` in Boot 4.0.0 and the old keys are ignored silently — `ErrorPageResolutionTest` asserts both the bound value and the namespace.
-- **Every error status renders a Helyx page.** `templates/error/` carries `403`, `404`, `4xx` and `5xx`; the series catch-alls are what keep a new status from falling through to Boot's Whitelabel page. An RBAC test that only asserts the status code will not notice — assert the rendered page too.
+- **Every error status renders a Caderly page.** `templates/error/` carries `403`, `404`, `4xx` and `5xx`; the series catch-alls are what keep a new status from falling through to Boot's Whitelabel page. An RBAC test that only asserts the status code will not notice — assert the rendered page too.
 
 ### A06 Vulnerable and Outdated Components
 - Dependabot enabled on GitHub.
@@ -177,7 +177,7 @@ Currently in use: `email_outbox` (from sub-phase 1.2). Planned: `webhook_outbox`
 - **Style:** IntelliJ's default Java formatter (Reformat Code). Not enforced by a CLI/CI formatter — `.editorconfig` at the repo root pins the baseline (4-space indent, UTF-8, LF, final newline) so IntelliJ applies it consistently. Checkstyle/PMD/SpotBugs still enforce substantive rules; only the opinionated reformatter (previously Spotless + Google Java Format) was dropped.
 - **Static analysis:** Checkstyle + SpotBugs + PMD + ErrorProne. CI blocks merge on new violations.
 - **Null-safety:** use `Optional<T>` for return types that may be absent; never for parameters. Non-null by default: annotate the package with `@NullMarked` (JSpecify).
-- **Exceptions:** custom `HelyxException` hierarchy with `errorCode`; controller-level `@ExceptionHandler` maps to RFC 7807 Problem Details.
+- **Exceptions:** custom `CaderlyException` hierarchy with `errorCode`; controller-level `@ExceptionHandler` maps to RFC 7807 Problem Details.
 - **Transactions:** `@Transactional` on service methods, never on repositories or controllers. Read-only by default; annotate write methods `@Transactional`.
 - **Logging:** SLF4J with `@Slf4j` from Lombok (avoid Lombok elsewhere — records + records builder cover most cases). Log level: `info` for state changes, `warn` for expected failures, `error` for unexpected; no `println`.
 - **No Lombok `@Data`** — records for immutable, plain classes for entities. Only `@Slf4j` and `@Builder` (sparingly) are allowed.
@@ -193,7 +193,7 @@ Currently in use: `email_outbox` (from sub-phase 1.2). Planned: `webhook_outbox`
 
 - **Unit:** JUnit 5 + AssertJ + Mockito. Pure logic. Target ≥70% line coverage per module (JaCoCo).
 - **Integration:** `@SpringBootTest` + Testcontainers Postgres. Every service happy path + at least one sad path. Every controller: one 200 test + one 403 test per protected endpoint.
-- **Architecture:** ArchUnit tests in `com.helyx.helyxhr.architecture` package. Enforce:
+- **Architecture:** ArchUnit tests in `com.caderly.caderlyhr.architecture` package. Enforce:
   - Every `@Entity` in a tenant package extends `TenantAwareEntity`.
   - Every controller method has `@PreAuthorize`.
   - No cyclic package dependencies.

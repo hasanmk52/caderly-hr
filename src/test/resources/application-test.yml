@@ -14,10 +14,10 @@ management:
       # JavaMailSenderImpl to inspect, and it fails context startup rather than degrading.
       enabled: false
 
-helyx:
+caderly:
   base-domain: localhost
   email:
-    from: no-reply@helyx.test
+    from: no-reply@caderly.test
     dispatcher:
       # Tests drive the outbox by calling dispatchPending() directly, so that assertions run
       # at a known point rather than racing a 30-second scheduler.

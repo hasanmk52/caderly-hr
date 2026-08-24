@@ -80,7 +80,7 @@ and `DivisionService`/`DepartmentService`. Its methods are `@Transactional` and 
 what one controller response needs — a write followed by a fresh read of both Divisions and
 Departments (`OrganizationSnapshot`), or, for GET endpoints that read more than one thing (the
 full page, and the Department edit form's division dropdown), just the combined read. It never
-catches the `HelyxException`s `DivisionService`/`DepartmentService` throw — they propagate
+catches the `CaderlyException`s `DivisionService`/`DepartmentService` throw — they propagate
 straight out to the controller. Because nothing swallows the exception *inside* the transaction,
 Spring's default behavior (roll back cleanly, rethrow) applies with no special annotation needed:
 `DivisionService`/`DepartmentService`'s write methods are plain `@Transactional`, exactly as
@@ -141,7 +141,7 @@ Considered and presented to the user as the simpler option; the CSP-build swap w
 since CURRENT_PHASE.md's stated goal for 1.3 was explicitly to be "the first sub-phase where the
 UI does ... an Alpine offcanvas form," and the CSP build satisfies that with no compromise.
 
-**3. `@Transactional` directly on the controller, with `noRollbackFor = HelyxException.class` on
+**3. `@Transactional` directly on the controller, with `noRollbackFor = CaderlyException.class` on
 the service methods to avoid `UnexpectedRollbackException`.** This was the first working fix and
 is functionally equivalent to Decision B in terms of closing the two-transaction gap. Rejected
 after further discussion: it violates CLAUDE.md §7 outright, and `noRollbackFor` is a sharp tool

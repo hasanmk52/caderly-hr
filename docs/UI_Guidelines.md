@@ -1,11 +1,11 @@
-# Helyx — UI Guidelines
+# Caderly — UI Guidelines
 
 **Version:** 1.0
-**Scope:** All server-rendered pages in the Helyx web app (Thymeleaf + htmx + Alpine.js + Bootstrap 5).
+**Scope:** All server-rendered pages in the Caderly web app (Thymeleaf + htmx + Alpine.js + Bootstrap 5).
 
 The goal is a consistent, calm, professional HR product that feels closer to Linear/Notion polish than to legacy enterprise HR. When in doubt, choose the simpler visual choice — HR software is used by people who don't want to be looking at it.
 
-Grounded in the TalentHR screenshots the PRD was derived from, but Helyx should look sharper: tighter type scale, more consistent spacing, better empty states.
+Grounded in the TalentHR screenshots the PRD was derived from, but Caderly should look sharper: tighter type scale, more consistent spacing, better empty states.
 
 ---
 
@@ -75,7 +75,7 @@ Sidebar is **not** a solid dark color — it's `bg-white` with a `border-end`, p
 ### Tenant primary color
 `tenant.primary_color` (hex, per PRD §5) is injected into `--bs-primary` at layout render via a `<style>` tag in `head.html`. **Not yet implemented** (Phase 1.10 owns this, per `docs/CURRENT_PHASE.md`'s carried-forward items). When it is: per the gotcha above, the tenant `<style>` block must set the *whole* primary token family (rgb / text-emphasis / bg-subtle / border-subtle / focus-ring / link colors), computed from the tenant's hex the same way `theme-overrides.css` derives it from `#4f46e5` — not just `--bs-primary` — or a custom tenant color will look inconsistent against the Admin badge and sidebar active state.
 
-**Resolved:** the `tenant.primary_color` column's DB default originally shipped as `#2563EB` (`V202607241000__create_tenant_and_super_admin.sql`) — the color this document specified before this pass, not the `#4f46e5` it specifies now, and MHZ's own row still held it since nothing sets `primary_color` explicitly at seed time. The migration's default and MHZ's row were both updated to `#4f46e5`, and the PRD's schema snippet (Helyx_PRD.md §5) was updated to match. Phase 1.10 can now wire up the `<style>` injection without inheriting a stale default.
+**Resolved:** the `tenant.primary_color` column's DB default originally shipped as `#2563EB` (`V202607241000__create_tenant_and_super_admin.sql`) — the color this document specified before this pass, not the `#4f46e5` it specifies now, and MHZ's own row still held it since nothing sets `primary_color` explicitly at seed time. The migration's default and MHZ's row were both updated to `#4f46e5`, and the PRD's schema snippet (Caderly_PRD.md §5) was updated to match. Phase 1.10 can now wire up the `<style>` injection without inheriting a stale default.
 
 ### Do not
 - Hardcode hex values in templates. Use `var(--bs-primary)` or Bootstrap utility classes.
@@ -332,7 +332,7 @@ Design mobile-first for Employee-facing pages (profile, book time off, calendar)
 
 Two things vary per tenant, injected in `layout.html`:
 
-1. **Logo** — `<img src="{{tenant.logoUrl}}">` in the top-bar, height 32 px. Falls back to text ("Helyx" + tenant name) if missing.
+1. **Logo** — `<img src="{{tenant.logoUrl}}">` in the top-bar, height 32 px. Falls back to text ("Caderly" + tenant name) if missing.
 2. **Primary color** — CSS variable override in a `<style>` block:
    ```html
    <style th:if="${tenant.primaryColor != null}">
@@ -352,7 +352,7 @@ Nothing else per-tenant. No per-tenant font, layout, or icon swap.
 - `hx-boost="true"` on the layout `<body>` for progressive links — falls back to full page navigation with JS off.
 - All state-changing actions include CSRF token via `hx-headers` (configured globally in a `<meta>` tag reader).
 - Error handling: attach `hx-on:htmx:responseError` on triggers OR use a global `htmx.on('htmx:responseError', ...)` handler that shows a toast.
-- No inline JavaScript in templates. Put JS in `helyx.js` or Alpine components.
+- No inline JavaScript in templates. Put JS in `caderly.js` or Alpine components.
 
 ---
 
@@ -361,7 +361,7 @@ Nothing else per-tenant. No per-tenant font, layout, or icon swap.
 Use Alpine only for **client-only interactivity** with no server round-trip. Examples: sidebar collapse, modal open/close, tab switching (before the tab content is fetched), form validation preview, dropdown menus.
 
 - Prefer `x-data="{}"` inline for one-off components.
-- Extract to a component in `helyx-alpine.js` if reused across three or more templates.
+- Extract to a component in `caderly-alpine.js` if reused across three or more templates.
 - Never store business data in Alpine — use htmx to sync with server.
 - No Alpine plugins in MVP (no `intersect`, `mask`, etc.) — keeps bundle size trivial.
 

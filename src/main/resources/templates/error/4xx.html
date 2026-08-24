@@ -7,8 +7,8 @@
        trace. A generic 4xx view means no status can ever leak internals that way again.
        Exact-status templates still win, so 403.html and 404.html are unaffected. */-->
 <th:block th:replace="~{bare-layout :: layout('Request could not be completed', ~{::#content})}">
-  <main id="content" class="helyx-bare-main">
-    <div class="helyx-bare-card">
+  <main id="content" class="caderly-bare-main">
+    <div class="caderly-bare-card">
       <div class="card shadow-sm">
         <div class="card-body p-4 text-center">
           <p class="display-5 fw-semibold text-primary mb-1" th:text="${status} ?: '400'">400</p>

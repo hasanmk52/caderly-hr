@@ -17,7 +17,7 @@ Found while manually testing Phase 1.6 (Leave Requests + Approvals): a real mana
 
 No admin UI exists to grant or revoke a role after invite time either — `AdminUserController`/`/admin/users` is explicitly documented as read-only.
 
-Checked directly, not assumed: no later phase (0 through 4 in `docs/Helyx_Implementation_Plan.md`, cross-checked with a full-document grep for "role") plans to close this. It is a genuine, unaddressed gap between the PRD's stated intent and the implementation, not upcoming work being duplicated.
+Checked directly, not assumed: no later phase (0 through 4 in `docs/Caderly_Implementation_Plan.md`, cross-checked with a full-document grep for "role") plans to close this. It is a genuine, unaddressed gap between the PRD's stated intent and the implementation, not upcoming work being duplicated.
 
 ## Decision
 
@@ -61,7 +61,7 @@ Mirrors `EmployeeHiredEventListener`'s reasoning, not `EmployeeInviteAcceptedLis
 ## References
 
 - PRD §5 (user roles, "Managers are derived")
-- `docs/Helyx_Implementation_Plan.md` §1.2 (Authentication & Users — role hierarchy/`user_role` origin), §1.4 (Employee CRUD + Profile — manager-assignment origin)
+- `docs/Caderly_Implementation_Plan.md` §1.2 (Authentication & Users — role hierarchy/`user_role` origin), §1.4 (Employee CRUD + Profile — manager-assignment origin)
 - CLAUDE.md §4 (package structure, cross-module facade rule, no cycles), §12 ("Any deviation from the PRD or Implementation Plan" — why this stopped for a decision before implementation)
 - ADR 0009 (`people`↔`timeoff` event wiring — the `EmployeeHiredEvent`/`EmployeeHiredEventListener` pattern this ADR's Decision C mirrors)
 - `identity.UserInviteAcceptedEvent` / `people.EmployeeInviteAcceptedListener` (the precedent for Decision B's package placement)

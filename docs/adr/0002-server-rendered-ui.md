@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Helyx is built and maintained by a solo engineer replacing TalentHR's free plan for a small set of tenants. A separate SPA frontend (React/Vue) would double the surface area to build, test, and secure (a JSON API, client-side auth/session handling, a build pipeline) for a product whose UI is largely CRUD forms, tables, and simple dashboards — see PRD §1.
+Caderly is built and maintained by a solo engineer replacing TalentHR's free plan for a small set of tenants. A separate SPA frontend (React/Vue) would double the surface area to build, test, and secure (a JSON API, client-side auth/session handling, a build pipeline) for a product whose UI is largely CRUD forms, tables, and simple dashboards — see PRD §1.
 
 ## Decision
 

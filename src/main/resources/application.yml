@@ -13,7 +13,7 @@ server:
 
 spring:
   application:
-    name: helyx-hr
+    name: caderly-hr
   web:
     error:
       # Pinned, not left to the default (CLAUDE.md §6 A05). Boot's own default is already NEVER,
@@ -48,19 +48,19 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
-        default_schema: helyx_hr
+        default_schema: caderly_hr
   flyway:
     enabled: true
-    schemas: helyx_hr
+    schemas: caderly_hr
 
-# Tenant subdomains sit under this domain ({slug}.helyx.app in prod, {slug}.localhost
-# in dev). Prod profile overrides via HELYX_BASE_DOMAIN / helyx.base-domain.
-helyx:
+# Tenant subdomains sit under this domain ({slug}.caderly.app in prod, {slug}.localhost
+# in dev). Prod profile overrides via CADERLY_BASE_DOMAIN / caderly.base-domain.
+caderly:
   base-domain: localhost
   email:
     # No default: a wrong From address silently lands mail in spam, so an unset value
     # should stop startup rather than be guessed (CLAUDE.md §6 A05 - no defaults in yml).
-    from: ${HELYX_EMAIL_FROM}
+    from: ${CADERLY_EMAIL_FROM}
     dispatcher:
       # Turned off in tests so they can drain the outbox at a known moment instead of
       # racing the scheduler.
@@ -69,7 +69,7 @@ helyx:
   people:
     # AES-256-GCM key for CryptoConverter (ADR 0008, CLAUDE.md §6 A02) — base64, 32 raw bytes.
     # No default: an unset key must fail startup, never silently encrypt with a guessed value.
-    encryption-key: ${HELYX_EMPLOYEE_ENCRYPTION_KEY}
+    encryption-key: ${CADERLY_EMPLOYEE_ENCRYPTION_KEY}
     termination-job:
       enabled: true
       # Once a day is enough: termination_date is a date, not a timestamp, so nothing is
@@ -79,7 +79,7 @@ helyx:
 logging:
   level:
     root: info
-    com.helyx.helyxhr: info
+    com.caderly.caderlyhr: info
   #structured:
   #  format:
   #    console: logstash
