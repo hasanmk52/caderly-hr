@@ -14,6 +14,7 @@ import com.caderly.caderlyhr.tenantisolation.TenantIsolationTestBase;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -277,9 +278,16 @@ class InviteAndResetServiceTest extends TenantIsolationTestBase {
 
     /** email_outbox is system-scoped, so reading it needs system mode rather than a tenant. */
     private List<EmailOutbox> emailsTo(String email) {
+        // findAll() has no ORDER BY, so its row order is unspecified by JPA/SQL and not safe to
+        // treat as insertion order (a test class that queues both an invite and a reset email to
+        // the same address, e.g. via activeUser(), needs a real ordering to find "the latest").
         return TenantContext.runAsSystem(
                 "test: read outbox",
-                () -> outbox.findAll().stream().filter(row -> row.toEmail().equals(email)).toList());
+                () ->
+                        outbox.findAll().stream()
+                                .filter(row -> row.toEmail().equals(email))
+                                .sorted(Comparator.comparing(EmailOutbox::getCreatedAt))
+                                .toList());
     }
 
     private EmailOutbox lastEmailTo(String email) {
