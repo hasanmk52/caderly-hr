@@ -677,7 +677,6 @@ Covered in §13. Additional detail:
 
 ### 19.9 Vulnerability management
 - Dependabot on GitHub for library updates.
-- OWASP Dependency-Check in CI.
 - Snyk or Trivy scanning Docker image in CI.
 
 ### 19.10 Secrets

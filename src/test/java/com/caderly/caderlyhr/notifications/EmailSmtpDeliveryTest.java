@@ -15,6 +15,7 @@ import jakarta.mail.internet.MimeMessage;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -58,6 +59,20 @@ class EmailSmtpDeliveryTest extends TenantIsolationTestBase {
         if (greenMail != null) {
             greenMail.stop();
         }
+    }
+
+    @BeforeEach
+    void clearOutbox() {
+        // See EmailOutboxTest.clearOutbox: email_outbox is system-scoped and the Testcontainers
+        // Postgres instance is reused across local test runs, so leftover PENDING rows from a
+        // prior run would otherwise be swept into this test's dispatchPending() call and race the
+        // 5s GreenMail wait window against unrelated SMTP deliveries.
+        TenantContext.runAsSystem(
+                "test: clear email outbox",
+                () -> {
+                    outbox.deleteAll();
+                    return null;
+                });
     }
 
     @Test

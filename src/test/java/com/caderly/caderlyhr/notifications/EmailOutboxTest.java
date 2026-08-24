@@ -59,6 +59,21 @@ class EmailOutboxTest extends TenantIsolationTestBase {
         doNothing().when(mailSender).send(any(MimeMessage.class));
     }
 
+    @BeforeEach
+    void clearOutbox() {
+        // email_outbox is system-scoped infrastructure (ADR 0005) with no per-tenant slug to keep
+        // rows apart, and the Testcontainers Postgres instance is reused (.withReuse(true)) across
+        // every local test run. Without this, PENDING rows left behind by an earlier run become
+        // "due" the moment any test here advances the shared MutableClock, get swept into an
+        // unrelated dispatchPending() call, and inflate/desync the mailSender.send() call count.
+        TenantContext.runAsSystem(
+                "test: clear email outbox",
+                () -> {
+                    outbox.deleteAll();
+                    return null;
+                });
+    }
+
     @Test
     void enqueue_whenNoTransactionActive_throwsRatherThanSilentlyStartingOne() {
         // MANDATORY propagation is what makes CLAUDE.md §6a rule 1 structural rather than a

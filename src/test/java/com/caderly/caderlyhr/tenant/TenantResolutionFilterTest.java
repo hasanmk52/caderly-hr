@@ -44,7 +44,7 @@ class TenantResolutionFilterTest {
         // are unaffected — tenant resolution runs in a filter ahead of authentication.
         mockMvc
                 .perform(
-                        get(URI.create("http://mhz.localhost/"))
+                        get(URI.create("http://mhzgroup.localhost/"))
                                 .with(user("someone@mhzgroup.test").roles("EMPLOYEE")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("MHZ Group")));

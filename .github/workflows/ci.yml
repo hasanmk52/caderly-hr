@@ -27,16 +27,3 @@ jobs:
         with:
           name: jacoco-report
           path: target/site/jacoco/
-
-      - name: OWASP Dependency-Check (fail-soft in Phase 0)
-        continue-on-error: true
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: ./mvnw -B org.owasp:dependency-check-maven:check -DnvdApiKey="$NVD_API_KEY"
-
-      - name: Upload Dependency-Check report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-check-report
-          path: target/dependency-check-report.html

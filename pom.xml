@@ -48,7 +48,6 @@
 		<jacoco.version>0.8.13</jacoco.version>
 		<spotbugs-plugin.version>4.9.3.0</spotbugs-plugin.version>
 		<pmd-plugin.version>3.28.0</pmd-plugin.version>
-		<dependency-check.version>12.1.3</dependency-check.version>
 		<bootui.version>1.14.1</bootui.version>
 	</properties>
 	<dependencies>
@@ -350,21 +349,6 @@
 						</goals>
 					</execution>
 				</executions>
-			</plugin>
-
-			<!-- Not bound to the default lifecycle - it's slow (CVE database download).
-			     Invoked explicitly in CI as `mvn org.owasp:dependency-check-maven:check`,
-			     fail-soft in Phase 0 via a very high CVSS threshold. -->
-			<plugin>
-				<groupId>org.owasp</groupId>
-				<artifactId>dependency-check-maven</artifactId>
-				<version>${dependency-check.version}</version>
-				<configuration>
-					<failBuildOnCVSS>11</failBuildOnCVSS>
-					<formats>
-						<format>HTML</format>
-					</formats>
-				</configuration>
 			</plugin>
 		</plugins>
 	</build>

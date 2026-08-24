@@ -126,7 +126,6 @@ Maps to OWASP Top 10 (2021 edition). Every rule is enforced by code + test, not 
 
 ### A06 Vulnerable and Outdated Components
 - Dependabot enabled on GitHub.
-- OWASP Dependency-Check Maven plugin, runs in CI on PR.
 - Trivy scan on built Docker image in CI. Block merge on HIGH/CRITICAL.
 
 ### A07 Identification and Authentication Failures
