@@ -52,6 +52,14 @@ spring:
   flyway:
     enabled: true
     schemas: caderly_hr
+  servlet:
+    multipart:
+      # Above caderly.storage.max-file-size (25MB) on purpose: a normal oversize upload should
+      # fail inside UploadValidator with a friendly inline message, not abort here as a raw
+      # MaxUploadSizeExceededException. This is the backstop for a non-browser client bypassing
+      # the app's own limit (ADR 0012).
+      max-file-size: 30MB
+      max-request-size: 32MB
 
 # Tenant subdomains sit under this domain ({slug}.caderly.app in prod, {slug}.localhost
 # in dev). Prod profile overrides via CADERLY_BASE_DOMAIN / caderly.base-domain.
@@ -75,6 +83,15 @@ caderly:
       # Once a day is enough: termination_date is a date, not a timestamp, so nothing is
       # lost by not reacting within the same minute the clock crosses midnight.
       cron: "0 0 0 * * *"
+  storage:
+    # S3-compatible backend is deferred (ADR 0012) — "local" is the only value LocalFileStorage's
+    # @ConditionalOnProperty currently matches.
+    backend: local
+    local:
+      root: ${CADERLY_STORAGE_ROOT:./data/files}
+    # PRD §6.7 FR-7.3. Below the servlet's spring.servlet.multipart.max-file-size so an oversize
+    # upload fails inside UploadValidator with a friendly inline message, not a raw 413 (ADR 0012).
+    max-file-size: 25MB
 
 logging:
   level:
