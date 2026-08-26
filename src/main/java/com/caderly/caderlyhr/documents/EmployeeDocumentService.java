@@ -114,7 +114,7 @@ public class EmployeeDocumentService {
             return doc;
         }
         if (callerEmployeeId != null
-                && doc.employeeId().equals(callerEmployeeId)
+                && callerEmployeeId.equals(doc.employeeId())
                 && doc.visibility() == DocumentVisibility.EMPLOYEE_PRIVATE) {
             return doc;
         }
