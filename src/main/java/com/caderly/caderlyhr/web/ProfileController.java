@@ -1,7 +1,12 @@
 package com.caderly.caderlyhr.web;
 
+import com.caderly.caderlyhr.common.CaderlyException;
 import com.caderly.caderlyhr.common.NotFoundException;
+import com.caderly.caderlyhr.documents.DocumentVisibility;
+import com.caderly.caderlyhr.documents.DownloadableFile;
+import com.caderly.caderlyhr.documents.EmployeeDocumentService;
 import com.caderly.caderlyhr.identity.AppUserPrincipal;
+import com.caderly.caderlyhr.identity.Role;
 import com.caderly.caderlyhr.people.Employee;
 import com.caderly.caderlyhr.people.EmployeeForms.SelfProfilePatch;
 import com.caderly.caderlyhr.people.EmployeeService;
@@ -10,10 +15,19 @@ import com.caderly.caderlyhr.timeoff.LeaveRequestService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -26,6 +40,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Self-service profile and cross-employee profile viewing (PRD §14.3, §26). Self-service
@@ -50,10 +65,13 @@ class ProfileController {
 
     private final EmployeeService employees;
     private final LeaveRequestService leaveRequests;
+    private final EmployeeDocumentService employeeDocuments;
 
-    ProfileController(EmployeeService employees, LeaveRequestService leaveRequests) {
+    ProfileController(
+            EmployeeService employees, LeaveRequestService leaveRequests, EmployeeDocumentService employeeDocuments) {
         this.employees = employees;
         this.leaveRequests = leaveRequests;
+        this.employeeDocuments = employeeDocuments;
     }
 
     @GetMapping("/profile")
@@ -175,14 +193,87 @@ class ProfileController {
         return "people/profile :: tabContent";
     }
 
+    /**
+     * {@code employeeId} is trusted from the path here — unlike every self-service mutation above
+     * — because this endpoint also serves the Admin-on-behalf path, which by definition targets
+     * someone other than the caller. Authorization is a plain equality/role check against the
+     * caller's own resolved identity, never the request body: a self-uploader has no {@code
+     * visibility} field to bind at all ({@link EmployeeDocumentService#uploadOwnAndList}), and an
+     * Admin's choice only reaches {@link EmployeeDocumentService#uploadOnBehalfAndList} once this
+     * method has independently confirmed the caller is an Admin (PRD §26 "Upload document on
+     * behalf" = Admin only).
+     */
+    @PostMapping("/profile/{employeeId}/documents")
+    @PreAuthorize("isAuthenticated()")
+    String uploadDocument(
+            @PathVariable UUID employeeId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(name = "visibility", required = false) @Nullable DocumentVisibility visibility,
+            @AuthenticationPrincipal AppUserPrincipal principal,
+            Model model,
+            HttpServletResponse response) {
+        boolean isSelf = employees.findByUserId(principal.userId()).map(e -> e.requireId().equals(employeeId)).orElse(false);
+        boolean isAdmin = principal.roles().contains(Role.ADMIN);
+        if (!isSelf && !isAdmin) {
+            throw new AccessDeniedException("Not authorized to upload documents for this employee");
+        }
+        try {
+            if (isSelf) {
+                employeeDocuments.uploadOwnAndList(employeeId, file, principal.userId());
+            } else {
+                employeeDocuments.uploadOnBehalfAndList(
+                        employeeId,
+                        file,
+                        visibility == null ? DocumentVisibility.EMPLOYEE_PRIVATE : visibility,
+                        principal.userId());
+            }
+            toast(response, "Document uploaded");
+        } catch (CaderlyException exception) {
+            model.addAttribute("documentUploadError", exception.getMessage());
+        }
+        populateTabModel(employeeId, "documents", principal, model);
+        return "people/profile :: tabContent";
+    }
+
+    @GetMapping("/profile/documents/{docId}/download")
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<InputStreamResource> downloadDocument(
+            @PathVariable UUID docId, @AuthenticationPrincipal AppUserPrincipal principal) {
+        UUID callerEmployeeId = employees.findByUserId(principal.userId()).map(Employee::requireId).orElse(null);
+        boolean isAdmin = principal.roles().contains(Role.ADMIN);
+        DownloadableFile file = employeeDocuments.download(docId, callerEmployeeId, isAdmin);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition(file.filename()))
+                .contentType(MediaType.parseMediaType(file.mime()))
+                .contentLength(file.size())
+                .body(new InputStreamResource(file.content()));
+    }
+
+    @DeleteMapping("/profile/documents/{docId}")
+    @PreAuthorize("isAuthenticated()")
+    String deleteDocument(
+            @PathVariable UUID docId,
+            @AuthenticationPrincipal AppUserPrincipal principal,
+            Model model,
+            HttpServletResponse response) {
+        UUID callerEmployeeId = employees.findByUserId(principal.userId()).map(Employee::requireId).orElse(null);
+        boolean isAdmin = principal.roles().contains(Role.ADMIN);
+        EmployeeDocumentService.DeletionResult result = employeeDocuments.deleteAndList(docId, callerEmployeeId, isAdmin);
+        toast(response, "Document deleted");
+        populateTabModel(result.employeeId(), "documents", principal, model);
+        return "people/profile :: tabContent";
+    }
+
     private void populateTabModel(UUID id, String tab, AppUserPrincipal principal, Model model) {
         Employee employee = employees.getProfileForViewer(id, principal);
         boolean isSelf = employee.userId() != null && employee.userId().equals(principal.userId());
+        boolean isAdmin = principal.roles().contains(Role.ADMIN);
         model.addAttribute("employee", employee);
         model.addAttribute("isSelf", isSelf);
         model.addAttribute("tenureYears", tenureYears(employee));
         model.addAttribute("activeTab", tab);
-        populateTab(tab, employee, model);
+        model.addAttribute("visibleTabs", visibleTabs(isSelf, isAdmin));
+        populateTab(tab, employee, isSelf, isAdmin, model);
         if (!model.containsAttribute("selfPatch")) {
             model.addAttribute(
                     "selfPatch",
@@ -196,7 +287,15 @@ class ProfileController {
         }
     }
 
-    private void populateTab(String tab, Employee employee, Model model) {
+    /**
+     * PRD FR-3.9 scopes documents to the owning employee and Admin only — a Manager viewing a
+     * report's profile sees every other tab but not this one. {@code canViewDocuments} guards
+     * both what data this method loads and, via {@link #visibleTabs}, whether the tab even
+     * appears in the nav; the actual access control lives in {@code EmployeeDocumentService}
+     * regardless of what this page renders (a Manager hitting the download/delete URL directly is
+     * denied there, independent of this check).
+     */
+    private void populateTab(String tab, Employee employee, boolean isSelf, boolean isAdmin, Model model) {
         UUID employeeId = employee.requireId();
         switch (tab) {
             case "education" -> model.addAttribute("education", employees.listEducation(employeeId));
@@ -206,9 +305,13 @@ class ProfileController {
                 model.addAttribute("leaveRequestHistory", leaveRequests.listForEmployee(employeeId));
             }
             case "documents" -> {
-                // Intentionally no data: FileStorage doesn't exist until Phase 1.7. The template
-                // renders a stub empty-state, not a disabled upload control (CLAUDE.md: no
-                // half-finished UI).
+                boolean canViewDocuments = isSelf || isAdmin;
+                model.addAttribute(
+                        "employeeDocuments",
+                        canViewDocuments ? employeeDocuments.listVisibleTo(employeeId, isAdmin) : List.of());
+                model.addAttribute("canUploadDocuments", canViewDocuments);
+                model.addAttribute("canChooseDocumentVisibility", isAdmin && !isSelf);
+                model.addAttribute("documentVisibilityOptions", DocumentVisibility.values());
             }
             default -> {
                 model.addAttribute("emergencyContacts", employees.listEmergencyContacts(employeeId));
@@ -240,6 +343,26 @@ class ProfileController {
     private static @Nullable Integer tenureYears(Employee employee) {
         LocalDate hireDate = employee.hireDate();
         return hireDate == null ? null : Period.between(hireDate, LocalDate.now()).getYears();
+    }
+
+    /** Documents is omitted for anyone but the owning employee or an Admin (PRD FR-3.9). */
+    private static List<String> visibleTabs(boolean isSelf, boolean isAdmin) {
+        List<String> tabs = new ArrayList<>(List.of("personal", "education", "job"));
+        if (isSelf || isAdmin) {
+            tabs.add("documents");
+        }
+        tabs.add("timeoff");
+        return tabs;
+    }
+
+    /**
+     * RFC 5987 {@code filename*=} form, percent-encoded: the stored name is user-supplied and
+     * must never be interpolated into a header raw (CLAUDE.md §6 A03), matching {@code
+     * FilesController}'s identical helper.
+     */
+    private static String contentDisposition(String filename) {
+        String encoded = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
+        return "attachment; filename*=UTF-8''" + encoded;
     }
 
     private static void toast(HttpServletResponse response, String message) {
