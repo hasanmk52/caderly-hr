@@ -278,6 +278,14 @@ Destructive actions (delete, terminate): confirm via modal, then show a toast on
 - Approve → toast on success, row removed via htmx.
 - Reject → modal for optional reason → toast → row removed.
 
+### 8.7 File upload (Files page & Documents tab)
+- Upload control is a **dropzone**, not a bare native file input: a dashed-border card region (`.upload-dropzone`) containing a centered upload icon (`bi-cloud-upload`, `fs-1 text-muted`), a bold instruction line ("Drag and drop a file here, or click to browse"), and a muted caption line naming the allowed types and size limit — same weight/size vocabulary as this app's empty states (§7.1), so the two read as one visual family.
+- The real `<input type="file">` is visually hidden (`visually-hidden`, never `display:none` — it must stay in the tab order and screen-reader-visible) inside a `<label for="...">` that wraps the whole dropzone, so the entire box is clickable with no extra JS to open the file picker.
+- Drag-over state (`.upload-dropzone-active`, Alpine-driven) swaps the border/background to `var(--bs-primary)` / `var(--bs-primary-bg-subtle)` — the same re-themeable variables used everywhere else (§12), never a new hardcoded color.
+- Fixed height regardless of state (empty / file-chosen / drag-active) — only border, background, and the selected-filename caption change, so the layout doesn't jump.
+- Sits in its own `card` above the list/table, not squeezed into the page's header row — Admin-only pages (Files) gate the whole card with `sec:authorize`; self-or-Admin pages (Documents tab) gate it with the equivalent `th:if`.
+- Upload button keeps the page's existing outline style (§6 Buttons) — this is not the page's one `btn-primary` action.
+
 ---
 
 ## 9. Accessibility (WCAG 2.1 AA target)
