@@ -1,0 +1,6 @@
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--surface-page);color:var(--text-body);font:var(--font-body);-webkit-font-smoothing:antialiased}
+a{color:var(--brand);text-decoration:none;border-bottom:1px solid color-mix(in oklab,var(--brand) 35%,transparent);transition:color var(--t-hover),border-color var(--t-hover)}
+a:hover{color:color-mix(in oklab,var(--brand) 82%,var(--ink));border-bottom-color:currentColor}
+:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.tnum{font-variant-numeric:tabular-nums}

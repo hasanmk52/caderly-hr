@@ -1,0 +1,10 @@
+:root{
+--s-0:0px;--s-1:4px;--s-2:8px;--s-3:12px;--s-4:16px;--s-5:20px;--s-6:24px;--s-8:32px;--s-10:40px;--s-12:48px;--s-16:64px;
+--space-unit:8px;
+/* density — BRAND.md §7 */
+--row-h:40px;--sidebar-w:240px;--field-h:36px;--control-h-sm:28px;--control-h-lg:44px;
+--email-w:600px;
+--r-1:3px;--r-2:6px;--r-3:8px;--r-4:12px;--r-pill:999px;
+--radius-control:var(--r-2);--radius-card:var(--r-3);--radius-chip:var(--r-1);
+--border-w:1px;--active-edge-w:2px;
+}

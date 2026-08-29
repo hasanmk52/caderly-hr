@@ -1,0 +1,35 @@
+:root{
+--sans:"IBM Plex Sans",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; /* @kind font */
+--serif:"IBM Plex Serif",Georgia,serif; /* @kind font */
+--mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace; /* @kind font */
+--sans-arabic:"IBM Plex Sans Arabic",var(--sans); /* @kind font */
+--fw-regular:400; /* @kind other */
+--fw-medium:500; /* @kind other */
+--fw-semibold:600; /* @kind other */
+/* scale — BRAND.md §6.2 */
+--size-statement:56px;
+--lh-statement:1.04; /* @kind other */
+--track-statement:-.032em; /* @kind other */
+--size-title:28px;
+--lh-title:1.2; /* @kind other */
+--track-title:-.024em; /* @kind other */
+--size-section:19px;
+--lh-section:1.3; /* @kind other */
+--track-section:-.014em; /* @kind other */
+--size-body:15px;
+--lh-body:1.55; /* @kind other */
+--size-table:14px;
+--lh-table:1.45; /* @kind other */
+--size-label:11px;
+--lh-label:1.4; /* @kind other */
+--track-label:.1em; /* @kind other */
+/* semantic aliases */
+--font-display:var(--fw-semibold) var(--size-statement)/var(--lh-statement) var(--sans); /* @kind font */
+--font-page-title:var(--fw-semibold) var(--size-title)/var(--lh-title) var(--sans); /* @kind font */
+--font-section:var(--fw-semibold) var(--size-section)/var(--lh-section) var(--sans); /* @kind font */
+--font-body:var(--fw-regular) var(--size-body)/var(--lh-body) var(--sans); /* @kind font */
+--font-table:var(--fw-regular) var(--size-table)/var(--lh-table) var(--sans); /* @kind font */
+--font-label:var(--fw-medium) var(--size-label)/var(--lh-label) var(--mono); /* @kind font */
+--font-numeric:var(--fw-medium) var(--size-table)/var(--lh-table) var(--mono); /* @kind font */
+--font-statement-serif:italic 300 var(--size-statement)/var(--lh-statement) var(--serif); /* @kind font */
+}

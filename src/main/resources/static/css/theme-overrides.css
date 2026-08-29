@@ -11,18 +11,51 @@
  */
 
 :root {
-  /* Primary — indigo-600, with the matching tint/shade family (Tailwind indigo
-     scale) so -bg-subtle/-text-emphasis pairings stay one consistent hue. */
-  --bs-primary: #4f46e5;
-  --bs-primary-rgb: 79, 70, 229;
-  --bs-primary-text-emphasis: #3730a3;
-  --bs-primary-bg-subtle: #e0e7ff;
-  --bs-primary-border-subtle: #c7d2fe;
-  --bs-link-color: #4f46e5;
-  --bs-link-color-rgb: 79, 70, 229;
-  --bs-link-hover-color: #4338ca;
-  --bs-link-hover-color-rgb: 67, 56, 202;
-  --bs-focus-ring-color: rgba(79, 70, 229, 0.25);
+  /* Primary — Cadrely Petrol (docs/design-system/tokens/colors.css --brand).
+     Petrol has no published tint/shade scale the way the old indigo borrowed
+     Tailwind's, so -bg-subtle/-border-subtle come straight from the design
+     system's --brand-fill/--brand-line, and derived shades below use
+     color-mix() instead of hand-picked swatch hex. */
+  --bs-primary: #0F5568;
+  --bs-primary-rgb: 15, 85, 104;
+  --bs-primary-text-emphasis: color-mix(in oklab, var(--bs-primary) 75%, black);
+  --bs-primary-bg-subtle: #E3EFF2;
+  --bs-primary-border-subtle: #AFCFD7;
+  --bs-link-color: #0F5568;
+  --bs-link-color-rgb: 15, 85, 104;
+  --bs-link-hover-color: #0D445C;
+  --bs-link-hover-color-rgb: 13, 68, 92;
+  --bs-focus-ring-color: rgba(15, 85, 104, 0.25);
+
+  /* Status — Cadrely's verify/notice/halt triad (docs/design-system/tokens/colors.css).
+     Cadrely's own AA contrast table already validates each base hex for direct
+     text use, so -text-emphasis is the base value, not a further-darkened one.
+     Cadrely defines no info-equivalent (the triad is closed and independent of
+     brand), so info is aliased straight to primary instead of keeping
+     Bootstrap's unrelated stock sky-blue. */
+  --bs-success: #1F6B45;
+  --bs-success-rgb: 31, 107, 69;
+  --bs-success-text-emphasis: #1F6B45;
+  --bs-success-bg-subtle: #E4F0EA;
+  --bs-success-border-subtle: color-mix(in oklab, var(--bs-success) 35%, white);
+
+  --bs-warning: #9A5F00;
+  --bs-warning-rgb: 154, 95, 0;
+  --bs-warning-text-emphasis: #9A5F00;
+  --bs-warning-bg-subtle: #F8EFDF;
+  --bs-warning-border-subtle: color-mix(in oklab, var(--bs-warning) 35%, white);
+
+  --bs-danger: #A62A22;
+  --bs-danger-rgb: 166, 42, 34;
+  --bs-danger-text-emphasis: #A62A22;
+  --bs-danger-bg-subtle: #F8E9E7;
+  --bs-danger-border-subtle: color-mix(in oklab, var(--bs-danger) 35%, white);
+
+  --bs-info: #0F5568;
+  --bs-info-rgb: 15, 85, 104;
+  --bs-info-text-emphasis: color-mix(in oklab, var(--bs-info) 75%, black);
+  --bs-info-bg-subtle: #E3EFF2;
+  --bs-info-border-subtle: #AFCFD7;
 
   /* Neutrals */
   --bs-body-bg: #f8f9fb;
@@ -44,10 +77,12 @@
   --bs-box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 4px rgba(16, 24, 40, 0.06);
   --bs-box-shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.12), 0 4px 8px rgba(16, 24, 40, 0.06);
 
-  /* Typography — Inter, self-hosted via the fontsource webjar (see head.html and
-     pom.xml) since CSP's font-src is locked to 'self' and a CDN font was ruled
-     out. system-ui remains as the fallback while the webfont loads/if it fails. */
-  --bs-body-font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Typography — IBM Plex Sans, self-hosted via the fontsource webjar (see
+     head.html and pom.xml) since CSP's font-src is locked to 'self' and a CDN
+     font was ruled out. Matches docs/design-system/tokens/typography.css's
+     --sans stack. system-ui remains as the fallback while the webfont
+     loads/if it fails. */
+  --bs-body-font-family: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
 /* Component-local overrides for primary color.
@@ -61,23 +96,90 @@
  * above being correct. Per Bootstrap's own CSS-variables docs, the fix is the same
  * pattern Bootstrap uses internally — override each component's local vars, not
  * the property directly. Scoped to what's actually used in these templates
- * (.btn-primary, form focus rings, checkboxes) — no .btn-outline-primary,
- * pagination, or dropdown-active styling exists in the templates today.
+ * (.btn-primary/.btn-danger, their .btn-outline-* counterparts, form focus rings,
+ * checkboxes) — no pagination or dropdown-active styling exists in the templates
+ * today.
  */
 .btn-primary {
   --bs-btn-color: #fff;
   --bs-btn-bg: var(--bs-primary);
   --bs-btn-border-color: var(--bs-primary);
   --bs-btn-hover-color: #fff;
-  --bs-btn-hover-bg: #4338ca;
-  --bs-btn-hover-border-color: #4338ca;
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-primary) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-primary) 85%, black);
   --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
   --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: #3730a3;
-  --bs-btn-active-border-color: #3730a3;
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-primary) 70%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-primary) 70%, black);
   --bs-btn-disabled-color: #fff;
   --bs-btn-disabled-bg: var(--bs-primary);
   --bs-btn-disabled-border-color: var(--bs-primary);
+}
+
+/* Same component-local-var gotcha as .btn-primary above, for the destructive
+   action button (delete/reject confirmations across admin + leave templates). */
+.btn-danger {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--bs-danger);
+  --bs-btn-border-color: var(--bs-danger);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-danger) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-danger) 85%, black);
+  --bs-btn-focus-shadow-rgb: var(--bs-danger-rgb);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-danger) 70%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-danger) 70%, black);
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-bg: var(--bs-danger);
+  --bs-btn-disabled-border-color: var(--bs-danger);
+}
+
+/* Outline variants hit the exact same component-local-var gotcha as the solid
+   buttons above — found via visual QA (admin/organization's delete icon buttons
+   were still stock Bootstrap red). Only the three actually used with a
+   rebranded color get a block: .btn-outline-primary (holidays, Files),
+   .btn-outline-danger (delete/remove actions across admin + people), and
+   .btn-outline-success (leave types, once). .btn-outline-secondary is
+   untouched since --bs-secondary didn't change; .btn-outline-warning/-info
+   aren't used anywhere. */
+.btn-outline-primary {
+  --bs-btn-color: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--bs-primary);
+  --bs-btn-hover-border-color: var(--bs-primary);
+  --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--bs-primary);
+  --bs-btn-active-border-color: var(--bs-primary);
+  --bs-btn-disabled-color: var(--bs-primary);
+  --bs-btn-disabled-border-color: var(--bs-primary);
+}
+.btn-outline-danger {
+  --bs-btn-color: var(--bs-danger);
+  --bs-btn-border-color: var(--bs-danger);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--bs-danger);
+  --bs-btn-hover-border-color: var(--bs-danger);
+  --bs-btn-focus-shadow-rgb: var(--bs-danger-rgb);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--bs-danger);
+  --bs-btn-active-border-color: var(--bs-danger);
+  --bs-btn-disabled-color: var(--bs-danger);
+  --bs-btn-disabled-border-color: var(--bs-danger);
+}
+.btn-outline-success {
+  --bs-btn-color: var(--bs-success);
+  --bs-btn-border-color: var(--bs-success);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--bs-success);
+  --bs-btn-hover-border-color: var(--bs-success);
+  --bs-btn-focus-shadow-rgb: var(--bs-success-rgb);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--bs-success);
+  --bs-btn-active-border-color: var(--bs-success);
+  --bs-btn-disabled-color: var(--bs-success);
+  --bs-btn-disabled-border-color: var(--bs-success);
 }
 
 .form-control:focus,

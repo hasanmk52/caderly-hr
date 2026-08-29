@@ -267,7 +267,11 @@
                       </thead>
                       <tbody>
                         <tr th:each="req : ${leaveRequestHistory}">
-                          <td th:text="${req.leaveType.name}">Vacation</td>
+                          <td>
+                            <i th:if="${req.leaveType.icon != null}" th:class="'bi ' + ${req.leaveType.icon}"
+                               th:style="${req.leaveType.color != null} ? 'color:' + ${req.leaveType.color}" aria-hidden="true"></i>
+                            <span th:text="${req.leaveType.name}">Vacation</span>
+                          </td>
                           <td><span th:text="${req.startDate}">2026-08-17</span> - <span th:text="${req.endDate}">2026-08-21</span></td>
                           <td th:text="${req.durationDays}">5.00</td>
                           <td>

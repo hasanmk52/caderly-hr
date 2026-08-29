@@ -1,0 +1,12 @@
+:root{
+--dur-fast:120ms; /* @kind other */
+--ease-fast:ease-out; /* @kind other */
+--dur-swap:180ms; /* @kind other */
+--ease-swap:cubic-bezier(.3,0,.2,1); /* @kind other */
+--t-hover:var(--dur-fast) var(--ease-fast); /* @kind other */
+--t-swap:var(--dur-swap) var(--ease-swap); /* @kind other */
+}
+@media (prefers-reduced-motion:reduce){:root{
+--dur-fast:1ms; /* @kind other */
+--dur-swap:1ms; /* @kind other */
+}}

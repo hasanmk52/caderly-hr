@@ -39,7 +39,10 @@
           </thead>
           <tbody>
             <tr th:each="leaveType : ${leaveTypes}">
-              <td th:text="${leaveType.name()}">Annual</td>
+              <td>
+                <i th:if="${leaveType.icon() != null}" th:class="'bi ' + ${leaveType.icon()}" aria-hidden="true"></i>
+                <span th:text="${leaveType.name()}">Annual</span>
+              </td>
               <td th:text="${leaveType.defaultAnnualAllowance()}">30</td>
               <td th:text="${leaveType.paid()} ? 'Paid' : 'Unpaid'">Paid</td>
               <td th:text="${leaveType.allowsHalfDay()} ? 'Allowed' : 'Not allowed'">Allowed</td>
@@ -96,6 +99,23 @@
       <input class="form-control" type="text" id="leave-type-name" th:field="*{name}" maxlength="100" required
              th:classappend="${#fields.hasErrors('name')} ? 'is-invalid'" />
       <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">Invalid name</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label d-block">Icon</label>
+      <!--/* th:field repeated in a loop auto-suffixes the id (icon1, icon2, ...) and sets
+             checked/value/name for us; #ids.prev looks up that same generated id so <label for>
+             stays in sync (same idiom as leave/book-time-off.html's leave-type chip row). */-->
+      <div class="d-flex flex-wrap gap-2">
+        <div th:each="option : ${iconOptions}">
+          <input type="radio" class="btn-check" autocomplete="off"
+                 th:field="*{icon}" th:value="${option.cssClass}" />
+          <label class="btn btn-outline-secondary" th:for="${#ids.prev('icon')}"
+                 th:title="${option.label}" th:attr="aria-label=${option.label}">
+            <i th:class="'bi ' + ${option.cssClass}" aria-hidden="true"></i>
+          </label>
+        </div>
+      </div>
     </div>
 
     <div class="mb-3">

@@ -1,0 +1,10 @@
+:root{
+/* Flat by default. Elevation is reserved for things that genuinely float. */
+--shadow-none:none;
+--shadow-card:0 1px 2px rgba(21,23,28,.04);
+--shadow-raised:0 1px 2px rgba(21,23,28,.06),0 4px 12px -6px rgba(21,23,28,.16);
+--shadow-overlay:0 8px 16px -8px rgba(21,23,28,.18),0 24px 48px -24px rgba(21,23,28,.32);
+--ring-focus:0 0 0 3px color-mix(in oklab,var(--brand) 28%,transparent);
+--inset-hairline:inset 0 0 0 1px var(--rule);
+}
+:root[data-theme=dark]{--shadow-card:0 1px 2px rgba(0,0,0,.4);--shadow-raised:0 1px 2px rgba(0,0,0,.5),0 4px 12px -6px rgba(0,0,0,.7);--shadow-overlay:0 8px 16px -8px rgba(0,0,0,.6),0 24px 48px -24px rgba(0,0,0,.8)}
