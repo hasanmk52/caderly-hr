@@ -311,27 +311,21 @@
                 <div class="card-body">
                   <h3 class="h6 mb-3">Upload document</h3>
                   <form th:hx-post="@{/profile/{id}/documents(id=${employee.id})}"
-                        hx-target="#tab-content" hx-swap="innerHTML" hx-encoding="multipart/form-data"
-                        x-data="{ dragging: false, fileName: null }">
+                        hx-target="#tab-content" hx-swap="innerHTML" hx-encoding="multipart/form-data">
                     <label class="upload-dropzone d-flex flex-column align-items-center justify-content-center text-center p-4 rounded"
-                           :class="dragging ? 'upload-dropzone-active' : ''"
-                           for="employee-document-input"
-                           @dragover.prevent="dragging = true"
-                           @dragleave.prevent="dragging = false"
-                           @drop.prevent="dragging = false; $refs.employeeDocumentInput.files = $event.dataTransfer.files; fileName = $refs.employeeDocumentInput.files[0]?.name">
+                           for="employee-document-input">
                       <i class="bi bi-cloud-upload fs-1 text-muted mb-2" aria-hidden="true"></i>
                       <span class="fw-semibold">Drag and drop a file here, or click to browse</span>
                       <span class="text-muted small mt-1">PDF, PNG, JPG, DOCX, XLSX, PPTX — up to 25 MB</span>
-                      <span class="text-primary small mt-2" x-show="fileName" x-text="fileName"></span>
-                      <input x-ref="employeeDocumentInput" id="employee-document-input" class="visually-hidden"
+                      <span class="upload-dropzone-filename text-primary small mt-2 d-none"></span>
+                      <input id="employee-document-input" class="visually-hidden"
                              type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.pptx" required
-                             aria-label="Upload document"
-                             @change="fileName = $event.target.files[0]?.name" />
+                             aria-label="Upload document" />
                     </label>
                     <div class="d-flex align-items-center mt-3">
                       <select class="form-select form-select-sm" name="visibility" style="max-width: 220px"
                               th:if="${canChooseDocumentVisibility}" aria-label="Visibility">
-                        <option th:each="option : ${documentVisibilityOptions}" th:value="${option}" th:text="${option}">EMPLOYEE_PRIVATE</option>
+                        <option th:each="option : ${documentVisibilityOptions}" th:value="${option}" th:text="${option.label()}">Employee &amp; Admin</option>
                       </select>
                       <button type="submit" class="btn btn-outline-secondary btn-sm text-nowrap ms-auto">
                         <i class="bi bi-upload" aria-hidden="true"></i> Upload
@@ -362,7 +356,7 @@
                         <tr th:each="doc : ${employeeDocuments}">
                           <td th:text="${doc.name()}">Passport.pdf</td>
                           <td th:text="${#temporals.format(doc.uploadedAt(), 'yyyy-MM-dd')}">2026-08-26</td>
-                          <td th:if="${canChooseDocumentVisibility}" th:text="${doc.visibility()}">EMPLOYEE_PRIVATE</td>
+                          <td th:if="${canChooseDocumentVisibility}" th:text="${doc.visibility().label()}">Employee &amp; Admin</td>
                           <td class="text-end">
                             <a class="btn btn-outline-secondary btn-sm" aria-label="Download document"
                                th:href="@{/profile/documents/{id}/download(id=${doc.id})}">
