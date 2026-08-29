@@ -401,6 +401,7 @@ Before writing any HTML, answer:
 4. What's the empty state, loading state, and error state?
 5. Is it accessible via keyboard alone?
 6. What htmx interactions replace what would otherwise be JavaScript?
+7. Are all user-facing strings externalized as `#{...}` message keys, not hardcoded? (ADR 0013 — see CLAUDE.md §7 for the key naming convention.)
 
 If you can't answer these in one line each, don't write the template yet.
 
