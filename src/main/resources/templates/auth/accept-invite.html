@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<th:block th:replace="~{bare-layout :: layout('Set your password', ~{::#content})}">
+<th:block th:replace="~{bare-layout :: layout(#{auth.accept-invite.title}, ~{::#content})}">
   <main id="content" class="caderly-bare-main">
     <div class="caderly-bare-card">
 
       <div class="text-center mb-4">
-        <h1 class="h4 mb-1" th:text="${tenant != null ? tenant.name : 'Caderly'}">Caderly</h1>
-        <p class="text-muted small mb-0">Welcome — set a password to get started</p>
+        <h1 class="h4 mb-1" th:text="${tenant != null} ? ${tenant.name} : #{common.brand-name}">Caderly</h1>
+        <p class="text-muted small mb-0" th:text="#{auth.accept-invite.subtitle}">Welcome — set a password to get started</p>
       </div>
 
       <div class="card shadow-sm">
@@ -19,7 +19,7 @@
 
           <form th:action="@{/accept-invite}" th:object="${form}" method="post">
             <th:block th:replace="~{fragments/password-fields :: passwordFields}"></th:block>
-            <button class="btn btn-primary w-100" type="submit">Set password</button>
+            <button class="btn btn-primary w-100" type="submit" th:text="#{auth.accept-invite.submit}">Set password</button>
           </form>
 
         </div>

@@ -13,12 +13,18 @@ final class LeaveForms {
     private LeaveForms() {}
 
     record BookLeaveForm(
-            @NotNull(message = "Select a leave type") UUID leaveTypeId,
-            @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @NotNull(message = "{validation.book-leave-form.leave-type-id.required}") UUID leaveTypeId,
+            @NotNull(message = "{validation.book-leave-form.start-date.required}")
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate startDate,
+            @NotNull(message = "{validation.book-leave-form.end-date.required}")
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate endDate,
             boolean startHalfDayPm,
             boolean endHalfDayAm,
-            @Nullable @Size(max = 1000) String note) {}
+            @Nullable @Size(max = 1000, message = "{validation.book-leave-form.note.too-long}") String note) {}
 
-    record RejectForm(@Nullable @Size(max = 500) String decisionNote) {}
+    record RejectForm(
+            @Nullable @Size(max = 500, message = "{validation.reject-form.decision-note.too-long}")
+                    String decisionNote) {}
 }

@@ -15,14 +15,20 @@ final class AuthForms {
 
     private AuthForms() {}
 
-    record ForgotPassword(@NotBlank @Email String email) {}
+    record ForgotPassword(
+            @NotBlank(message = "{validation.forgot-password-form.email.required}")
+                    @Email(message = "{validation.forgot-password-form.email.invalid}")
+                    String email) {}
 
     /**
      * Password confirmation is checked in the controller rather than by a class-level constraint.
      * A cross-field validator would report the mismatch against the whole object, and the field
      * error has to land on the confirmation input for the UI to mark it (UI Guidelines §6).
      */
-    record SetPassword(@NotBlank String token, @ValidPassword String password, String confirmPassword) {
+    record SetPassword(
+            @NotBlank(message = "{validation.set-password-form.token.required}") String token,
+            @ValidPassword String password,
+            String confirmPassword) {
 
         boolean passwordsMatch() {
             return password != null && password.equals(confirmPassword);

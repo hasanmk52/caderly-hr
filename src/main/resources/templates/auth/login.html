@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<th:block th:replace="~{bare-layout :: layout('Log in', ~{::#content})}">
+<th:block th:replace="~{bare-layout :: layout(#{auth.login.title}, ~{::#content})}">
   <main id="content" class="caderly-bare-main">
     <div class="caderly-bare-card">
 
       <div class="text-center mb-4">
-        <h1 class="h4 mb-1" th:text="${tenant != null ? tenant.name : 'Caderly'}">Caderly</h1>
-        <p class="text-muted small mb-0">Sign in to continue</p>
+        <h1 class="h4 mb-1" th:text="${tenant != null} ? ${tenant.name} : #{common.brand-name}">Caderly</h1>
+        <p class="text-muted small mb-0" th:text="#{auth.login.subtitle}">Sign in to continue</p>
       </div>
 
       <div class="card shadow-sm">
@@ -17,41 +17,45 @@
                  a locked account, and an address that does not exist. */-->
           <div class="alert alert-danger py-2" role="alert" th:if="${param.error}">
             <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>
-            Incorrect email or password.
+            <span th:text="#{auth.login.error.invalid-credentials}">Incorrect email or password.</span>
           </div>
           <div class="alert alert-danger py-2" role="alert" th:if="${param.rateLimited}">
             <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>
-            Too many attempts. Please wait a minute and try again.
+            <span th:text="#{auth.login.error.rate-limited}">Too many attempts. Please wait a minute and try again.</span>
           </div>
-          <div class="alert alert-info py-2" role="status" th:if="${param.expired}">
+          <div class="alert alert-info py-2" role="status" th:if="${param.expired}"
+               th:text="#{auth.login.info.session-expired}">
             Your session expired. Please sign in again.
           </div>
-          <div class="alert alert-success py-2" role="status" th:if="${param.inviteAccepted}">
+          <div class="alert alert-success py-2" role="status" th:if="${param.inviteAccepted}"
+               th:text="#{auth.login.info.invite-accepted}">
             Your password is set. You can sign in now.
           </div>
-          <div class="alert alert-success py-2" role="status" th:if="${param.resetComplete}">
+          <div class="alert alert-success py-2" role="status" th:if="${param.resetComplete}"
+               th:text="#{auth.login.info.reset-complete}">
             Your password has been changed. You can sign in now.
           </div>
-          <div class="alert alert-info py-2" role="status" th:if="${param.loggedOut}">
+          <div class="alert alert-info py-2" role="status" th:if="${param.loggedOut}"
+               th:text="#{auth.login.info.logged-out}">
             You have been signed out.
           </div>
 
           <form th:action="@{/login}" method="post">
             <div class="mb-3">
-              <label class="form-label" for="email">Email</label>
+              <label class="form-label" for="email" th:text="#{auth.email-label}">Email</label>
               <input class="form-control" type="email" id="email" name="email"
                      autocomplete="username" required autofocus />
             </div>
             <div class="mb-3">
-              <label class="form-label" for="password">Password</label>
+              <label class="form-label" for="password" th:text="#{auth.login.password-label}">Password</label>
               <input class="form-control" type="password" id="password" name="password"
                      autocomplete="current-password" required />
             </div>
-            <button class="btn btn-primary w-100" type="submit">Log in</button>
+            <button class="btn btn-primary w-100" type="submit" th:text="#{auth.login.submit}">Log in</button>
           </form>
 
           <div class="text-center mt-3">
-            <a class="btn btn-link btn-sm" th:href="@{/forgot-password}">Forgot password?</a>
+            <a class="btn btn-link btn-sm" th:href="@{/forgot-password}" th:text="#{auth.login.forgot-password-link}">Forgot password?</a>
           </div>
 
         </div>

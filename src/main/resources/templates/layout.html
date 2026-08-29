@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/head :: head(${title})}"></head>
 <body>
 <!--/* UI Guidelines §9: skip link must be the first focusable element and visible on focus. */-->
-<a class="visually-hidden-focusable skip-link" th:href="@{#main-content}">Skip to main content</a>
+<a class="visually-hidden-focusable skip-link" th:href="@{#main-content}" th:text="#{common.skip-to-main-content}">Skip to main content</a>
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 <div class="d-flex">
   <div th:replace="~{fragments/sidebar :: sidebar}"></div>

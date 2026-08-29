@@ -1,35 +1,37 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
-<nav th:fragment="sidebar" class="caderly-sidebar bg-white border-end p-3" aria-label="Primary">
+<nav th:fragment="sidebar" class="caderly-sidebar bg-white border-end p-3" th:aria-label="#{nav.primary-landmark-label}">
   <ul class="nav nav-pills flex-column gap-1">
-    <li class="nav-item"><a class="nav-link active" th:href="@{/}">Home</a></li>
+    <li class="nav-item"><a class="nav-link active" th:href="@{/}" th:text="#{nav.home}">Home</a></li>
     <li class="nav-item" sec:authorize="hasRole('ADMIN')">
-      <a class="nav-link" th:href="@{/admin/employees}">People</a>
+      <a class="nav-link" th:href="@{/admin/employees}" th:text="#{nav.people}">People</a>
     </li>
-    <li class="nav-item"><a class="nav-link" th:href="@{/profile}">My Profile</a></li>
-    <li class="nav-item"><a class="nav-link" th:href="@{/files}">Files</a></li>
-    <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Calendar</a></li>
+    <li class="nav-item"><a class="nav-link" th:href="@{/profile}" th:text="#{nav.my-profile}">My Profile</a></li>
+    <li class="nav-item"><a class="nav-link" th:href="@{/files}" th:text="#{nav.files}">Files</a></li>
+    <li class="nav-item">
+      <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true" th:text="#{nav.calendar}">Calendar</a>
+    </li>
     <li class="nav-item" sec:authorize="hasAnyRole('MANAGER','ADMIN')">
-      <a class="nav-link" th:href="@{/for-action}">For Action</a>
+      <a class="nav-link" th:href="@{/for-action}" th:text="#{nav.for-action}">For Action</a>
     </li>
     <!--/* UI Guidelines §1: Admin and Reports are Admin-only. Hiding them is presentation
            only — /admin/** is enforced by @PreAuthorize on the controller, and an Employee
            who types the URL still gets a 403. */-->
     <li class="nav-item" sec:authorize="hasRole('ADMIN')">
-      <a class="nav-link" th:href="@{/admin/users}">Admin</a>
+      <a class="nav-link" th:href="@{/admin/users}" th:text="#{nav.admin}">Admin</a>
     </li>
     <li class="nav-item" sec:authorize="hasRole('ADMIN')">
-      <a class="nav-link" th:href="@{/admin/organization}">Organization</a>
+      <a class="nav-link" th:href="@{/admin/organization}" th:text="#{nav.organization}">Organization</a>
     </li>
     <li class="nav-item" sec:authorize="hasRole('ADMIN')">
-      <a class="nav-link" th:href="@{/admin/leave-types}">Leave Types</a>
+      <a class="nav-link" th:href="@{/admin/leave-types}" th:text="#{nav.leave-types}">Leave Types</a>
     </li>
     <li class="nav-item" sec:authorize="hasRole('ADMIN')">
-      <a class="nav-link" th:href="@{/admin/holidays}">Holidays</a>
+      <a class="nav-link" th:href="@{/admin/holidays}" th:text="#{nav.holidays}">Holidays</a>
     </li>
     <li class="nav-item" sec:authorize="hasRole('ADMIN')">
-      <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Reports</a>
+      <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true" th:text="#{nav.reports}">Reports</a>
     </li>
   </ul>
 </nav>

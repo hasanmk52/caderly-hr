@@ -10,6 +10,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -34,9 +36,11 @@ import org.springframework.web.multipart.MultipartFile;
 class FilesController {
 
     private final CompanyFileService companyFiles;
+    private final MessageSource messages;
 
-    FilesController(CompanyFileService companyFiles) {
+    FilesController(CompanyFileService companyFiles, MessageSource messages) {
         this.companyFiles = companyFiles;
+        this.messages = messages;
     }
 
     @GetMapping("/files")
@@ -58,11 +62,12 @@ class FilesController {
         try {
             fresh = companyFiles.uploadAndList(file, principal.userId());
         } catch (CaderlyException exception) {
-            model.addAttribute("uploadErrors", List.of(exception.getMessage()));
+            model.addAttribute(
+                    "uploadErrors", List.of(WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale())));
             model.addAttribute("files", companyFiles.listAll());
             return "files/list :: content";
         }
-        toast(response, "File uploaded");
+        toast(response, "toast.files.uploaded", "File uploaded");
         model.addAttribute("uploadErrors", List.<String>of());
         model.addAttribute("files", fresh);
         return "files/list :: content";
@@ -82,7 +87,7 @@ class FilesController {
     @DeleteMapping("/files/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     String delete(@PathVariable UUID id, Model model, HttpServletResponse response) {
-        toast(response, "File deleted");
+        toast(response, "toast.files.deleted", "File deleted");
         model.addAttribute("files", companyFiles.deleteAndList(id));
         model.addAttribute("uploadErrors", List.<String>of());
         return "files/list :: content";
@@ -98,7 +103,9 @@ class FilesController {
         return "attachment; filename*=UTF-8''" + encoded;
     }
 
-    private static void toast(HttpServletResponse response, String message) {
+    /** Resolves {@code key} through {@code messages.properties} (ADR 0013), then fires the toast. */
+    private void toast(HttpServletResponse response, String key, String defaultMessage) {
+        String message = messages.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale());
         response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
     }
 }

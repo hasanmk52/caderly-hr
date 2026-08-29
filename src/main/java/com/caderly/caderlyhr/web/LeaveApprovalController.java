@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -38,10 +40,12 @@ class LeaveApprovalController {
 
     private final LeaveRequestService leaveRequests;
     private final EmployeeService employees;
+    private final MessageSource messages;
 
-    LeaveApprovalController(LeaveRequestService leaveRequests, EmployeeService employees) {
+    LeaveApprovalController(LeaveRequestService leaveRequests, EmployeeService employees, MessageSource messages) {
         this.leaveRequests = leaveRequests;
         this.employees = employees;
+        this.messages = messages;
     }
 
     @GetMapping("/for-action")
@@ -73,7 +77,7 @@ class LeaveApprovalController {
         List<LeaveRequest> fresh =
                 leaveRequests.approveAndListPending(
                         id, principal.userId(), decider.employeeId(), decider.name(), decider.isAdmin(), null);
-        toast(response, "Request approved");
+        toast(response, "toast.leave-request.approved", "Request approved");
         model.addAttribute("pending", toRows(fresh));
         return "leave/for-action :: pendingList";
     }
@@ -97,7 +101,7 @@ class LeaveApprovalController {
                             decider.name(),
                             decider.isAdmin(),
                             form.decisionNote());
-            toast(response, "Request rejected");
+            toast(response, "toast.leave-request.rejected", "Request rejected");
             model.addAttribute("pending", toRows(fresh));
             return "leave/for-action :: pendingList";
         }
@@ -143,7 +147,9 @@ class LeaveApprovalController {
                 request.decisionNote());
     }
 
-    private static void toast(HttpServletResponse response, String message) {
+    /** Resolves {@code key} through {@code messages.properties} (ADR 0013), then fires the toast. */
+    private void toast(HttpServletResponse response, String key, String defaultMessage) {
+        String message = messages.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale());
         response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
     }
 

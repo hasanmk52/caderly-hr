@@ -185,6 +185,7 @@ Currently in use: `email_outbox` (from sub-phase 1.2). Planned: `webhook_outbox`
 - **Comment "why", not "what".** The code shows what.
 - **Document complex logic with concise "why" comments.** For tricky math (leave duration, working-day calculation), security-sensitive branches, state-machine transitions, non-obvious algorithm choices, workarounds for library or platform quirks, and any edge-case handling that isn't obvious from method + variable names, add a 1–3 line comment above the block explaining the reasoning or the constraint being satisfied. Straightforward code stays uncommented. Never restate what the code obviously does.
 - **Dependency versions:** All third-party dependency versions declared in `<properties>` at the top of `pom.xml`, never inline in `<dependency>` blocks. Convention: property key = `<artifactId>.version` (e.g., `bootstrap.version`, `bucket4j.version`). This gives one place to answer "what version of X are we on?" and one line to bump. Do not add a new dependency without also adding its version property.
+- **User-facing strings go through `messages.properties`, never a literal** (PRD §7 NFR, ADR 0013). Templates: `th:text="#{key}"` (dynamic key from a variable: `#{|prefix.${var}|}`). Bean Validation: `message = "{key}"` curly-brace syntax — Boot auto-wires the app's `MessageSource` into Hibernate Validator's interpolator. `CaderlyException` detail text: keyed by `"error." + errorCode` (lowercased, hyphenated) and resolved in `GlobalExceptionHandler`/`web.WebMessages`, falling back to the exception's own message when no key exists yet — do not add an args array to `CaderlyException` for this (see ADR 0013's non-decision). Key convention: `common.*` for strings shared across modules, `<module>.<page>.<element>` for page-specific ones. MVP ships English only (`spring.web.locale-resolver: FIXED`) — do not build a language switcher or session-based locale resolution ahead of a second locale actually existing.
 
 ---
 
@@ -247,6 +248,13 @@ Currently in use: `email_outbox` (from sub-phase 1.2). Planned: `webhook_outbox`
 2. Transition rules in a `<Entity>StateMachine` class, unit-tested exhaustively.
 3. Transitions logged to audit.
 4. Optimistic locking on the aggregate (`@Version`).
+
+### Adding new user-facing text (ADR 0013)
+1. Pick a key following the convention in §7 — check `messages.properties` first for an existing `common.*` key before adding a new one (Cancel/Save/Delete/Actions and most field labels already exist).
+2. Template: `th:text="#{key}"` (or `th:aria-label`/`th:placeholder` for non-body text). Never leave the English string as literal body content — the literal stays only as the tag's fallback preview text.
+3. New `CaderlyException` throw site: reuse the existing `errorCode` for the key (`"error." + errorCode` lowercased/hyphenated) — don't invent a parallel key. Skip the key entirely (leave it on the exception's own fallback) if the message embeds a runtime value; `GlobalExceptionHandler` passes no `MessageSource` args today.
+4. Add the key to `messages.properties`, English text only for now.
+5. If the errorCode audit test (`architecture.ErrorCodesHaveMessagesTest`) fails, either add the key or add the errorCode to that test's `INTENTIONALLY_UNKEYED` set with a reason.
 
 ---
 

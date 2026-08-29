@@ -15,6 +15,12 @@ spring:
   application:
     name: caderly-hr
   web:
+    # PRD §7 NFR "Internationalization": English only for MVP. FIXED means every request
+    # resolves to `locale` below regardless of Accept-Language, so a browser set to French
+    # today still gets English — switchable locale resolution is Phase 2's job, once a
+    # second messages_xx.properties bundle actually exists (ADR 0013).
+    locale-resolver: FIXED
+    locale: en
     error:
       # Pinned, not left to the default (CLAUDE.md §6 A05). Boot's own default is already NEVER,
       # but spring-boot-devtools raises these to ALWAYS through its default property source, so a
@@ -30,6 +36,15 @@ spring:
       include-exception: false
       include-message: never
       include-binding-errors: never
+  messages:
+    # Boot only auto-configures a MessageSource when the no-suffix default bundle exists
+    # (src/main/resources/messages.properties) — writing `basename: messages` here is
+    # Boot's own default, kept explicit as self-documentation (ADR 0013).
+    basename: messages
+    encoding: UTF-8
+    # No silent fallback to the JVM's default locale: an unset/unmapped key must resolve
+    # through messages.properties or fail loud, never guess based on server locale.
+    fallback-to-system-locale: false
   profiles:
     active: dev
   data:

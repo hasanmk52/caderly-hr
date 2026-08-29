@@ -9,7 +9,7 @@
 <div id="pendingList" th:fragment="pendingList">
   <div th:if="${#lists.isEmpty(pending)}" class="text-center text-muted py-5">
     <i class="bi bi-inbox fs-1 d-block mb-2" aria-hidden="true"></i>
-    <p class="mb-0">Nothing waiting on you.</p>
+    <p class="mb-0" th:text="#{leave.for-action.pending-empty}">Nothing waiting on you.</p>
   </div>
   <ul th:unless="${#lists.isEmpty(pending)}" class="list-group">
     <li class="list-group-item" th:each="row : ${pending}" th:id="'leave-request-row-' + ${row.requestId}">
@@ -31,12 +31,14 @@
           <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal"
                   data-bs-target="#rejectLeaveModal"
                   th:hx-get="@{/for-action/leave-requests/{id}/reject-form(id=${row.requestId})}"
-                  hx-target="#rejectLeaveModalBody" hx-swap="innerHTML">
+                  hx-target="#rejectLeaveModalBody" hx-swap="innerHTML"
+                  th:text="#{leave.for-action.reject}">
             Reject
           </button>
           <button type="button" class="btn btn-primary btn-sm"
                   th:hx-post="@{/for-action/leave-requests/{id}/approve(id=${row.requestId})}"
-                  hx-target="#pendingList" hx-swap="outerHTML">
+                  hx-target="#pendingList" hx-swap="outerHTML"
+                  th:text="#{leave.for-action.approve}">
             Approve
           </button>
         </div>
@@ -49,18 +51,18 @@
        shell in for-action.html, the same convention layout.html uses for #bookLeaveModalBody. */-->
 <th:block th:fragment="rejectForm">
   <div class="modal-header">
-    <h5 class="modal-title" id="rejectLeaveModalLabel">Reject request</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <h5 class="modal-title" id="rejectLeaveModalLabel" th:text="#{leave.for-action.reject-request}">Reject request</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
   </div>
   <form th:object="${rejectForm}" th:hx-post="@{/for-action/leave-requests/{id}/reject(id=${rejectRequestId})}"
         hx-target="#pendingList" hx-swap="outerHTML">
     <div class="modal-body">
-      <label class="form-label" for="reject-note">Reason (optional)</label>
+      <label class="form-label" for="reject-note" th:text="#{leave.for-action.reason-label}">Reason (optional)</label>
       <textarea class="form-control" id="reject-note" th:field="*{decisionNote}" rows="2" maxlength="500"></textarea>
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-      <button class="btn btn-danger btn-sm" type="submit">Reject request</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" th:text="#{common.action.cancel}">Cancel</button>
+      <button class="btn btn-danger btn-sm" type="submit" th:text="#{leave.for-action.reject-request}">Reject request</button>
     </div>
   </form>
 </th:block>

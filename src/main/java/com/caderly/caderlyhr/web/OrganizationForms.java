@@ -14,8 +14,16 @@ final class OrganizationForms {
 
     private OrganizationForms() {}
 
-    record DivisionForm(@NotBlank @Size(max = 150) String name, String description) {}
+    record DivisionForm(
+            @NotBlank(message = "{validation.division-form.name.required}")
+                    @Size(max = 150, message = "{validation.division-form.name.too-long}")
+                    String name,
+            String description) {}
 
     record DepartmentForm(
-            @NotBlank @Size(max = 150) String name, String description, @NotNull UUID divisionId) {}
+            @NotBlank(message = "{validation.department-form.name.required}")
+                    @Size(max = 150, message = "{validation.department-form.name.too-long}")
+                    String name,
+            String description,
+            @NotNull(message = "{validation.department-form.division-id.required}") UUID divisionId) {}
 }

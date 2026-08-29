@@ -15,6 +15,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -55,12 +57,17 @@ class AdminOrganizationController {
     private final DivisionService divisions;
     private final OrganizationAdminService organizationAdmin;
     private final PeopleFacade people;
+    private final MessageSource messages;
 
     AdminOrganizationController(
-            DivisionService divisions, OrganizationAdminService organizationAdmin, PeopleFacade people) {
+            DivisionService divisions,
+            OrganizationAdminService organizationAdmin,
+            PeopleFacade people,
+            MessageSource messages) {
         this.divisions = divisions;
         this.organizationAdmin = organizationAdmin;
         this.people = people;
+        this.messages = messages;
     }
 
     @GetMapping("/admin/organization")
@@ -125,9 +132,10 @@ class AdminOrganizationController {
             try {
                 OrganizationSnapshot snapshot =
                         organizationAdmin.createDivision(form.name(), form.description());
-                return saveSucceeded(response, model, "Division created", true, snapshot);
+                return saveSucceeded(response, model, "toast.division.created", "Division created", true, snapshot);
             } catch (CaderlyException exception) {
-                binding.rejectValue("name", exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        "name", exception.errorCode(), WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         return "admin/organization :: divisionForm";
@@ -145,9 +153,10 @@ class AdminOrganizationController {
             try {
                 OrganizationSnapshot snapshot =
                         organizationAdmin.editDivision(id, form.name(), form.description());
-                return saveSucceeded(response, model, "Division updated", true, snapshot);
+                return saveSucceeded(response, model, "toast.division.updated", "Division updated", true, snapshot);
             } catch (CaderlyException exception) {
-                binding.rejectValue("name", exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        "name", exception.errorCode(), WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         model.addAttribute("editingDivisionId", id);
@@ -160,6 +169,7 @@ class AdminOrganizationController {
         DeleteResult result = organizationAdmin.deleteDivision(id);
         toast(
                 response,
+                result.outcome() == DeleteOutcome.DELETED ? "toast.division.deleted" : "toast.division.archived",
                 result.outcome() == DeleteOutcome.DELETED
                         ? "Division deleted"
                         : "Division archived - it still has active departments assigned");
@@ -179,9 +189,13 @@ class AdminOrganizationController {
                 OrganizationSnapshot snapshot =
                         organizationAdmin.createDepartment(
                                 form.name(), form.description(), form.divisionId());
-                return saveSucceeded(response, model, "Department created", false, snapshot);
+                return saveSucceeded(
+                        response, model, "toast.department.created", "Department created", false, snapshot);
             } catch (CaderlyException exception) {
-                binding.rejectValue(fieldFor(exception), exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        fieldFor(exception),
+                        exception.errorCode(),
+                        WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         model.addAttribute("divisionOptions", divisions.listActive());
@@ -201,9 +215,13 @@ class AdminOrganizationController {
                 OrganizationSnapshot snapshot =
                         organizationAdmin.editDepartment(
                                 id, form.name(), form.description(), form.divisionId());
-                return saveSucceeded(response, model, "Department updated", false, snapshot);
+                return saveSucceeded(
+                        response, model, "toast.department.updated", "Department updated", false, snapshot);
             } catch (CaderlyException exception) {
-                binding.rejectValue(fieldFor(exception), exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        fieldFor(exception),
+                        exception.errorCode(),
+                        WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         model.addAttribute("editingDepartmentId", id);
@@ -218,6 +236,7 @@ class AdminOrganizationController {
         DeleteResult result = organizationAdmin.deleteDepartment(id, hasActiveEmployees);
         toast(
                 response,
+                result.outcome() == DeleteOutcome.DELETED ? "toast.department.deleted" : "toast.department.archived",
                 result.outcome() == DeleteOutcome.DELETED
                         ? "Department deleted"
                         : "Department archived - it still has active employees assigned");
@@ -236,10 +255,11 @@ class AdminOrganizationController {
     private String saveSucceeded(
             HttpServletResponse response,
             Model model,
-            String message,
+            String messageKey,
+            String defaultMessage,
             boolean isDivision,
             OrganizationSnapshot snapshot) {
-        toast(response, message);
+        toast(response, messageKey, defaultMessage);
         populateTables(model, snapshot);
         model.addAttribute("refreshTable", true);
         if (isDivision) {
@@ -267,10 +287,12 @@ class AdminOrganizationController {
     /**
      * htmx surfaces this via the {@code HX-Trigger} response header (a JSON-encoded custom
      * event); {@code caderly.js} listens for {@code organization-toast} to show a Bootstrap toast
-     * (UI Guidelines §7.4) and close any open offcanvas. The message text is fixed and never
-     * echoes user input, so no escaping is needed.
+     * (UI Guidelines §7.4) and close any open offcanvas. The resolved text never echoes user
+     * input, so no JSON escaping is needed. {@code key} resolves through {@code
+     * messages.properties} (ADR 0013), falling back to {@code defaultMessage}.
      */
-    private static void toast(HttpServletResponse response, String message) {
+    private void toast(HttpServletResponse response, String key, String defaultMessage) {
+        String message = messages.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale());
         response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
     }
 

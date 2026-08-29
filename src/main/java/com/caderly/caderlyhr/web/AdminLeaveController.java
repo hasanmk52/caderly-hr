@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -47,11 +49,17 @@ class AdminLeaveController {
     private final LeaveTypeService leaveTypes;
     private final PublicHolidayService holidays;
     private final BalanceService balances;
+    private final MessageSource messages;
 
-    AdminLeaveController(LeaveTypeService leaveTypes, PublicHolidayService holidays, BalanceService balances) {
+    AdminLeaveController(
+            LeaveTypeService leaveTypes,
+            PublicHolidayService holidays,
+            BalanceService balances,
+            MessageSource messages) {
         this.leaveTypes = leaveTypes;
         this.holidays = holidays;
         this.balances = balances;
+        this.messages = messages;
     }
 
     // ---- Leave Types ----
@@ -131,9 +139,10 @@ class AdminLeaveController {
                                 form.requiresApproval(),
                                 form.defaultAnnualAllowance(),
                                 form.description());
-                return leaveTypeSaveSucceeded(response, model, "Leave type created", fresh);
+                return leaveTypeSaveSucceeded(response, model, "toast.leave-type.created", "Leave type created", fresh);
             } catch (CaderlyException exception) {
-                binding.rejectValue("name", exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        "name", exception.errorCode(), WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         return "admin/leave-types :: leaveTypeForm";
@@ -161,9 +170,10 @@ class AdminLeaveController {
                                 form.requiresApproval(),
                                 form.defaultAnnualAllowance(),
                                 form.description());
-                return leaveTypeSaveSucceeded(response, model, "Leave type updated", fresh);
+                return leaveTypeSaveSucceeded(response, model, "toast.leave-type.updated", "Leave type updated", fresh);
             } catch (CaderlyException exception) {
-                binding.rejectValue("name", exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        "name", exception.errorCode(), WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         model.addAttribute("editingLeaveTypeId", id);
@@ -173,7 +183,7 @@ class AdminLeaveController {
     @PostMapping("/admin/leave-types/{id}/activate")
     @PreAuthorize("hasRole('ADMIN')")
     String activateLeaveType(@PathVariable UUID id, Model model, HttpServletResponse response) {
-        toast(response, "Leave type activated");
+        toast(response, "toast.leave-type.activated", "Leave type activated");
         model.addAttribute("leaveTypes", leaveTypes.activateAndList(id));
         return "admin/leave-types :: content";
     }
@@ -181,7 +191,7 @@ class AdminLeaveController {
     @PostMapping("/admin/leave-types/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
     String deactivateLeaveType(@PathVariable UUID id, Model model, HttpServletResponse response) {
-        toast(response, "Leave type deactivated");
+        toast(response, "toast.leave-type.deactivated", "Leave type deactivated");
         model.addAttribute("leaveTypes", leaveTypes.deactivateAndList(id));
         return "admin/leave-types :: content";
     }
@@ -214,13 +224,14 @@ class AdminLeaveController {
         if (!binding.hasErrors()) {
             try {
                 List<PublicHoliday> fresh = holidays.createAndList(form.date(), form.name());
-                toast(response, "Holiday added");
+                toast(response, "toast.holiday.added", "Holiday added");
                 model.addAttribute("holidays", fresh);
                 model.addAttribute("refreshTable", true);
                 model.addAttribute("holidayForm", blankHolidayForm());
                 return "admin/holidays :: holidayForm";
             } catch (CaderlyException exception) {
-                binding.rejectValue("name", exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        "name", exception.errorCode(), WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         return "admin/holidays :: holidayForm";
@@ -229,7 +240,7 @@ class AdminLeaveController {
     @DeleteMapping("/admin/holidays/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     String deleteHoliday(@PathVariable UUID id, Model model, HttpServletResponse response) {
-        toast(response, "Holiday deleted");
+        toast(response, "toast.holiday.deleted", "Holiday deleted");
         model.addAttribute("holidays", holidays.deleteAndList(id));
         model.addAttribute("uploadErrors", List.<String>of());
         return "admin/holidays :: content";
@@ -243,12 +254,19 @@ class AdminLeaveController {
         try {
             result = holidays.bulkUpload(file);
         } catch (CaderlyException exception) {
-            model.addAttribute("uploadErrors", List.of(exception.getMessage()));
+            model.addAttribute(
+                    "uploadErrors", List.of(WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale())));
             model.addAttribute("holidays", holidays.listAll());
             return "admin/holidays :: content";
         }
         if (result.errors().isEmpty()) {
-            toast(response, "Uploaded " + result.createdCount() + " holiday(s)");
+            String message =
+                    messages.getMessage(
+                            "toast.holiday.bulk-uploaded",
+                            new Object[] {result.createdCount()},
+                            "Uploaded " + result.createdCount() + " holiday(s)",
+                            LocaleContextHolder.getLocale());
+            toastRaw(response, message);
         }
         model.addAttribute("uploadErrors", result.errors());
         model.addAttribute("holidays", result.holidays());
@@ -270,8 +288,8 @@ class AdminLeaveController {
     }
 
     private String leaveTypeSaveSucceeded(
-            HttpServletResponse response, Model model, String message, List<LeaveType> fresh) {
-        toast(response, message);
+            HttpServletResponse response, Model model, String messageKey, String defaultMessage, List<LeaveType> fresh) {
+        toast(response, messageKey, defaultMessage);
         model.addAttribute("leaveTypes", fresh);
         model.addAttribute("refreshTable", true);
         model.addAttribute("leaveTypeForm", blankLeaveTypeForm());
@@ -304,9 +322,14 @@ class AdminLeaveController {
      * htmx surfaces this via the {@code HX-Trigger} response header; {@code caderly.js} listens for
      * {@code organization-toast} to show a Bootstrap toast and close any open offcanvas — reusing
      * the existing event name rather than inventing a new one (both current admin controllers
-     * already share it).
+     * already share it). Resolves {@code key} through {@code messages.properties} (ADR 0013) first.
      */
-    private static void toast(HttpServletResponse response, String message) {
+    private void toast(HttpServletResponse response, String key, String defaultMessage) {
+        toastRaw(response, messages.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale()));
+    }
+
+    /** For a caller that has already resolved (and parameterized) its own message text. */
+    private static void toastRaw(HttpServletResponse response, String message) {
         response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
     }
 

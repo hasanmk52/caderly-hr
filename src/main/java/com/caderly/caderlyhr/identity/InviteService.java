@@ -17,6 +17,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.MessageSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,18 +34,21 @@ public class InviteService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final MessageSource messages;
 
     InviteService(
             AppUserRepository users,
             EmailOutboxService emailOutbox,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher events,
-            Clock clock) {
+            Clock clock,
+            MessageSource messages) {
         this.users = users;
         this.emailOutbox = emailOutbox;
         this.passwordEncoder = passwordEncoder;
         this.events = events;
         this.clock = clock;
+        this.messages = messages;
     }
 
     /** Backs the admin user list — a service-layer read so it has its own transaction (CLAUDE.md §7: never on the controller). */
@@ -87,8 +91,8 @@ public class InviteService {
         emailOutbox.enqueue(
                 TenantContext.require(),
                 normalisedEmail,
-                IdentityEmails.inviteSubject(tenantName),
-                IdentityEmails.inviteBody(tenantName, acceptUrl(appBaseUrl, rawToken)));
+                IdentityEmails.inviteSubject(messages, Locale.ENGLISH, tenantName),
+                IdentityEmails.inviteBody(messages, Locale.ENGLISH, tenantName, acceptUrl(appBaseUrl, rawToken)));
 
         // The token is never logged — it is a live credential until redeemed.
         log.info("Invited {} with roles {}", normalisedEmail, roles);
