@@ -48,3 +48,5 @@ GRANT SELECT ON leave_type TO rls_probe;
 GRANT SELECT ON public_holiday TO rls_probe;
 GRANT SELECT ON leave_balance TO rls_probe;
 GRANT SELECT ON leave_request TO rls_probe;
+GRANT SELECT ON company_file TO rls_probe;
+GRANT SELECT ON employee_document TO rls_probe;

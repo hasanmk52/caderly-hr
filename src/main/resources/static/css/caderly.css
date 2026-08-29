@@ -41,3 +41,22 @@ body {
   width: 100%;
   max-width: 26rem;
 }
+
+/* File upload dropzone (UI Guidelines §8.7): Files page + profile Documents tab.
+   Uses Bootstrap's own CSS vars, not hardcoded colors, so a tenant's re-themed
+   --bs-primary flows into the drag-active state automatically. */
+.upload-dropzone {
+  min-height: 10rem;
+  border: 2px dashed var(--bs-border-color);
+  cursor: pointer;
+  transition: border-color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+
+.upload-dropzone:hover {
+  border-color: var(--bs-secondary-color);
+}
+
+.upload-dropzone-active {
+  border-color: var(--bs-primary);
+  background-color: var(--bs-primary-bg-subtle);
+}

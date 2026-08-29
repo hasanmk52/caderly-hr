@@ -29,3 +29,9 @@ caderly:
       # Tests drive the job by calling its public method directly at a known moment, matching
       # EmailDispatcher's pattern.
       enabled: false
+  storage:
+    backend: local
+    local:
+      # Under target/, not the project root — cleaned by `mvn clean`, never committed.
+      root: target/test-storage
+    max-file-size: 25MB

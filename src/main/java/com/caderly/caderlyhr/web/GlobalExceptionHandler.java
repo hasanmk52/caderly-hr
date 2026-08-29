@@ -6,11 +6,13 @@ import java.net.URI;
 import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.ModelAndView;
 
 /**
@@ -53,6 +55,32 @@ class GlobalExceptionHandler {
         problem.setInstance(URI.create(request.getRequestURI()));
         problem.setProperty("errorCode", exception.errorCode());
         return ResponseEntity.status(exception.status()).body(problem);
+    }
+
+    /**
+     * Backstop for a client that bypasses {@code documents.UploadValidator}'s own, friendlier
+     * size check (CLAUDE.md §6a's servlet limit sits above the app limit precisely so a normal
+     * oversize upload never reaches here — see ADR 0012). Without this handler the exception
+     * would fall through to Boot's default error dispatch as a plain 500, not the 413 CLAUDE.md
+     * §6 A03 calls for.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    Object handleMaxUploadSizeExceeded(MaxUploadSizeExceededException exception, HttpServletRequest request) {
+        log.warn("Request to {} exceeded the multipart size limit", request.getRequestURI());
+        if (prefersHtml(request)) {
+            ModelAndView modelAndView = new ModelAndView("error/error");
+            modelAndView.setStatus(HttpStatus.CONTENT_TOO_LARGE);
+            modelAndView.addObject("status", HttpStatus.CONTENT_TOO_LARGE.value());
+            modelAndView.addObject("title", HttpStatus.CONTENT_TOO_LARGE.getReasonPhrase());
+            modelAndView.addObject("detail", "The uploaded file is too large.");
+            return modelAndView;
+        }
+
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(HttpStatus.CONTENT_TOO_LARGE, "The uploaded file is too large.");
+        problem.setTitle(HttpStatus.CONTENT_TOO_LARGE.getReasonPhrase());
+        problem.setInstance(URI.create(request.getRequestURI()));
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(problem);
     }
 
     /**

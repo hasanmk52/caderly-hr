@@ -8,7 +8,7 @@
       <a class="nav-link" th:href="@{/admin/employees}">People</a>
     </li>
     <li class="nav-item"><a class="nav-link" th:href="@{/profile}">My Profile</a></li>
-    <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Files</a></li>
+    <li class="nav-item"><a class="nav-link" th:href="@{/files}">Files</a></li>
     <li class="nav-item"><a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Calendar</a></li>
     <li class="nav-item" sec:authorize="hasAnyRole('MANAGER','ADMIN')">
       <a class="nav-link" th:href="@{/for-action}">For Action</a>

@@ -1,7 +1,7 @@
 /*
  * Global htmx glue (UI Guidelines §13: no inline JavaScript in templates).
  *
- * Four responsibilities, the first applying site-wide and the rest specific to admin/timeoff
+ * Five responsibilities, the first applying site-wide and the rest specific to admin/timeoff
  * screens but written generically enough to serve any future offcanvas- or modal-based screen:
  *   0. Attaching the CSRF header to every htmx state-changing request. Spring Security's
  *      Thymeleaf dialect only auto-injects a hidden CSRF field into forms it decorates via
@@ -16,6 +16,13 @@
  *      Bootstrap data-bs-toggle on their trigger — the modal shell is always present, unlike the
  *      offcanvas forms — so they need no open-on-swap glue, only the close-on-success handling
  *      responsibility 2 already covers.
+ *   4. Drag-and-drop upload dropzones (Files page, profile Documents tab — UI Guidelines §8.7).
+ *      Plain DOM wiring here, not an Alpine expression: this app's CSP-safe Alpine build (needed
+ *      because SecurityConfig's CSP has no 'unsafe-eval') rejects both `$refs` and `$el` inside a
+ *      compound `@drop` handler with a parser error — confirmed by actually triggering a drop and
+ *      reading the browser console, not assumed — so the input-assignment logic lives here
+ *      instead. Delegated on `document.body`, matching every other handler in this file, so it
+ *      keeps working on a dropzone htmx swaps in later without any rebinding.
  */
 (function () {
   "use strict";
@@ -72,6 +79,58 @@
     });
     showToast(event.detail.message);
   });
+
+  document.body.addEventListener("dragover", function (event) {
+    var zone = event.target.closest(".upload-dropzone");
+    if (!zone) {
+      return;
+    }
+    event.preventDefault();
+    zone.classList.add("upload-dropzone-active");
+  });
+
+  document.body.addEventListener("dragleave", function (event) {
+    var zone = event.target.closest(".upload-dropzone");
+    // relatedTarget is null when the pointer leaves the window entirely, and is some element
+    // still inside the zone when only moving between the icon/text children — only clear the
+    // active state once the pointer has genuinely left the zone's bounds.
+    if (zone && !zone.contains(event.relatedTarget)) {
+      zone.classList.remove("upload-dropzone-active");
+    }
+  });
+
+  document.body.addEventListener("drop", function (event) {
+    var zone = event.target.closest(".upload-dropzone");
+    if (!zone) {
+      return;
+    }
+    event.preventDefault();
+    zone.classList.remove("upload-dropzone-active");
+    var input = zone.querySelector('input[type="file"]');
+    if (!input || !event.dataTransfer || event.dataTransfer.files.length === 0) {
+      return;
+    }
+    input.files = event.dataTransfer.files;
+    showDroppedFileName(zone, input.files[0].name);
+  });
+
+  document.body.addEventListener("change", function (event) {
+    if (!event.target.matches(".upload-dropzone input[type=file]")) {
+      return;
+    }
+    var zone = event.target.closest(".upload-dropzone");
+    if (zone && event.target.files.length > 0) {
+      showDroppedFileName(zone, event.target.files[0].name);
+    }
+  });
+
+  function showDroppedFileName(zone, name) {
+    var label = zone.querySelector(".upload-dropzone-filename");
+    if (label) {
+      label.textContent = name;
+      label.classList.remove("d-none");
+    }
+  }
 
   function showToast(message) {
     var container = document.getElementById("toast-container");

@@ -5,6 +5,9 @@ target/
 !**/src/test/**/target/
 .env
 
+# LocalFileStorage's default dev root (Phase 1.7) — uploaded file bytes never go in git.
+/data/files/
+
 ### STS ###
 .apt_generated
 .classpath
@@ -35,3 +38,4 @@ build/
 
 
 .claude/
+uploads
