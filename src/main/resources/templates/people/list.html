@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-<th:block th:replace="~{layout :: layout('People', ~{::#content})}">
+<th:block th:replace="~{layout :: layout(#{nav.people}, ~{::#content})}">
   <div id="content" class="flex-grow-1 p-4">
 
     <div class="d-flex justify-content-between align-items-start mb-4">
-      <h1>People</h1>
+      <h1 th:text="#{nav.people}">People</h1>
     </div>
 
     <!--/* Mirrors admin/organization.html's #organization-content pattern: everything a
@@ -14,17 +14,17 @@
 
       <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/employees}">
         <div class="col-auto">
-          <label class="form-label" for="filter-department">Department</label>
+          <label class="form-label" for="filter-department" th:text="#{common.field.department}">Department</label>
           <select class="form-select" id="filter-department" name="departmentId" onchange="this.form.submit()">
-            <option value="">All departments</option>
+            <option value="" th:text="#{admin.employees.filter.all-departments}">All departments</option>
             <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}"
                     th:selected="${option.id == selectedDepartmentId}">Engineering</option>
           </select>
         </div>
         <div class="col-auto">
-          <label class="form-label" for="filter-status">Status</label>
+          <label class="form-label" for="filter-status" th:text="#{common.field.status}">Status</label>
           <select class="form-select" id="filter-status" name="status" onchange="this.form.submit()">
-            <option value="">All statuses</option>
+            <option value="" th:text="#{admin.employees.filter.all-statuses}">All statuses</option>
             <option th:each="option : ${statusOptions}" th:value="${option}" th:text="${option.label}"
                     th:selected="${option == selectedStatus}">Active</option>
           </select>
@@ -33,26 +33,26 @@
           <button type="button" class="btn btn-primary btn-sm"
                   th:hx-get="@{/admin/employees/new-form}"
                   hx-target="#employeeOffcanvasBody" hx-swap="innerHTML">
-            <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Employee
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> <span th:text="#{admin.employees.add}">Add Employee</span>
           </button>
         </div>
       </form>
 
       <div th:if="${#lists.isEmpty(employees)}" class="text-center text-muted py-5 mb-5">
         <i class="bi bi-people fs-1 d-block mb-2" aria-hidden="true"></i>
-        <p class="mb-0">No employees yet. Add one to get started.</p>
+        <p class="mb-0" th:text="#{admin.employees.empty}">No employees yet. Add one to get started.</p>
       </div>
 
       <div th:unless="${#lists.isEmpty(employees)}" class="table-responsive mb-5">
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Email</th>
-              <th scope="col">Department</th>
-              <th scope="col">Job title</th>
-              <th scope="col">Status</th>
-              <th scope="col" class="text-end">Actions</th>
+              <th scope="col" th:text="#{common.field.name}">Name</th>
+              <th scope="col" th:text="#{common.field.email}">Email</th>
+              <th scope="col" th:text="#{common.field.department}">Department</th>
+              <th scope="col" th:text="#{common.field.job-title}">Job title</th>
+              <th scope="col" th:text="#{common.field.status}">Status</th>
+              <th scope="col" class="text-end" th:text="#{common.table.actions}">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -69,12 +69,12 @@
                       th:text="${employee.statusLabel}">Active</span>
               </td>
               <td class="text-end">
-                <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Edit employee"
+                <button type="button" class="btn btn-outline-secondary btn-sm" th:aria-label="#{admin.employees.aria.edit}"
                         th:hx-get="@{/admin/employees/{id}/edit-form(id=${employee.id})}"
                         hx-target="#employeeOffcanvasBody" hx-swap="innerHTML">
                   <i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
-                <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Terminate employee"
+                <button type="button" class="btn btn-outline-danger btn-sm" th:aria-label="#{admin.employees.aria.terminate}"
                         th:if="${employee.status != 'TERMINATED'}"
                         data-bs-toggle="modal"
                         th:attr="data-bs-target='#confirmTerminate-' + ${employee.id}">
@@ -93,19 +93,19 @@
             <form th:hx-post="@{/admin/employees/{id}/terminate(id=${employee.id})}"
                   hx-target="#people-content" hx-swap="outerHTML">
               <div class="modal-header">
-                <h5 class="modal-title">Terminate <span th:text="${employee.fullName}">this employee</span>?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" th:text="#{admin.employees.terminate-confirm(${employee.fullName})}">Terminate this employee?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
               </div>
               <div class="modal-body">
-                <p>The employee record is kept, never deleted. A past or today's date terminates
+                <p th:text="#{admin.employees.terminate-warning}">The employee record is kept, never deleted. A past or today's date terminates
                   immediately and revokes their login; a future date schedules it.</p>
-                <label class="form-label" th:for="'terminationDate-' + ${employee.id}">Termination date</label>
+                <label class="form-label" th:for="'terminationDate-' + ${employee.id}" th:text="#{admin.employees.termination-date-label}">Termination date</label>
                 <input class="form-control" type="date" name="terminationDate"
                        th:id="'terminationDate-' + ${employee.id}" required />
               </div>
               <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-danger btn-sm">Terminate</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" th:text="#{common.action.cancel}">Cancel</button>
+                <button type="submit" class="btn btn-danger btn-sm" th:text="#{admin.employees.terminate-submit}">Terminate</button>
               </div>
             </form>
           </div>
@@ -119,8 +119,8 @@
     <div class="offcanvas offcanvas-end" tabindex="-1" id="employeeOffcanvas" style="width: 560px"
          aria-labelledby="employeeOffcanvasLabel">
       <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="employeeOffcanvasLabel">Employee</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <h5 class="offcanvas-title" id="employeeOffcanvasLabel" th:text="#{admin.employees.panel-title}">Employee</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" th:aria-label="#{common.aria.close}"></button>
       </div>
       <div class="offcanvas-body" id="employeeOffcanvasBody">
 
@@ -133,17 +133,17 @@
         <th:block th:fragment="createForm">
   <form th:object="${createForm}" hx-post="/admin/employees"
         hx-target="#employeeOffcanvasBody" hx-swap="innerHTML" hx-indicator="#employeeFormSpinner">
-    <h6 class="text-muted mb-3">Creating new</h6>
+    <h6 class="text-muted mb-3" th:text="#{common.form-state.creating-new}">Creating new</h6>
 
     <div class="row g-2 mb-2">
       <div class="col-6">
-        <label class="form-label" for="create-firstName">First name <span class="text-danger" aria-hidden="true">*</span></label>
+        <label class="form-label" for="create-firstName"><span th:text="#{common.field.first-name}">First name</span> <span class="text-danger" aria-hidden="true">*</span></label>
         <input class="form-control" type="text" id="create-firstName" th:field="*{firstName}" maxlength="100" required
                th:classappend="${#fields.hasErrors('firstName')} ? 'is-invalid'" />
         <div class="invalid-feedback" th:if="${#fields.hasErrors('firstName')}" th:errors="*{firstName}">Invalid</div>
       </div>
       <div class="col-6">
-        <label class="form-label" for="create-lastName">Last name <span class="text-danger" aria-hidden="true">*</span></label>
+        <label class="form-label" for="create-lastName"><span th:text="#{common.field.last-name}">Last name</span> <span class="text-danger" aria-hidden="true">*</span></label>
         <input class="form-control" type="text" id="create-lastName" th:field="*{lastName}" maxlength="100" required
                th:classappend="${#fields.hasErrors('lastName')} ? 'is-invalid'" />
         <div class="invalid-feedback" th:if="${#fields.hasErrors('lastName')}" th:errors="*{lastName}">Invalid</div>
@@ -151,26 +151,26 @@
     </div>
     <div class="row g-2 mb-2">
       <div class="col-8">
-        <label class="form-label" for="create-email">Email <span class="text-danger" aria-hidden="true">*</span></label>
+        <label class="form-label" for="create-email"><span th:text="#{common.field.email}">Email</span> <span class="text-danger" aria-hidden="true">*</span></label>
         <input class="form-control" type="email" id="create-email" th:field="*{email}" maxlength="255" required
                th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'" />
         <div class="invalid-feedback" th:if="${#fields.hasErrors('email')}" th:errors="*{email}">Invalid</div>
       </div>
       <div class="col-4">
-        <label class="form-label" for="create-phone">Phone</label>
+        <label class="form-label" for="create-phone" th:text="#{common.field.phone}">Phone</label>
         <input class="form-control" type="tel" id="create-phone" th:field="*{phone}" maxlength="30" />
       </div>
     </div>
 
     <hr class="my-3" />
-    <h6 class="text-muted mb-2">Job</h6>
+    <h6 class="text-muted mb-2" th:text="#{admin.employees.section.job}">Job</h6>
     <div class="row g-2 mb-2">
       <div class="col-6">
-        <label class="form-label" for="create-hireDate">Hire date</label>
+        <label class="form-label" for="create-hireDate" th:text="#{common.field.hire-date}">Hire date</label>
         <input class="form-control" type="date" id="create-hireDate" th:field="*{hireDate}" />
       </div>
       <div class="col-6">
-        <label class="form-label" for="create-employmentType">Employment type</label>
+        <label class="form-label" for="create-employmentType" th:text="#{common.field.employment-type}">Employment type</label>
         <select class="form-select" id="create-employmentType" th:field="*{employmentType}">
           <option value="">—</option>
           <option th:each="option : ${employmentTypeOptions}" th:value="${option}" th:text="${option.label}">Full-Time</option>
@@ -179,7 +179,7 @@
     </div>
     <div class="row g-2 mb-2">
       <div class="col-6">
-        <label class="form-label" for="create-departmentId">Department</label>
+        <label class="form-label" for="create-departmentId" th:text="#{common.field.department}">Department</label>
         <select class="form-select" id="create-departmentId" th:field="*{departmentId}"
                 th:classappend="${#fields.hasErrors('departmentId')} ? 'is-invalid'">
           <option value="">—</option>
@@ -188,7 +188,7 @@
         <div class="invalid-feedback" th:if="${#fields.hasErrors('departmentId')}" th:errors="*{departmentId}">Invalid</div>
       </div>
       <div class="col-6">
-        <label class="form-label" for="create-managerId">Manager</label>
+        <label class="form-label" for="create-managerId" th:text="#{common.field.manager}">Manager</label>
         <select class="form-select" id="create-managerId" th:field="*{managerId}"
                 th:classappend="${#fields.hasErrors('managerId')} ? 'is-invalid'">
           <option value="">—</option>
@@ -199,38 +199,38 @@
     </div>
     <div class="row g-2 mb-2">
       <div class="col-6">
-        <label class="form-label" for="create-jobTitle">Job title</label>
+        <label class="form-label" for="create-jobTitle" th:text="#{common.field.job-title}">Job title</label>
         <input class="form-control" type="text" id="create-jobTitle" th:field="*{jobTitle}" maxlength="150" />
       </div>
       <div class="col-6">
-        <label class="form-label" for="create-workLocation">Work location</label>
+        <label class="form-label" for="create-workLocation" th:text="#{common.field.work-location}">Work location</label>
         <input class="form-control" type="text" id="create-workLocation" th:field="*{workLocation}" maxlength="150" />
       </div>
     </div>
 
     <hr class="my-3" />
-    <h6 class="text-muted mb-2">Compensation <span class="text-muted small">(Admin only)</span></h6>
+    <h6 class="text-muted mb-2"><span th:text="#{admin.employees.section.compensation}">Compensation</span> <span class="text-muted small" th:text="#{admin.employees.admin-only-suffix}">(Admin only)</span></h6>
     <div class="row g-2 mb-2">
       <div class="col-4">
-        <label class="form-label" for="create-workingHoursPerDay">Hours/day</label>
+        <label class="form-label" for="create-workingHoursPerDay" th:text="#{common.field.hours-per-day}">Hours/day</label>
         <input class="form-control" type="number" step="0.5" min="0" max="24"
                id="create-workingHoursPerDay" th:field="*{workingHoursPerDay}" />
       </div>
       <div class="col-4">
-        <label class="form-label" for="create-currency">Currency</label>
+        <label class="form-label" for="create-currency" th:text="#{common.field.currency}">Currency</label>
         <input class="form-control" type="text" id="create-currency" th:field="*{currency}" maxlength="3" placeholder="AED" />
       </div>
       <div class="col-4">
-        <label class="form-label" for="create-baseCompensation">Base pay</label>
+        <label class="form-label" for="create-baseCompensation" th:text="#{common.field.base-compensation}">Base pay</label>
         <input class="form-control" type="text" id="create-baseCompensation" th:field="*{baseCompensation}" />
       </div>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-4">
-      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas" th:text="#{common.action.cancel}">Cancel</button>
       <button class="btn btn-primary btn-sm" type="submit">
         <span id="employeeFormSpinner" class="spinner-border spinner-border-sm htmx-indicator me-1" aria-hidden="true"></span>
-        Create &amp; send invite
+        <span th:text="#{admin.employees.create-submit}">Create &amp; send invite</span>
       </button>
     </div>
   </form>
@@ -242,17 +242,17 @@
         <th:block th:fragment="editForm">
   <form th:object="${adminPatch}" th:attr="hx-patch=@{/admin/employees/{id}(id=${editingEmployeeId})}"
         hx-target="#employeeOffcanvasBody" hx-swap="innerHTML" hx-indicator="#employeeFormSpinner">
-    <h6 class="text-muted mb-3">Editing</h6>
+    <h6 class="text-muted mb-3" th:text="#{common.form-state.editing}">Editing</h6>
 
     <div class="row g-2 mb-2">
       <div class="col-6">
-        <label class="form-label" for="edit-firstName">First name <span class="text-danger" aria-hidden="true">*</span></label>
+        <label class="form-label" for="edit-firstName"><span th:text="#{common.field.first-name}">First name</span> <span class="text-danger" aria-hidden="true">*</span></label>
         <input class="form-control" type="text" id="edit-firstName" th:field="*{firstName}" maxlength="100" required
                th:classappend="${#fields.hasErrors('firstName')} ? 'is-invalid'" />
         <div class="invalid-feedback" th:if="${#fields.hasErrors('firstName')}" th:errors="*{firstName}">Invalid</div>
       </div>
       <div class="col-6">
-        <label class="form-label" for="edit-lastName">Last name <span class="text-danger" aria-hidden="true">*</span></label>
+        <label class="form-label" for="edit-lastName"><span th:text="#{common.field.last-name}">Last name</span> <span class="text-danger" aria-hidden="true">*</span></label>
         <input class="form-control" type="text" id="edit-lastName" th:field="*{lastName}" maxlength="100" required
                th:classappend="${#fields.hasErrors('lastName')} ? 'is-invalid'" />
         <div class="invalid-feedback" th:if="${#fields.hasErrors('lastName')}" th:errors="*{lastName}">Invalid</div>
@@ -260,26 +260,26 @@
     </div>
     <div class="row g-2 mb-2">
       <div class="col-8">
-        <label class="form-label" for="edit-email">Email <span class="text-danger" aria-hidden="true">*</span></label>
+        <label class="form-label" for="edit-email"><span th:text="#{common.field.email}">Email</span> <span class="text-danger" aria-hidden="true">*</span></label>
         <input class="form-control" type="email" id="edit-email" th:field="*{email}" maxlength="255" required
                th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'" />
         <div class="invalid-feedback" th:if="${#fields.hasErrors('email')}" th:errors="*{email}">Invalid</div>
       </div>
       <div class="col-4">
-        <label class="form-label" for="edit-phone">Phone</label>
+        <label class="form-label" for="edit-phone" th:text="#{common.field.phone}">Phone</label>
         <input class="form-control" type="tel" id="edit-phone" th:field="*{phone}" maxlength="30" />
       </div>
     </div>
 
     <hr class="my-3" />
-    <h6 class="text-muted mb-2">Job</h6>
+    <h6 class="text-muted mb-2" th:text="#{admin.employees.section.job}">Job</h6>
     <div class="row g-2 mb-2">
       <div class="col-6">
-        <label class="form-label" for="edit-hireDate">Hire date</label>
+        <label class="form-label" for="edit-hireDate" th:text="#{common.field.hire-date}">Hire date</label>
         <input class="form-control" type="date" id="edit-hireDate" th:field="*{hireDate}" />
       </div>
       <div class="col-6">
-        <label class="form-label" for="edit-employmentType">Employment type</label>
+        <label class="form-label" for="edit-employmentType" th:text="#{common.field.employment-type}">Employment type</label>
         <select class="form-select" id="edit-employmentType" th:field="*{employmentType}">
           <option value="">—</option>
           <option th:each="option : ${employmentTypeOptions}" th:value="${option}" th:text="${option.label}">Full-Time</option>
@@ -288,7 +288,7 @@
     </div>
     <div class="row g-2 mb-2">
       <div class="col-6">
-        <label class="form-label" for="edit-departmentId">Department</label>
+        <label class="form-label" for="edit-departmentId" th:text="#{common.field.department}">Department</label>
         <select class="form-select" id="edit-departmentId" th:field="*{departmentId}"
                 th:classappend="${#fields.hasErrors('departmentId')} ? 'is-invalid'">
           <option value="">—</option>
@@ -297,7 +297,7 @@
         <div class="invalid-feedback" th:if="${#fields.hasErrors('departmentId')}" th:errors="*{departmentId}">Invalid</div>
       </div>
       <div class="col-6">
-        <label class="form-label" for="edit-managerId">Manager</label>
+        <label class="form-label" for="edit-managerId" th:text="#{common.field.manager}">Manager</label>
         <select class="form-select" id="edit-managerId" th:field="*{managerId}"
                 th:classappend="${#fields.hasErrors('managerId')} ? 'is-invalid'">
           <option value="">—</option>
@@ -308,38 +308,38 @@
     </div>
     <div class="row g-2 mb-2">
       <div class="col-6">
-        <label class="form-label" for="edit-jobTitle">Job title</label>
+        <label class="form-label" for="edit-jobTitle" th:text="#{common.field.job-title}">Job title</label>
         <input class="form-control" type="text" id="edit-jobTitle" th:field="*{jobTitle}" maxlength="150" />
       </div>
       <div class="col-6">
-        <label class="form-label" for="edit-workLocation">Work location</label>
+        <label class="form-label" for="edit-workLocation" th:text="#{common.field.work-location}">Work location</label>
         <input class="form-control" type="text" id="edit-workLocation" th:field="*{workLocation}" maxlength="150" />
       </div>
     </div>
 
     <hr class="my-3" />
-    <h6 class="text-muted mb-2">Compensation <span class="text-muted small">(Admin only)</span></h6>
+    <h6 class="text-muted mb-2"><span th:text="#{admin.employees.section.compensation}">Compensation</span> <span class="text-muted small" th:text="#{admin.employees.admin-only-suffix}">(Admin only)</span></h6>
     <div class="row g-2 mb-2">
       <div class="col-4">
-        <label class="form-label" for="edit-workingHoursPerDay">Hours/day</label>
+        <label class="form-label" for="edit-workingHoursPerDay" th:text="#{common.field.hours-per-day}">Hours/day</label>
         <input class="form-control" type="number" step="0.5" min="0" max="24"
                id="edit-workingHoursPerDay" th:field="*{workingHoursPerDay}" />
       </div>
       <div class="col-4">
-        <label class="form-label" for="edit-currency">Currency</label>
+        <label class="form-label" for="edit-currency" th:text="#{common.field.currency}">Currency</label>
         <input class="form-control" type="text" id="edit-currency" th:field="*{currency}" maxlength="3" placeholder="AED" />
       </div>
       <div class="col-4">
-        <label class="form-label" for="edit-baseCompensation">Base pay</label>
+        <label class="form-label" for="edit-baseCompensation" th:text="#{common.field.base-compensation}">Base pay</label>
         <input class="form-control" type="text" id="edit-baseCompensation" th:field="*{baseCompensation}" />
       </div>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-4">
-      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas" th:text="#{common.action.cancel}">Cancel</button>
       <button class="btn btn-primary btn-sm" type="submit">
         <span id="employeeFormSpinner" class="spinner-border spinner-border-sm htmx-indicator me-1" aria-hidden="true"></span>
-        Save employee
+        <span th:text="#{admin.employees.save}">Save employee</span>
       </button>
     </div>
   </form>

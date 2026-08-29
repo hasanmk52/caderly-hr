@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-<th:block th:replace="~{layout :: layout('Organization', ~{::#content})}">
+<th:block th:replace="~{layout :: layout(#{admin.organization.title}, ~{::#content})}">
   <div id="content" class="flex-grow-1 p-4">
 
     <div class="d-flex justify-content-between align-items-start mb-4">
-      <h1>Organization</h1>
+      <h1 th:text="#{admin.organization.title}">Organization</h1>
     </div>
 
     <!--/*
@@ -17,26 +17,26 @@
     <div id="organization-content" hx-swap-oob="true" th:fragment="content">
 
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="h5 mb-0">Divisions</h3>
+        <h3 class="h5 mb-0" th:text="#{admin.organization.divisions-heading}">Divisions</h3>
         <button type="button" class="btn btn-primary btn-sm"
                 th:hx-get="@{/admin/divisions/new-form}"
                 hx-target="#divisionOffcanvasBody" hx-swap="innerHTML">
-          <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Division
+          <i class="bi bi-plus-lg" aria-hidden="true"></i> <span th:text="#{admin.organization.add-division}">Add Division</span>
         </button>
       </div>
 
       <div th:if="${#lists.isEmpty(divisions)}" class="text-center text-muted py-5 mb-5">
         <i class="bi bi-diagram-3 fs-1 d-block mb-2" aria-hidden="true"></i>
-        <p class="mb-0">No divisions yet. Add one to get started.</p>
+        <p class="mb-0" th:text="#{admin.organization.divisions-empty}">No divisions yet. Add one to get started.</p>
       </div>
 
       <div th:unless="${#lists.isEmpty(divisions)}" class="table-responsive mb-5">
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Description</th>
-              <th scope="col" class="text-end">Actions</th>
+              <th scope="col" th:text="#{common.field.name}">Name</th>
+              <th scope="col" th:text="#{common.field.description}">Description</th>
+              <th scope="col" class="text-end" th:text="#{common.table.actions}">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -44,12 +44,12 @@
               <td th:text="${division.name}">Engineering</td>
               <td class="text-muted" th:text="${division.description} ?: '—'">—</td>
               <td class="text-end">
-                <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Edit division"
+                <button type="button" class="btn btn-outline-secondary btn-sm" th:aria-label="#{admin.organization.aria.edit-division}"
                         th:hx-get="@{/admin/divisions/{id}/edit-form(id=${division.id})}"
                         hx-target="#divisionOffcanvasBody" hx-swap="innerHTML">
                   <i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
-                <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Delete division"
+                <button type="button" class="btn btn-outline-danger btn-sm" th:aria-label="#{admin.organization.aria.delete-division}"
                         data-bs-toggle="modal"
                         th:attr="data-bs-target='#confirmDeleteDivision-' + ${division.id}">
                   <i class="bi bi-trash" aria-hidden="true"></i>
@@ -65,18 +65,19 @@
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Delete <span th:text="${division.name}">this division</span>?</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              <h5 class="modal-title" th:text="#{admin.organization.delete-division-confirm(${division.name})}">Delete this division?</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
             </div>
             <div class="modal-body">
-              <p>If this division still has departments assigned, it will be archived instead of
+              <p th:text="#{admin.organization.delete-division-warning}">If this division still has departments assigned, it will be archived instead of
                 deleted. This cannot be undone.</p>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" th:text="#{common.action.cancel}">Cancel</button>
               <button type="button" class="btn btn-danger btn-sm" data-bs-dismiss="modal"
                       th:hx-delete="@{/admin/divisions/{id}(id=${division.id})}"
-                      hx-target="#organization-content" hx-swap="outerHTML">
+                      hx-target="#organization-content" hx-swap="outerHTML"
+                      th:text="#{admin.organization.delete-division-submit}">
                 Delete division
               </button>
             </div>
@@ -85,27 +86,27 @@
       </div>
 
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="h5 mb-0">Departments</h3>
+        <h3 class="h5 mb-0" th:text="#{admin.organization.departments-heading}">Departments</h3>
         <button type="button" class="btn btn-primary btn-sm"
                 th:hx-get="@{/admin/departments/new-form}"
                 hx-target="#departmentOffcanvasBody" hx-swap="innerHTML">
-          <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Department
+          <i class="bi bi-plus-lg" aria-hidden="true"></i> <span th:text="#{admin.organization.add-department}">Add Department</span>
         </button>
       </div>
 
       <div th:if="${#lists.isEmpty(departments)}" class="text-center text-muted py-5 mb-5">
         <i class="bi bi-diagram-2 fs-1 d-block mb-2" aria-hidden="true"></i>
-        <p class="mb-0">No departments yet. Add one and assign it to a division.</p>
+        <p class="mb-0" th:text="#{admin.organization.departments-empty}">No departments yet. Add one and assign it to a division.</p>
       </div>
 
       <div th:unless="${#lists.isEmpty(departments)}" class="table-responsive mb-5">
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Division</th>
-              <th scope="col">Description</th>
-              <th scope="col" class="text-end">Actions</th>
+              <th scope="col" th:text="#{common.field.name}">Name</th>
+              <th scope="col" th:text="#{common.field.division}">Division</th>
+              <th scope="col" th:text="#{common.field.description}">Description</th>
+              <th scope="col" class="text-end" th:text="#{common.table.actions}">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -114,12 +115,12 @@
               <td th:text="${department.divisionName}">Engineering</td>
               <td class="text-muted" th:text="${department.description} ?: '—'">—</td>
               <td class="text-end">
-                <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Edit department"
+                <button type="button" class="btn btn-outline-secondary btn-sm" th:aria-label="#{admin.organization.aria.edit-department}"
                         th:hx-get="@{/admin/departments/{id}/edit-form(id=${department.id})}"
                         hx-target="#departmentOffcanvasBody" hx-swap="innerHTML">
                   <i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
-                <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Delete department"
+                <button type="button" class="btn btn-outline-danger btn-sm" th:aria-label="#{admin.organization.aria.delete-department}"
                         data-bs-toggle="modal"
                         th:attr="data-bs-target='#confirmDeleteDepartment-' + ${department.id}">
                   <i class="bi bi-trash" aria-hidden="true"></i>
@@ -135,17 +136,18 @@
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Delete <span th:text="${department.name}">this department</span>?</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              <h5 class="modal-title" th:text="#{admin.organization.delete-department-confirm(${department.name})}">Delete this department?</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
             </div>
             <div class="modal-body">
-              <p>This cannot be undone.</p>
+              <p th:text="#{common.action.delete-warning}">This cannot be undone.</p>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" th:text="#{common.action.cancel}">Cancel</button>
               <button type="button" class="btn btn-danger btn-sm" data-bs-dismiss="modal"
                       th:hx-delete="@{/admin/departments/{id}(id=${department.id})}"
-                      hx-target="#organization-content" hx-swap="outerHTML">
+                      hx-target="#organization-content" hx-swap="outerHTML"
+                      th:text="#{admin.organization.delete-department-submit}">
                 Delete department
               </button>
             </div>
@@ -160,8 +162,8 @@
     <div class="offcanvas offcanvas-end" tabindex="-1" id="divisionOffcanvas" style="width: 480px"
          aria-labelledby="divisionOffcanvasLabel">
       <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="divisionOffcanvasLabel">Division</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <h5 class="offcanvas-title" id="divisionOffcanvasLabel" th:text="#{common.field.division}">Division</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" th:aria-label="#{common.aria.close}"></button>
       </div>
       <!--/* The fragment is defined here, at its one and only render location, rather than as a
              separate top-level block referenced via th:replace — a standalone block would also
@@ -175,11 +177,11 @@
                  hx-patch=${editingDivisionId != null} ? @{/admin/divisions/{id}(id=${editingDivisionId})} : null"
         hx-target="#divisionOffcanvasBody" hx-swap="innerHTML" hx-indicator="#divisionFormSpinner"
         x-data="{ name: '' }" x-init="name = $el.querySelector('#division-name').value">
-    <h6 class="text-muted mb-3" th:text="${editingDivisionId != null} ? 'Editing' : 'Creating new'">Creating new</h6>
+    <h6 class="text-muted mb-3" th:text="${editingDivisionId != null} ? #{common.form-state.editing} : #{common.form-state.creating-new}">Creating new</h6>
 
     <div class="mb-3">
       <label class="form-label" for="division-name">
-        Name <span class="text-danger" aria-hidden="true">*</span>
+        <span th:text="#{common.field.name}">Name</span> <span class="text-danger" aria-hidden="true">*</span>
       </label>
       <input class="form-control" type="text" id="division-name" th:field="*{name}" maxlength="150"
              x-model="name" required
@@ -189,16 +191,16 @@
     </div>
 
     <div class="mb-3">
-      <label class="form-label" for="division-description">Description</label>
+      <label class="form-label" for="division-description" th:text="#{common.field.description}">Description</label>
       <textarea class="form-control" id="division-description" th:field="*{description}" rows="3"></textarea>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-4">
-      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas" th:text="#{common.action.cancel}">Cancel</button>
       <button class="btn btn-primary btn-sm" type="submit">
         <span id="divisionFormSpinner" class="spinner-border spinner-border-sm htmx-indicator me-1"
               aria-hidden="true"></span>
-        Save division
+        <span th:text="#{admin.organization.save-division}">Save division</span>
       </button>
     </div>
   </form>
@@ -215,8 +217,8 @@
     <div class="offcanvas offcanvas-end" tabindex="-1" id="departmentOffcanvas" style="width: 480px"
          aria-labelledby="departmentOffcanvasLabel">
       <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="departmentOffcanvasLabel">Department</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <h5 class="offcanvas-title" id="departmentOffcanvasLabel" th:text="#{common.field.department}">Department</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" th:aria-label="#{common.aria.close}"></button>
       </div>
       <div class="offcanvas-body" id="departmentOffcanvasBody">
         <th:block th:fragment="departmentForm">
@@ -225,11 +227,11 @@
                  hx-patch=${editingDepartmentId != null} ? @{/admin/departments/{id}(id=${editingDepartmentId})} : null"
         hx-target="#departmentOffcanvasBody" hx-swap="innerHTML" hx-indicator="#departmentFormSpinner"
         x-data="{ name: '' }" x-init="name = $el.querySelector('#department-name').value">
-    <h6 class="text-muted mb-3" th:text="${editingDepartmentId != null} ? 'Editing' : 'Creating new'">Creating new</h6>
+    <h6 class="text-muted mb-3" th:text="${editingDepartmentId != null} ? #{common.form-state.editing} : #{common.form-state.creating-new}">Creating new</h6>
 
     <div class="mb-3">
       <label class="form-label" for="department-name">
-        Name <span class="text-danger" aria-hidden="true">*</span>
+        <span th:text="#{common.field.name}">Name</span> <span class="text-danger" aria-hidden="true">*</span>
       </label>
       <input class="form-control" type="text" id="department-name" th:field="*{name}" maxlength="150"
              x-model="name" required
@@ -240,27 +242,27 @@
 
     <div class="mb-3">
       <label class="form-label" for="department-divisionId">
-        Division <span class="text-danger" aria-hidden="true">*</span>
+        <span th:text="#{common.field.division}">Division</span> <span class="text-danger" aria-hidden="true">*</span>
       </label>
       <select class="form-select" id="department-divisionId" th:field="*{divisionId}"
               th:classappend="${#fields.hasErrors('divisionId')} ? 'is-invalid'">
-        <option value="" disabled>Choose a division</option>
+        <option value="" disabled th:text="#{admin.organization.choose-division-placeholder}">Choose a division</option>
         <option th:each="option : ${divisionOptions}" th:value="${option.id}" th:text="${option.name}">Engineering</option>
       </select>
       <div class="invalid-feedback" th:if="${#fields.hasErrors('divisionId')}" th:errors="*{divisionId}">Invalid division</div>
     </div>
 
     <div class="mb-3">
-      <label class="form-label" for="department-description">Description</label>
+      <label class="form-label" for="department-description" th:text="#{common.field.description}">Description</label>
       <textarea class="form-control" id="department-description" th:field="*{description}" rows="3"></textarea>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-4">
-      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas" th:text="#{common.action.cancel}">Cancel</button>
       <button class="btn btn-primary btn-sm" type="submit">
         <span id="departmentFormSpinner" class="spinner-border spinner-border-sm htmx-indicator me-1"
               aria-hidden="true"></span>
-        Save department
+        <span th:text="#{admin.organization.save-department}">Save department</span>
       </button>
     </div>
   </form>

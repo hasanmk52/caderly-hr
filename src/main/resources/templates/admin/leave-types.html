@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-<th:block th:replace="~{layout :: layout('Leave Types', ~{::#content})}">
+<th:block th:replace="~{layout :: layout(#{admin.leave-types.title}, ~{::#content})}">
   <div id="content" class="flex-grow-1 p-4">
 
     <div class="d-flex justify-content-between align-items-start mb-4">
-      <h1>Leave Types</h1>
+      <h1 th:text="#{admin.leave-types.title}">Leave Types</h1>
     </div>
 
     <!--/* Mirrors admin/organization.html's #organization-content pattern (see
@@ -16,25 +16,25 @@
         <button type="button" class="btn btn-primary btn-sm"
                 th:hx-get="@{/admin/leave-types/new-form}"
                 hx-target="#leaveTypeOffcanvasBody" hx-swap="innerHTML">
-          <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Leave Type
+          <i class="bi bi-plus-lg" aria-hidden="true"></i> <span th:text="#{admin.leave-types.add}">Add Leave Type</span>
         </button>
       </div>
 
       <div th:if="${#lists.isEmpty(leaveTypes)}" class="text-center text-muted py-5 mb-5">
         <i class="bi bi-calendar-check fs-1 d-block mb-2" aria-hidden="true"></i>
-        <p class="mb-0">No leave types yet. Add one to get started.</p>
+        <p class="mb-0" th:text="#{admin.leave-types.empty}">No leave types yet. Add one to get started.</p>
       </div>
 
       <div th:unless="${#lists.isEmpty(leaveTypes)}" class="table-responsive mb-5">
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Annual allowance</th>
-              <th scope="col">Paid</th>
-              <th scope="col">Half-day</th>
-              <th scope="col">Status</th>
-              <th scope="col" class="text-end">Actions</th>
+              <th scope="col" th:text="#{common.field.name}">Name</th>
+              <th scope="col" th:text="#{admin.leave-types.table.annual-allowance}">Annual allowance</th>
+              <th scope="col" th:text="#{admin.leave-types.paid}">Paid</th>
+              <th scope="col" th:text="#{admin.leave-types.table.half-day}">Half-day</th>
+              <th scope="col" th:text="#{common.field.status}">Status</th>
+              <th scope="col" class="text-end" th:text="#{common.table.actions}">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -44,26 +44,26 @@
                 <span th:text="${leaveType.name()}">Annual</span>
               </td>
               <td th:text="${leaveType.defaultAnnualAllowance()}">30</td>
-              <td th:text="${leaveType.paid()} ? 'Paid' : 'Unpaid'">Paid</td>
-              <td th:text="${leaveType.allowsHalfDay()} ? 'Allowed' : 'Not allowed'">Allowed</td>
+              <td th:text="${leaveType.paid()} ? #{admin.leave-types.paid} : #{admin.leave-types.unpaid}">Paid</td>
+              <td th:text="${leaveType.allowsHalfDay()} ? #{admin.leave-types.allowed} : #{admin.leave-types.not-allowed}">Allowed</td>
               <td>
                 <span class="badge" th:classappend="${leaveType.active()} ? 'text-bg-success' : 'text-bg-secondary'"
-                      th:text="${leaveType.active()} ? 'Active' : 'Inactive'">Active</span>
+                      th:text="${leaveType.active()} ? #{common.status.active} : #{common.status.inactive}">Active</span>
               </td>
               <td class="text-end">
-                <button type="button" class="btn btn-outline-secondary btn-sm" aria-label="Edit leave type"
+                <button type="button" class="btn btn-outline-secondary btn-sm" th:aria-label="#{admin.leave-types.aria.edit}"
                         th:hx-get="@{/admin/leave-types/{id}/edit-form(id=${leaveType.id})}"
                         hx-target="#leaveTypeOffcanvasBody" hx-swap="innerHTML">
                   <i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
                 <button th:if="${leaveType.active()}" type="button" class="btn btn-outline-secondary btn-sm"
-                        aria-label="Deactivate leave type"
+                        th:aria-label="#{admin.leave-types.aria.deactivate}"
                         th:hx-post="@{/admin/leave-types/{id}/deactivate(id=${leaveType.id})}"
                         hx-target="#leave-types-content" hx-swap="outerHTML">
                   <i class="bi bi-pause-circle" aria-hidden="true"></i>
                 </button>
                 <button th:unless="${leaveType.active()}" type="button" class="btn btn-outline-success btn-sm"
-                        aria-label="Activate leave type"
+                        th:aria-label="#{admin.leave-types.aria.activate}"
                         th:hx-post="@{/admin/leave-types/{id}/activate(id=${leaveType.id})}"
                         hx-target="#leave-types-content" hx-swap="outerHTML">
                   <i class="bi bi-play-circle" aria-hidden="true"></i>
@@ -81,8 +81,8 @@
     <div class="offcanvas offcanvas-end" tabindex="-1" id="leaveTypeOffcanvas" style="width: 480px"
          aria-labelledby="leaveTypeOffcanvasLabel">
       <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="leaveTypeOffcanvasLabel">Leave Type</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <h5 class="offcanvas-title" id="leaveTypeOffcanvasLabel" th:text="#{admin.leave-types.panel-title}">Leave Type</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" th:aria-label="#{common.aria.close}"></button>
       </div>
       <div class="offcanvas-body" id="leaveTypeOffcanvasBody">
         <th:block th:fragment="leaveTypeForm">
@@ -90,11 +90,11 @@
         th:attr="hx-post=${editingLeaveTypeId == null} ? @{/admin/leave-types} : null,
                  hx-patch=${editingLeaveTypeId != null} ? @{/admin/leave-types/{id}(id=${editingLeaveTypeId})} : null"
         hx-target="#leaveTypeOffcanvasBody" hx-swap="innerHTML" hx-indicator="#leaveTypeFormSpinner">
-    <h6 class="text-muted mb-3" th:text="${editingLeaveTypeId != null} ? 'Editing' : 'Creating new'">Creating new</h6>
+    <h6 class="text-muted mb-3" th:text="${editingLeaveTypeId != null} ? #{common.form-state.editing} : #{common.form-state.creating-new}">Creating new</h6>
 
     <div class="mb-3">
       <label class="form-label" for="leave-type-name">
-        Name <span class="text-danger" aria-hidden="true">*</span>
+        <span th:text="#{common.field.name}">Name</span> <span class="text-danger" aria-hidden="true">*</span>
       </label>
       <input class="form-control" type="text" id="leave-type-name" th:field="*{name}" maxlength="100" required
              th:classappend="${#fields.hasErrors('name')} ? 'is-invalid'" />
@@ -102,7 +102,7 @@
     </div>
 
     <div class="mb-3">
-      <label class="form-label d-block">Icon</label>
+      <label class="form-label d-block" th:text="#{admin.leave-types.icon-label}">Icon</label>
       <!--/* th:field repeated in a loop auto-suffixes the id (icon1, icon2, ...) and sets
              checked/value/name for us; #ids.prev looks up that same generated id so <label for>
              stays in sync (same idiom as leave/book-time-off.html's leave-type chip row). */-->
@@ -120,7 +120,7 @@
 
     <div class="mb-3">
       <label class="form-label" for="leave-type-defaultAnnualAllowance">
-        Default annual allowance (days) <span class="text-danger" aria-hidden="true">*</span>
+        <span th:text="#{admin.leave-types.default-allowance-label}">Default annual allowance (days)</span> <span class="text-danger" aria-hidden="true">*</span>
       </label>
       <input class="form-control" type="number" step="0.5" min="0" id="leave-type-defaultAnnualAllowance"
              th:field="*{defaultAnnualAllowance}" required
@@ -131,32 +131,32 @@
 
     <div class="form-check mb-2">
       <input class="form-check-input" type="checkbox" id="leave-type-paid" th:field="*{paid}" />
-      <label class="form-check-label" for="leave-type-paid">Paid</label>
+      <label class="form-check-label" for="leave-type-paid" th:text="#{admin.leave-types.paid}">Paid</label>
     </div>
     <div class="form-check mb-2">
       <input class="form-check-input" type="checkbox" id="leave-type-allowsHalfDay" th:field="*{allowsHalfDay}" />
-      <label class="form-check-label" for="leave-type-allowsHalfDay">Allows half-day requests</label>
+      <label class="form-check-label" for="leave-type-allowsHalfDay" th:text="#{admin.leave-types.allows-half-day-label}">Allows half-day requests</label>
     </div>
     <div class="form-check mb-2">
       <input class="form-check-input" type="checkbox" id="leave-type-allowsBackdated" th:field="*{allowsBackdated}" />
-      <label class="form-check-label" for="leave-type-allowsBackdated">Allows backdated requests</label>
+      <label class="form-check-label" for="leave-type-allowsBackdated" th:text="#{admin.leave-types.allows-backdated-label}">Allows backdated requests</label>
     </div>
     <div class="form-check mb-3">
       <input class="form-check-input" type="checkbox" id="leave-type-requiresApproval" th:field="*{requiresApproval}" />
-      <label class="form-check-label" for="leave-type-requiresApproval">Requires approval</label>
+      <label class="form-check-label" for="leave-type-requiresApproval" th:text="#{admin.leave-types.requires-approval-label}">Requires approval</label>
     </div>
 
     <div class="mb-3">
-      <label class="form-label" for="leave-type-description">Description</label>
+      <label class="form-label" for="leave-type-description" th:text="#{common.field.description}">Description</label>
       <textarea class="form-control" id="leave-type-description" th:field="*{description}" rows="3"></textarea>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mt-4">
-      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas" th:text="#{common.action.cancel}">Cancel</button>
       <button class="btn btn-primary btn-sm" type="submit">
         <span id="leaveTypeFormSpinner" class="spinner-border spinner-border-sm htmx-indicator me-1"
               aria-hidden="true"></span>
-        Save leave type
+        <span th:text="#{admin.leave-types.save}">Save leave type</span>
       </button>
     </div>
   </form>

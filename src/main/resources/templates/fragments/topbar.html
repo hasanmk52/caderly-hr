@@ -13,14 +13,16 @@
             stroke-linecap="butt" stroke-linejoin="round"></path>
       <rect x="41" y="26" width="12" height="12" rx="2" fill="currentColor"></rect>
     </svg>
-    <span th:text="${tenant != null ? 'Caderly · ' + tenant.name : 'Caderly'}">Caderly</span>
+    <span th:text="${tenant != null} ? (#{common.brand-name} + ' · ' + ${tenant.name}) : #{common.brand-name}">Caderly</span>
   </span>
   <form class="d-none d-md-flex mx-auto" style="width: 40%" role="search">
-    <input class="form-control" type="search" placeholder="Search" aria-label="Search" disabled />
+    <input class="form-control" type="search" th:placeholder="#{topbar.search-placeholder}"
+           th:aria-label="#{topbar.search-placeholder}" disabled />
   </form>
   <div class="d-flex align-items-center gap-3">
     <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#bookLeaveModal"
-            th:hx-get="@{/leave/new}" hx-target="#bookLeaveModalBody" hx-swap="innerHTML">
+            th:hx-get="@{/leave/new}" hx-target="#bookLeaveModalBody" hx-swap="innerHTML"
+            th:text="#{topbar.book-time-off}">
       Book time off
     </button>
 
@@ -28,7 +30,7 @@
       <button class="btn p-0 rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center"
               style="width: 2rem; height: 2rem;" type="button"
               id="accountMenuButton" data-bs-toggle="dropdown" aria-expanded="false"
-              aria-label="Account menu">
+              th:aria-label="#{topbar.account-menu}">
         <i class="bi bi-person-fill" aria-hidden="true"></i>
       </button>
       <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="accountMenuButton">
@@ -42,7 +44,7 @@
                  token Thymeleaf injects automatically into th:action forms. */-->
           <form th:action="@{/logout}" method="post" class="px-1">
             <button class="dropdown-item" type="submit">
-              <i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Log out
+              <i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i><span th:text="#{topbar.log-out}">Log out</span>
             </button>
           </form>
         </li>

@@ -4,8 +4,8 @@
 <th:block th:fragment="modalBody">
 
   <div class="modal-header">
-    <h5 class="modal-title" id="bookLeaveModalLabel">Book time off</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <h5 class="modal-title" id="bookLeaveModalLabel" th:text="#{topbar.book-time-off}">Book time off</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
   </div>
 
   <form th:object="${leaveForm}" th:hx-post="@{/leave}" hx-target="#bookLeaveModalBody" hx-swap="innerHTML"
@@ -14,13 +14,13 @@
 
       <div th:if="${#lists.isEmpty(bookableTypes)}" class="text-center text-muted py-4">
         <i class="bi bi-calendar-x fs-1 d-block mb-2" aria-hidden="true"></i>
-        <p class="mb-0">No leave types are available to book yet.</p>
+        <p class="mb-0" th:text="#{leave.book.no-types}">No leave types are available to book yet.</p>
       </div>
 
       <div th:unless="${#lists.isEmpty(bookableTypes)}">
         <!--/* Step 1: leave type chip row (UI Guidelines §8.1). */-->
         <fieldset class="mb-3">
-          <legend class="form-label h6">Leave type <span class="text-danger" aria-hidden="true">*</span></legend>
+          <legend class="form-label h6"><span th:text="#{leave.book.leave-type-label}">Leave type</span> <span class="text-danger" aria-hidden="true">*</span></legend>
           <div class="d-flex flex-wrap gap-2">
             <!--/* th:field repeated in a loop auto-suffixes the id (leaveTypeId1, leaveTypeId2, ...)
                    and sets checked/value/name for us; #ids.prev looks up that same generated id so
@@ -48,7 +48,7 @@
                an ADR; no date-range-picker library is authorized). */-->
         <div class="row g-2 mb-3">
           <div class="col-6">
-            <label class="form-label" for="leave-start-date">Start date <span class="text-danger" aria-hidden="true">*</span></label>
+            <label class="form-label" for="leave-start-date"><span th:text="#{leave.book.start-date-label}">Start date</span> <span class="text-danger" aria-hidden="true">*</span></label>
             <input class="form-control" type="date" id="leave-start-date" th:field="*{startDate}" required
                    th:classappend="${#fields.hasErrors('startDate')} ? 'is-invalid'"
                    hx-post="/leave/preview" hx-trigger="change" hx-include="closest form"
@@ -56,7 +56,7 @@
             <div class="invalid-feedback" th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}">Invalid date</div>
           </div>
           <div class="col-6">
-            <label class="form-label" for="leave-end-date">End date <span class="text-danger" aria-hidden="true">*</span></label>
+            <label class="form-label" for="leave-end-date"><span th:text="#{leave.book.end-date-label}">End date</span> <span class="text-danger" aria-hidden="true">*</span></label>
             <input class="form-control" type="date" id="leave-end-date" th:field="*{endDate}" required
                    th:classappend="${#fields.hasErrors('endDate')} ? 'is-invalid'"
                    hx-post="/leave/preview" hx-trigger="change" hx-include="closest form"
@@ -71,19 +71,19 @@
             <input class="form-check-input" type="checkbox" id="leave-start-half-pm" th:field="*{startHalfDayPm}"
                    hx-post="/leave/preview" hx-trigger="change" hx-include="closest form"
                    hx-target="#leavePreview" hx-swap="innerHTML" />
-            <label class="form-check-label" for="leave-start-half-pm">Start date is half-day (PM)</label>
+            <label class="form-check-label" for="leave-start-half-pm" th:text="#{leave.book.start-half-day-label}">Start date is half-day (PM)</label>
           </div>
           <div class="col-6 form-check">
             <input class="form-check-input" type="checkbox" id="leave-end-half-am" th:field="*{endHalfDayAm}"
                    hx-post="/leave/preview" hx-trigger="change" hx-include="closest form"
                    hx-target="#leavePreview" hx-swap="innerHTML" />
-            <label class="form-check-label" for="leave-end-half-am">End date is half-day (AM)</label>
+            <label class="form-check-label" for="leave-end-half-am" th:text="#{leave.book.end-half-day-label}">End date is half-day (AM)</label>
           </div>
         </div>
 
         <!--/* Step 4: note. */-->
         <div class="mb-3">
-          <label class="form-label" for="leave-note">Note</label>
+          <label class="form-label" for="leave-note" th:text="#{leave.book.note-label}">Note</label>
           <textarea class="form-control" id="leave-note" th:field="*{note}" rows="2" maxlength="1000"></textarea>
         </div>
 
@@ -93,10 +93,10 @@
     </div>
 
     <div class="modal-footer">
-      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" th:text="#{common.action.cancel}">Cancel</button>
       <button class="btn btn-primary btn-sm" type="submit" th:disabled="${#lists.isEmpty(bookableTypes)}">
         <span id="bookLeaveFormSpinner" class="spinner-border spinner-border-sm htmx-indicator me-1" aria-hidden="true"></span>
-        Submit request
+        <span th:text="#{leave.book.submit}">Submit request</span>
       </button>
     </div>
   </form>
@@ -111,12 +111,13 @@
   </div>
   <div th:if="${preview != null}" class="alert py-2 mb-0"
        th:classappend="${preview.sufficient} ? 'alert-info' : 'alert-warning'" role="status">
-    This will use <strong th:text="${preview.duration}">1.00</strong> working day(s) of
+    <span th:text="#{leave.book.preview.uses-prefix}">This will use</span> <strong th:text="${preview.duration}">1.00</strong>
+    <span th:text="#{leave.book.preview.working-days-of}">working day(s) of</span>
     <span th:text="${preview.leaveTypeName}">Vacation</span>.
     <span th:if="${preview.sufficient}">
-      <span th:text="${preview.remainingAfter}">17.00</span> day(s) would remain.
+      <span th:text="${preview.remainingAfter}">17.00</span> <span th:text="#{leave.book.preview.remaining-suffix}">day(s) would remain.</span>
     </span>
-    <span th:unless="${preview.sufficient}" class="fw-semibold">Not enough remaining balance for this request.</span>
+    <span th:unless="${preview.sufficient}" class="fw-semibold" th:text="#{leave.book.preview.insufficient}">Not enough remaining balance for this request.</span>
   </div>
 </div>
 

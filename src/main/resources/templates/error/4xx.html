@@ -6,17 +6,17 @@
        4xx fell through to the Whitelabel Error Page — which under devtools prints a full stack
        trace. A generic 4xx view means no status can ever leak internals that way again.
        Exact-status templates still win, so 403.html and 404.html are unaffected. */-->
-<th:block th:replace="~{bare-layout :: layout('Request could not be completed', ~{::#content})}">
+<th:block th:replace="~{bare-layout :: layout(#{error-page.4xx.title}, ~{::#content})}">
   <main id="content" class="caderly-bare-main">
     <div class="caderly-bare-card">
       <div class="card shadow-sm">
         <div class="card-body p-4 text-center">
           <p class="display-5 fw-semibold text-primary mb-1" th:text="${status} ?: '400'">400</p>
-          <h1 class="h4 mb-2">That request could not be completed</h1>
-          <p class="text-muted mb-4">
+          <h1 class="h4 mb-2" th:text="#{error-page.4xx.heading}">That request could not be completed</h1>
+          <p class="text-muted mb-4" th:text="#{error-page.4xx.detail}">
             Something about the request was not valid. Going back and trying again usually fixes it.
           </p>
-          <a class="btn btn-primary" th:href="@{/}">Back to home</a>
+          <a class="btn btn-primary" th:href="@{/}" th:text="#{common.back-to-home}">Back to home</a>
         </div>
       </div>
     </div>
