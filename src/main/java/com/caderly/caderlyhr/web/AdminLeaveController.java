@@ -56,6 +56,37 @@ class AdminLeaveController {
 
     // ---- Leave Types ----
 
+    /**
+     * Curated set of Bootstrap Icons offered when assigning a leave type's {@code icon} (UI
+     * Guidelines §5: Bootstrap Icons only). Fixed and small rather than a searchable browser of
+     * all ~2000 icons — every name here is verified against the pinned {@code bootstrap-icons}
+     * 1.13.1 webjar; {@code UI_Guidelines.md}'s own illustrative examples ({@code bi-palm}, {@code
+     * bi-bandaid}) do not actually exist in that icon set and must not be used.
+     */
+    private static final List<IconOption> ICON_OPTIONS =
+            List.of(
+                    new IconOption("bi-airplane", "Airplane"),
+                    new IconOption("bi-sun", "Sun"),
+                    new IconOption("bi-heart-pulse", "Heart pulse"),
+                    new IconOption("bi-thermometer-half", "Thermometer"),
+                    new IconOption("bi-hospital", "Hospital"),
+                    new IconOption("bi-person-hearts", "Person hearts"),
+                    new IconOption("bi-heart", "Heart"),
+                    new IconOption("bi-calendar-event", "Calendar event"),
+                    new IconOption("bi-calendar-heart", "Calendar heart"),
+                    new IconOption("bi-calendar-minus", "Calendar minus"),
+                    new IconOption("bi-house-door", "House"),
+                    new IconOption("bi-briefcase", "Briefcase"),
+                    new IconOption("bi-mortarboard", "Mortarboard"),
+                    new IconOption("bi-cash-coin", "Cash coin"),
+                    new IconOption("bi-umbrella", "Umbrella"),
+                    new IconOption("bi-person", "Person"));
+
+    @ModelAttribute("iconOptions")
+    List<IconOption> iconOptions() {
+        return ICON_OPTIONS;
+    }
+
     @GetMapping("/admin/leave-types")
     @PreAuthorize("hasRole('ADMIN')")
     String leaveTypesPage(Model model) {
@@ -278,4 +309,7 @@ class AdminLeaveController {
     private static void toast(HttpServletResponse response, String message) {
         response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
     }
+
+    /** One entry in the leave-type icon picker: a Bootstrap Icons class name plus its display label. */
+    private record IconOption(String cssClass, String label) {}
 }

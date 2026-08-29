@@ -3,9 +3,18 @@
 <body>
 <nav th:fragment="topbar" class="navbar navbar-expand navbar-light bg-white border-bottom px-3 caderly-topbar">
   <!-- Text fallback until tenants upload logos (UI_Guidelines: logo falls back to
-       "Caderly" + tenant name). -->
-  <span class="navbar-brand fw-semibold"
-        th:text="${tenant != null ? 'Caderly · ' + tenant.name : 'Caderly'}">Caderly</span>
+       "Caderly" + tenant name). Mark SVG per design-system/assets/logo-kit-README.md's
+       "Web lockup" pattern (cadrely-mark-mono geometry, currentColor). -->
+  <span class="navbar-brand fw-semibold d-inline-flex align-items-center gap-2">
+    <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"
+         style="width: 1.15em; height: 1.15em; color: var(--bs-primary);">
+      <path d="M40 13H21A8 8 0 0 0 13 21V43A8 8 0 0 0 21 51H48"
+            fill="none" stroke="currentColor" stroke-width="10"
+            stroke-linecap="butt" stroke-linejoin="round"></path>
+      <rect x="41" y="26" width="12" height="12" rx="2" fill="currentColor"></rect>
+    </svg>
+    <span th:text="${tenant != null ? 'Caderly · ' + tenant.name : 'Caderly'}">Caderly</span>
+  </span>
   <form class="d-none d-md-flex mx-auto" style="width: 40%" role="search">
     <input class="form-control" type="search" placeholder="Search" aria-label="Search" disabled />
   </form>

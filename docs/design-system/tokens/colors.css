@@ -1,0 +1,37 @@
+:root{
+--brand:#0F5568;--on-brand:#FFFFFF;--brand-fill:#E3EFF2;--brand-line:#AFCFD7;
+--ink:#15171C;--ink-2:#4A5160;--ink-3:#5F6675;--mute:#6F7686;
+--paper:#F7F7F9;--card:#FFFFFF;--rule:#E3E4E9;
+--verify:#1F6B45;--verify-fill:#E4F0EA;
+--notice:#9A5F00;--notice-fill:#F8EFDF;
+--halt:#A62A22;--halt-fill:#F8E9E7;
+/* semantic aliases */
+--text-body:var(--ink);--text-secondary:var(--ink-2);--text-caption:var(--ink-3);--text-placeholder:var(--mute);
+--surface-page:var(--paper);--surface-card:var(--card);--surface-brand:var(--brand-fill);
+--border-hairline:var(--rule);--border-brand:var(--brand-line);
+--focus-ring:var(--brand);
+/* button glow — brand light, tuned per §5.4.1: brand colour on primary buttons only */
+--glow-brand:0 0 0 1px color-mix(in oklab,var(--brand) 70%,#000 30%),0 1px 2px rgba(8,24,29,.28),0 6px 18px -6px color-mix(in oklab,var(--brand) 55%,transparent);
+--glow-brand-hover:0 0 0 1px color-mix(in oklab,var(--brand) 70%,#000 30%),0 1px 2px rgba(8,24,29,.30),0 10px 26px -8px color-mix(in oklab,var(--brand) 70%,transparent);
+--glow-neutral:0 1px 2px rgba(21,23,28,.06),0 6px 16px -10px rgba(21,23,28,.22);
+--glow-halt:0 0 0 1px color-mix(in oklab,var(--halt) 70%,#000 30%),0 1px 2px rgba(8,24,29,.24),0 6px 18px -6px color-mix(in oklab,var(--halt) 50%,transparent);
+}
+:root[data-theme=dark]{
+--brand:#6FBDD1;--on-brand:#08181D;--brand-fill:#0F2229;--brand-line:#234550;
+--ink:#E7E9EE;--ink-2:#AEB5C2;--ink-3:#8B93A2;--mute:#6C7385;
+--paper:#0F1116;--card:#171A21;--rule:#262B35;
+--verify:#5CC08C;--verify-fill:#12241B;
+--notice:#E0A64A;--notice-fill:#241D10;
+--halt:#F0847C;--halt-fill:#2A1613;
+--glow-neutral:0 1px 2px rgba(0,0,0,.5),0 6px 16px -10px rgba(0,0,0,.7);
+}
+/* Opt into system dark with <html data-theme="auto">; data-theme="dark" forces it. */
+@media (prefers-color-scheme:dark){:root[data-theme=auto]{
+--brand:#6FBDD1;--on-brand:#08181D;--brand-fill:#0F2229;--brand-line:#234550;
+--ink:#E7E9EE;--ink-2:#AEB5C2;--ink-3:#8B93A2;--mute:#6C7385;
+--paper:#0F1116;--card:#171A21;--rule:#262B35;
+--verify:#5CC08C;--verify-fill:#12241B;
+--notice:#E0A64A;--notice-fill:#241D10;
+--halt:#F0847C;--halt-fill:#2A1613;
+--glow-neutral:0 1px 2px rgba(0,0,0,.5),0 6px 16px -10px rgba(0,0,0,.7);
+}}

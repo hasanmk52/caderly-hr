@@ -39,20 +39,22 @@ Two layers: **system colors** (Bootstrap 5 semantic) and **tenant brand color** 
 ### System (defaults)
 | Token | Value | Use |
 |---|---|---|
-| `--bs-primary` | tenant.primary_color, default `#4f46e5` | Primary buttons, links, active nav, focus rings |
-| `--bs-primary-rgb` | `79, 70, 229` | rgba() derivatives of primary |
-| `--bs-primary-text-emphasis` | `#3730a3` | Text on primary-subtle backgrounds (Admin badge, sidebar active) |
-| `--bs-primary-bg-subtle` | `#e0e7ff` | Tinted backgrounds (Admin badge, sidebar active) |
-| `--bs-primary-border-subtle` | `#c7d2fe` | Borders on primary-tinted surfaces |
+| `--bs-primary` | tenant.primary_color, default `#0F5568` | Primary buttons, links, active nav, focus rings |
+| `--bs-primary-rgb` | `15, 85, 104` | rgba() derivatives of primary |
+| `--bs-primary-text-emphasis` | `color-mix(in oklab, var(--bs-primary) 75%, black)` | Text on primary-subtle backgrounds (Admin badge, sidebar active) |
+| `--bs-primary-bg-subtle` | `#E3EFF2` | Tinted backgrounds (Admin badge, sidebar active) |
+| `--bs-primary-border-subtle` | `#AFCFD7` | Borders on primary-tinted surfaces |
 | `--bs-secondary` | `#6C757D` | Secondary buttons |
-| `--bs-success` | `#16A34A` | Approved chip, success toast |
-| `--bs-warning` | `#F59E0B` | Pending chip, warning toast, orange CTA accent |
-| `--bs-danger` | `#DC2626` | Rejected chip, delete buttons, error toast |
-| `--bs-info` | `#0EA5E9` | Informational callouts |
+| `--bs-success` | `#1F6B45` | Approved chip, success toast |
+| `--bs-warning` | `#9A5F00` | Pending chip, warning toast, orange CTA accent |
+| `--bs-danger` | `#A62A22` | Rejected chip, delete buttons, error toast |
+| `--bs-info` | `#0F5568` | Informational callouts |
 | `--bs-body-bg` | `#f8f9fb` | Content area background |
 | `--bs-body-color` | `#1f2328` | Body text |
 | `--bs-border-color` | `#e5e7eb` | Default hairline borders, table dividers |
 | `--bs-tertiary-bg` | `#f3f4f6` | Hover backgrounds (sidebar inactive hover, dropdown-item hover) |
+
+`--bs-info` is aliased directly to `--bs-primary` because the Cadrely design system defines no info-equivalent color — its verify/notice/halt triad is closed and independent of brand. Success/warning/danger were adopted as Cadrely's verify/notice/halt as-is (no further tinting) since Cadrely documents that triad as a stable, brand-independent status set with its own AA contrast verification.
 
 Sidebar is **not** a solid dark color — it's `bg-white` with a `border-end`, per the fragment actually shipped (`fragments/sidebar.html`). Active item: `--bs-primary-bg-subtle` tint + `--bs-primary` 3 px left border + `--bs-primary-text-emphasis` text. Inactive hover: `--bs-tertiary-bg`. (An earlier version of this doc specified a solid dark-navy sidebar with a solid-fill active state; that was never built. This section now documents the light sidebar that exists.)
 
@@ -73,7 +75,7 @@ Sidebar is **not** a solid dark color — it's `bg-white` with a `border-end`, p
 | `--bs-box-shadow-lg` | `0 12px 32px rgba(16,24,40,.12), 0 4px 8px rgba(16,24,40,.06)` | Offcanvas (targeted override — Bootstrap ships no shadow var for it by default) |
 
 ### Tenant primary color
-`tenant.primary_color` (hex, per PRD §5) is injected into `--bs-primary` at layout render via a `<style>` tag in `head.html`. **Not yet implemented** (Phase 1.10 owns this, per `docs/CURRENT_PHASE.md`'s carried-forward items). When it is: per the gotcha above, the tenant `<style>` block must set the *whole* primary token family (rgb / text-emphasis / bg-subtle / border-subtle / focus-ring / link colors), computed from the tenant's hex the same way `theme-overrides.css` derives it from `#4f46e5` — not just `--bs-primary` — or a custom tenant color will look inconsistent against the Admin badge and sidebar active state.
+`tenant.primary_color` (hex, per PRD §5) is injected into `--bs-primary` at layout render via a `<style>` tag in `head.html`. **Not yet implemented** (Phase 1.10 owns this, per `docs/CURRENT_PHASE.md`'s carried-forward items). When it is: per the gotcha above, the tenant `<style>` block must set the *whole* primary token family (rgb / text-emphasis / bg-subtle / border-subtle / focus-ring / link colors), computed from the tenant's hex the same way `theme-overrides.css` derives it from `#0F5568` — not just `--bs-primary` — or a custom tenant color will look inconsistent against the Admin badge and sidebar active state.
 
 **Resolved:** the `tenant.primary_color` column's DB default originally shipped as `#2563EB` (`V202607241000__create_tenant_and_super_admin.sql`) — the color this document specified before this pass, not the `#4f46e5` it specifies now, and MHZ's own row still held it since nothing sets `primary_color` explicitly at seed time. The migration's default and MHZ's row were both updated to `#4f46e5`, and the PRD's schema snippet (Caderly_PRD.md §5) was updated to match. Phase 1.10 can now wire up the `<style>` injection without inheriting a stale default.
 
@@ -86,7 +88,7 @@ Sidebar is **not** a solid dark color — it's `bg-white` with a `border-end`, p
 
 ## 3. Typography
 
-- **Family:** `"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`. `SecurityConfig`'s CSP (PRD §19.6) deliberately locks `font-src`/`style-src` to `'self'` — "every asset is served from WebJars on our own origin" — so a CDN webfont (e.g. Bunny Fonts) was ruled out. Inter is instead **self-hosted** via `org.webjars.npm:fontsource__inter` (pom.xml), the same webjar mechanism already used for Bootstrap/Bootstrap Icons/Alpine: the actual woff2 files ship inside the jar with local relative `@font-face` paths, served same-origin through `/webjars/**`, so no CSP change was needed. `head.html` links only the `400.css`/`500.css`/`600.css` weight files — matching this section's "no 700+" rule — not the full weight set the webjar ships. `system-ui` remains as the fallback while the webfont loads or if it fails.
+- **Family:** `"IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif`. `SecurityConfig`'s CSP (PRD §19.6) deliberately locks `font-src`/`style-src` to `'self'` — "every asset is served from our own origin" — so a CDN webfont (e.g. Bunny Fonts) was ruled out. IBM Plex Sans is **self-hosted**, but as vendored static files under `static/fonts/` with `@font-face` rules in `caderly.css`, not via the `org.webjars.npm:fontsource__*` webjar mechanism used for Bootstrap/Bootstrap Icons/Alpine/Inter previously — `org.webjars.npm:fontsource__ibm-plex-sans` isn't published to Maven Central yet (WebJars only mirrors npm packages on-demand), so the woff2 files (fontsource's own build, latin subset) are committed directly instead. Revisit switching back to the webjar once it exists upstream. Only the `400`/`500`/`600` weight files are vendored — matching this section's "no 700+" rule. `-apple-system`/`Segoe UI` remain as fallbacks while the webfont loads or if it fails.
 - **Scale:**
   - `h1`: 1.75 rem / 600 weight — page titles
   - `h2`: 1.5 rem / 600 — section headers within a page

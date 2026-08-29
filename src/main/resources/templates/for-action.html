@@ -50,7 +50,11 @@
             <tbody>
               <tr th:each="row : ${completed}">
                 <td th:text="${row.employeeName}">Jane Doe</td>
-                <td th:text="${row.leaveTypeName}">Vacation</td>
+                <td>
+                  <i th:if="${row.icon != null}" th:class="'bi ' + ${row.icon}"
+                     th:style="${row.color != null} ? 'color:' + ${row.color}" aria-hidden="true"></i>
+                  <span th:text="${row.leaveTypeName}">Vacation</span>
+                </td>
                 <td><span th:text="${row.startDate}">2026-08-17</span> - <span th:text="${row.endDate}">2026-08-21</span></td>
                 <td th:text="${row.durationDays}">5.00</td>
                 <td>
