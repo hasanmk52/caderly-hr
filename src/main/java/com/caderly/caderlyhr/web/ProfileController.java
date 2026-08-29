@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -66,12 +68,17 @@ class ProfileController {
     private final EmployeeService employees;
     private final LeaveRequestService leaveRequests;
     private final EmployeeDocumentService employeeDocuments;
+    private final MessageSource messages;
 
     ProfileController(
-            EmployeeService employees, LeaveRequestService leaveRequests, EmployeeDocumentService employeeDocuments) {
+            EmployeeService employees,
+            LeaveRequestService leaveRequests,
+            EmployeeDocumentService employeeDocuments,
+            MessageSource messages) {
         this.employees = employees;
         this.leaveRequests = leaveRequests;
         this.employeeDocuments = employeeDocuments;
+        this.messages = messages;
     }
 
     @GetMapping("/profile")
@@ -102,7 +109,7 @@ class ProfileController {
         Employee own = ownEmployee(principal);
         if (!binding.hasErrors()) {
             employees.updateSelfServiceFields(own.requireId(), form);
-            toast(response, "Profile updated");
+            toast(response, "toast.profile.updated", "Profile updated");
         }
         populateTabModel(own.requireId(), "personal", principal, model);
         return "people/profile :: tabContent";
@@ -120,7 +127,7 @@ class ProfileController {
         if (!binding.hasErrors()) {
             employees.addEmergencyContact(
                     own.requireId(), form.name(), form.relationship(), form.phone(), form.email());
-            toast(response, "Emergency contact added");
+            toast(response, "toast.emergency-contact.added", "Emergency contact added");
         }
         populateTabModel(own.requireId(), "personal", principal, model);
         return "people/profile :: tabContent";
@@ -135,7 +142,7 @@ class ProfileController {
             HttpServletResponse response) {
         Employee own = ownEmployee(principal);
         employees.removeEmergencyContact(own.requireId(), contactId);
-        toast(response, "Emergency contact removed");
+        toast(response, "toast.emergency-contact.removed", "Emergency contact removed");
         populateTabModel(own.requireId(), "personal", principal, model);
         return "people/profile :: tabContent";
     }
@@ -152,7 +159,7 @@ class ProfileController {
         if (!binding.hasErrors()) {
             employees.addGovernmentId(
                     own.requireId(), form.idType(), form.idNumber(), form.country(), form.issueDate(), form.expiryDate());
-            toast(response, "Government ID added");
+            toast(response, "toast.government-id.added", "Government ID added");
         }
         populateTabModel(own.requireId(), "personal", principal, model);
         return "people/profile :: tabContent";
@@ -167,7 +174,7 @@ class ProfileController {
             HttpServletResponse response) {
         Employee own = ownEmployee(principal);
         employees.removeGovernmentId(own.requireId(), governmentIdId);
-        toast(response, "Government ID removed");
+        toast(response, "toast.government-id.removed", "Government ID removed");
         populateTabModel(own.requireId(), "personal", principal, model);
         return "people/profile :: tabContent";
     }
@@ -188,7 +195,7 @@ class ProfileController {
             HttpServletResponse response) {
         Employee own = ownEmployee(principal);
         leaveRequests.cancelAndListForEmployee(requestId, principal.userId(), own.requireId(), false);
-        toast(response, "Request cancelled");
+        toast(response, "toast.leave-request.cancelled", "Request cancelled");
         populateTabModel(own.requireId(), "timeoff", principal, model);
         return "people/profile :: tabContent";
     }
@@ -227,9 +234,10 @@ class ProfileController {
                         visibility == null ? DocumentVisibility.EMPLOYEE_PRIVATE : visibility,
                         principal.userId());
             }
-            toast(response, "Document uploaded");
+            toast(response, "toast.document.uploaded", "Document uploaded");
         } catch (CaderlyException exception) {
-            model.addAttribute("documentUploadError", exception.getMessage());
+            model.addAttribute(
+                    "documentUploadError", WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
         }
         populateTabModel(employeeId, "documents", principal, model);
         return "people/profile :: tabContent";
@@ -259,7 +267,7 @@ class ProfileController {
         UUID callerEmployeeId = employees.findByUserId(principal.userId()).map(Employee::requireId).orElse(null);
         boolean isAdmin = principal.roles().contains(Role.ADMIN);
         EmployeeDocumentService.DeletionResult result = employeeDocuments.deleteAndList(docId, callerEmployeeId, isAdmin);
-        toast(response, "Document deleted");
+        toast(response, "toast.document.deleted", "Document deleted");
         populateTabModel(result.employeeId(), "documents", principal, model);
         return "people/profile :: tabContent";
     }
@@ -365,19 +373,25 @@ class ProfileController {
         return "attachment; filename*=UTF-8''" + encoded;
     }
 
-    private static void toast(HttpServletResponse response, String message) {
+    /** Resolves {@code key} through {@code messages.properties} (ADR 0013), then fires the toast. */
+    private void toast(HttpServletResponse response, String key, String defaultMessage) {
+        String message = messages.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale());
         response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
     }
 
     record EmergencyContactForm(
-            @NotBlank @jakarta.validation.constraints.Size(max = 150) String name,
+            @NotBlank(message = "{validation.emergency-contact-form.name.required}")
+                    @jakarta.validation.constraints.Size(
+                            max = 150,
+                            message = "{validation.emergency-contact-form.name.too-long}")
+                    String name,
             @Nullable String relationship,
             @Nullable String phone,
             @Nullable String email) {}
 
     record GovernmentIdForm(
             GovernmentIdType idType,
-            @NotBlank String idNumber,
+            @NotBlank(message = "{validation.government-id-form.id-number.required}") String idNumber,
             @Nullable String country,
             @Nullable LocalDate issueDate,
             @Nullable LocalDate expiryDate) {}

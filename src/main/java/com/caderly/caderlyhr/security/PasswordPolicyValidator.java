@@ -38,18 +38,27 @@ public class PasswordPolicyValidator implements ConstraintValidator<ValidPasswor
         return false;
     }
 
+    /**
+     * Each return value is a Bean Validation message template (curly-brace form), resolved
+     * through the app's {@code messages.properties} by Hibernate Validator's interpolator — the
+     * same mechanism {@link ValidPassword#message()}'s default uses (ADR 0013). {@code
+     * MIN_LENGTH} is baked into {@code validation.password.min-length}'s text rather than passed
+     * as a template argument: Bean Validation's own EL-based interpolation, not {@link
+     * java.text.MessageFormat}, resolves these templates, so there is no positional-argument
+     * mechanism to hook the constant through without a custom {@code MessageInterpolator}.
+     */
     private static @Nullable String firstFailure(String password) {
         if (password.length() < MIN_LENGTH) {
-            return "Password must be at least " + MIN_LENGTH + " characters";
+            return "{validation.password.min-length}";
         }
         if (password.chars().noneMatch(Character::isUpperCase)) {
-            return "Password must contain an upper-case letter";
+            return "{validation.password.uppercase-required}";
         }
         if (password.chars().noneMatch(Character::isLowerCase)) {
-            return "Password must contain a lower-case letter";
+            return "{validation.password.lowercase-required}";
         }
         if (password.chars().noneMatch(Character::isDigit)) {
-            return "Password must contain a digit";
+            return "{validation.password.digit-required}";
         }
         return null;
     }

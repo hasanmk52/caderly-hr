@@ -3,33 +3,44 @@ package com.caderly.caderlyhr.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
 import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
 import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.context.support.ResourceBundleMessageSource;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 /**
  * PRD §19.1's password rules. Driven through a real Bean Validation {@code Validator} rather than
  * by calling the validator class directly, so the {@link ValidPassword} wiring is covered too — a
  * constraint that is never discovered fails open, and a unit test of the class alone would not
  * notice.
+ *
+ * <p>Built via Spring's {@link LocalValidatorFactoryBean}, wired to the real {@code
+ * messages.properties}, rather than a bare {@code Validation.buildDefaultValidatorFactory()} —
+ * {@link PasswordPolicyValidator} returns {@code {key}} message templates (ADR 0013), which only
+ * a Spring-aware interpolator resolves against the app's own bundle; a plain JSR-380 factory
+ * would render the unresolved key literally instead of failing, silently proving nothing.
  */
 class PasswordPolicyValidatorTest {
 
     private record Candidate(@ValidPassword String password) {}
 
-    private static ValidatorFactory factory;
+    private static LocalValidatorFactoryBean factory;
     private static Validator validator;
 
     @BeforeAll
     static void setUp() {
-        factory = Validation.buildDefaultValidatorFactory();
-        validator = factory.getValidator();
+        ResourceBundleMessageSource messages = new ResourceBundleMessageSource();
+        messages.setBasename("messages");
+        messages.setDefaultEncoding("UTF-8");
+        factory = new LocalValidatorFactoryBean();
+        factory.setValidationMessageSource(messages);
+        factory.afterPropertiesSet();
+        validator = factory;
     }
 
     @AfterAll

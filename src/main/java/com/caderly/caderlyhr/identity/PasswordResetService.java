@@ -13,6 +13,7 @@ import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.MessageSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final MessageSource messages;
 
     PasswordResetService(
             AppUserRepository users,
@@ -37,13 +39,15 @@ public class PasswordResetService {
             EmailOutboxService emailOutbox,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher events,
-            Clock clock) {
+            Clock clock,
+            MessageSource messages) {
         this.users = users;
         this.resetTokens = resetTokens;
         this.emailOutbox = emailOutbox;
         this.passwordEncoder = passwordEncoder;
         this.events = events;
         this.clock = clock;
+        this.messages = messages;
     }
 
     /**
@@ -79,8 +83,8 @@ public class PasswordResetService {
         emailOutbox.enqueue(
                 TenantContext.require(),
                 email,
-                IdentityEmails.resetSubject(tenantName),
-                IdentityEmails.resetBody(tenantName, resetUrl(appBaseUrl, rawToken)));
+                IdentityEmails.resetSubject(messages, Locale.ENGLISH, tenantName),
+                IdentityEmails.resetBody(messages, Locale.ENGLISH, tenantName, resetUrl(appBaseUrl, rawToken)));
 
         log.info("Password reset token issued for {}", email);
     }

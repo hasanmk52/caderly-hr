@@ -12,12 +12,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSource;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +47,7 @@ public class LeaveRequestService {
     private final PeopleFacade people;
     private final EmailOutboxService emailOutbox;
     private final Clock clock;
+    private final MessageSource messages;
 
     LeaveRequestService(
             LeaveRequestRepository leaveRequests,
@@ -55,7 +58,8 @@ public class LeaveRequestService {
             TenantFacade tenants,
             PeopleFacade people,
             EmailOutboxService emailOutbox,
-            Clock clock) {
+            Clock clock,
+            MessageSource messages) {
         this.leaveRequests = leaveRequests;
         this.leaveTypes = leaveTypes;
         this.balances = balances;
@@ -65,6 +69,7 @@ public class LeaveRequestService {
         this.people = people;
         this.emailOutbox = emailOutbox;
         this.clock = clock;
+        this.messages = messages;
     }
 
     // ---- Writes ----
@@ -410,10 +415,16 @@ public class LeaveRequestService {
                     "LEAVE_NO_APPROVER_AVAILABLE", "No manager or Admin is available to approve this request");
         }
         String reviewUrl = appBaseUrl + "/for-action";
-        String subject = TimeoffEmails.requestedSubject(requester.fullName());
+        String subject = TimeoffEmails.requestedSubject(messages, Locale.ENGLISH, requester.fullName());
         String body =
                 TimeoffEmails.requestedBody(
-                        requester.fullName(), request.leaveType().name(), dateRange(request), request.durationDays(), reviewUrl);
+                        messages,
+                        Locale.ENGLISH,
+                        requester.fullName(),
+                        request.leaveType().name(),
+                        dateRange(request),
+                        request.durationDays(),
+                        reviewUrl);
         UUID tenantId = TenantContext.get().orElse(null);
         for (PeopleFacade.EmployeeApprovalInfo approver : approvers) {
             emailOutbox.enqueue(tenantId, approver.email(), subject, body);
@@ -426,12 +437,19 @@ public class LeaveRequestService {
         String leaveTypeName = request.leaveType().name();
         String dateRange = dateRange(request);
         String subject =
-                approved ? TimeoffEmails.approvedSubject(leaveTypeName) : TimeoffEmails.rejectedSubject(leaveTypeName);
+                approved
+                        ? TimeoffEmails.approvedSubject(messages, Locale.ENGLISH, leaveTypeName)
+                        : TimeoffEmails.rejectedSubject(messages, Locale.ENGLISH, leaveTypeName);
         String body =
                 approved
-                        ? TimeoffEmails.approvedBody(leaveTypeName, dateRange, approverName)
+                        ? TimeoffEmails.approvedBody(messages, Locale.ENGLISH, leaveTypeName, dateRange, approverName)
                         : TimeoffEmails.rejectedBody(
-                                leaveTypeName, dateRange, approverName, decisionNote == null ? "" : decisionNote);
+                                messages,
+                                Locale.ENGLISH,
+                                leaveTypeName,
+                                dateRange,
+                                approverName,
+                                decisionNote == null ? "" : decisionNote);
         emailOutbox.enqueue(tenantId, requester.email(), subject, body);
     }
 
@@ -454,8 +472,12 @@ public class LeaveRequestService {
             approver = admins.getFirst();
         }
         UUID tenantId = TenantContext.get().orElse(null);
-        String subject = TimeoffEmails.cancelledSubject(requester.fullName(), request.leaveType().name());
-        String body = TimeoffEmails.cancelledBody(requester.fullName(), request.leaveType().name(), dateRange(request));
+        String subject =
+                TimeoffEmails.cancelledSubject(
+                        messages, Locale.ENGLISH, requester.fullName(), request.leaveType().name());
+        String body =
+                TimeoffEmails.cancelledBody(
+                        messages, Locale.ENGLISH, requester.fullName(), request.leaveType().name(), dateRange(request));
         emailOutbox.enqueue(tenantId, approver.email(), subject, body);
     }
 

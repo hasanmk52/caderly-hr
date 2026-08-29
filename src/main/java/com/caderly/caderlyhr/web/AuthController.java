@@ -6,6 +6,8 @@ import com.caderly.caderlyhr.identity.PasswordResetService;
 import com.caderly.caderlyhr.tenant.TenantSummary;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
@@ -29,10 +31,12 @@ class AuthController {
 
     private final InviteService invites;
     private final PasswordResetService resets;
+    private final MessageSource messages;
 
-    AuthController(InviteService invites, PasswordResetService resets) {
+    AuthController(InviteService invites, PasswordResetService resets, MessageSource messages) {
         this.invites = invites;
         this.resets = resets;
+        this.messages = messages;
     }
 
     @GetMapping("/login")
@@ -98,7 +102,8 @@ class AuthController {
             resets.completeReset(form.token(), form.password());
         } catch (CaderlyException exception) {
             model.addAttribute("tokenValid", false);
-            model.addAttribute("pageError", exception.getMessage());
+            model.addAttribute(
+                    "pageError", WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             return "auth/reset-password";
         }
         return "redirect:/login?resetComplete";
@@ -126,19 +131,23 @@ class AuthController {
         try {
             invites.acceptInvite(form.token(), form.password());
         } catch (CaderlyException exception) {
-            model.addAttribute("pageError", exception.getMessage());
+            model.addAttribute(
+                    "pageError", WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             return "auth/accept-invite";
         }
         return "redirect:/login?inviteAccepted";
     }
 
     /** Attaches the mismatch to the confirmation field so the UI can mark that input. */
-    private static void rejectMismatchedConfirmation(
-            AuthForms.SetPassword form, BindingResult binding) {
+    private void rejectMismatchedConfirmation(AuthForms.SetPassword form, BindingResult binding) {
         if (!binding.hasFieldErrors("password") && !form.passwordsMatch()) {
-            binding.addError(
-                    new FieldError(
-                            "form", "confirmPassword", "Passwords do not match"));
+            String message =
+                    messages.getMessage(
+                            "validation.set-password-form.confirm-password.mismatch",
+                            null,
+                            "Passwords do not match",
+                            LocaleContextHolder.getLocale());
+            binding.addError(new FieldError("form", "confirmPassword", message));
         }
     }
 }

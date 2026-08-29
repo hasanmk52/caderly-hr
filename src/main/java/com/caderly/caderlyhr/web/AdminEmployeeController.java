@@ -16,6 +16,8 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -38,10 +40,12 @@ class AdminEmployeeController {
 
     private final EmployeeService employees;
     private final OrgFacade orgFacade;
+    private final MessageSource messages;
 
-    AdminEmployeeController(EmployeeService employees, OrgFacade orgFacade) {
+    AdminEmployeeController(EmployeeService employees, OrgFacade orgFacade, MessageSource messages) {
         this.employees = employees;
         this.orgFacade = orgFacade;
+        this.messages = messages;
     }
 
     @GetMapping("/admin/employees")
@@ -84,14 +88,17 @@ class AdminEmployeeController {
             try {
                 TenantSummary tenant = RequestTenant.of(request);
                 employees.create(form, RequestTenant.baseUrl(), tenant.name());
-                toast(response, "Employee created - invite email sent");
+                toast(response, "toast.employee.created", "Employee created - invite email sent");
                 populateContentAttributes(model);
                 model.addAttribute("refreshTable", true);
                 model.addAttribute("createForm", blankCreateForm());
                 populateFormOptions(model);
                 return "people/list :: createForm";
             } catch (CaderlyException exception) {
-                binding.rejectValue(fieldFor(exception), exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        fieldFor(exception),
+                        exception.errorCode(),
+                        WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         populateFormOptions(model);
@@ -119,13 +126,16 @@ class AdminEmployeeController {
         if (!binding.hasErrors()) {
             try {
                 employees.updateAdminFields(id, form);
-                toast(response, "Employee updated");
+                toast(response, "toast.employee.updated", "Employee updated");
                 populateContentAttributes(model);
                 model.addAttribute("refreshTable", true);
                 model.addAttribute("editingEmployeeId", id);
                 return "people/list :: editForm";
             } catch (CaderlyException exception) {
-                binding.rejectValue(fieldFor(exception), exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        fieldFor(exception),
+                        exception.errorCode(),
+                        WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         model.addAttribute("editingEmployeeId", id);
@@ -143,7 +153,7 @@ class AdminEmployeeController {
             HttpServletResponse response) {
         if (!binding.hasErrors()) {
             employees.terminate(id, form.terminationDate());
-            toast(response, "Employee termination scheduled");
+            toast(response, "toast.employee.termination-scheduled", "Employee termination scheduled");
         }
         populateContentAttributes(model);
         model.addAttribute("refreshTable", true);
@@ -227,7 +237,9 @@ class AdminEmployeeController {
         };
     }
 
-    private static void toast(HttpServletResponse response, String message) {
+    /** Resolves {@code key} through {@code messages.properties} (ADR 0013), then fires the toast. */
+    private void toast(HttpServletResponse response, String key, String defaultMessage) {
+        String message = messages.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale());
         response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
     }
 

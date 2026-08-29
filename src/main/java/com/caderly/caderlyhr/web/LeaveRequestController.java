@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -35,10 +37,12 @@ class LeaveRequestController {
 
     private final LeaveRequestService leaveRequests;
     private final EmployeeService employees;
+    private final MessageSource messages;
 
-    LeaveRequestController(LeaveRequestService leaveRequests, EmployeeService employees) {
+    LeaveRequestController(LeaveRequestService leaveRequests, EmployeeService employees, MessageSource messages) {
         this.leaveRequests = leaveRequests;
         this.employees = employees;
+        this.messages = messages;
     }
 
     @GetMapping("/leave/new")
@@ -76,7 +80,8 @@ class LeaveRequestController {
                                 form.startHalfDayPm(),
                                 form.endHalfDayAm()));
             } catch (CaderlyException exception) {
-                model.addAttribute("previewError", exception.getMessage());
+                model.addAttribute(
+                        "previewError", WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         return "leave/book-time-off :: preview";
@@ -104,13 +109,16 @@ class LeaveRequestController {
                         form.endHalfDayAm(),
                         form.note(),
                         RequestTenant.baseUrl());
-                toast(response, "Time off request submitted");
+                toast(response, "toast.leave-request.submitted", "Time off request submitted");
                 model.addAttribute("bookableTypes", leaveRequests.bookableTypesForEmployee(employeeId));
                 model.addAttribute("leaveForm", blankForm(null));
                 model.addAttribute("preview", (Object) null);
                 return "leave/book-time-off :: modalBody";
             } catch (CaderlyException exception) {
-                binding.rejectValue("startDate", exception.errorCode(), exception.getMessage());
+                binding.rejectValue(
+                        "startDate",
+                        exception.errorCode(),
+                        WebMessages.errorDetail(messages, exception, LocaleContextHolder.getLocale()));
             }
         }
         model.addAttribute("bookableTypes", leaveRequests.bookableTypesForEmployee(employeeId));
@@ -131,7 +139,9 @@ class LeaveRequestController {
         return new LeaveForms.BookLeaveForm(leaveTypeId, today, today, false, false, null);
     }
 
-    private static void toast(HttpServletResponse response, String message) {
+    /** Resolves {@code key} through {@code messages.properties} (ADR 0013), then fires the toast. */
+    private void toast(HttpServletResponse response, String key, String defaultMessage) {
+        String message = messages.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale());
         response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
     }
 }

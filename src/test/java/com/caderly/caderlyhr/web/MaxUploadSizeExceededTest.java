@@ -3,6 +3,7 @@ package com.caderly.caderlyhr.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.context.support.StaticMessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -26,7 +27,7 @@ import org.springframework.web.servlet.ModelAndView;
  */
 class MaxUploadSizeExceededTest {
 
-    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    private final GlobalExceptionHandler handler = new GlobalExceptionHandler(new StaticMessageSource());
 
     @Test
     void handleMaxUploadSizeExceeded_forABrowserRequest_rendersACaderlyErrorPage() {
