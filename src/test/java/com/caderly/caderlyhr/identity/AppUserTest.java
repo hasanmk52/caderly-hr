@@ -147,6 +147,28 @@ class AppUserTest {
     }
 
     @Test
+    void issueIcalToken_whenNoneYet_setsToken() {
+        AppUser user = activeUser();
+        assertThat(user.icalToken()).isNull();
+
+        user.issueIcalToken("raw-token-value");
+
+        assertThat(user.icalToken()).isEqualTo("raw-token-value");
+    }
+
+    @Test
+    void issueIcalToken_whenCalledAgain_overwritesThePreviousValue() {
+        // Regeneration must invalidate the old URL immediately (Phase 1.8 DoD) — a plain
+        // overwrite, since this is a column, not a history table.
+        AppUser user = activeUser();
+        user.issueIcalToken("first-token");
+
+        user.issueIcalToken("second-token");
+
+        assertThat(user.icalToken()).isEqualTo("second-token");
+    }
+
+    @Test
     void changePassword_whenAccountWasLocked_clearsTheLock() {
         // A successful reset is proof of mailbox control, so it should not leave the user
         // locked out by the failures that prompted the reset in the first place.

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -89,6 +90,26 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
      * has to exhaust the recursion. That is the access-denied path, so the old query hung on the
      * branch that refuses access rather than the one that grants it.
      */
+    /**
+     * Team calendar's employee list (PRD §6.6 FR-6.2, sub-phase 1.8), not-terminated only —
+     * matching {@link #findAllByStatusNot}'s convention elsewhere rather than a strict {@code
+     * ACTIVE}-only filter. {@code divisionId} needs the join through {@code department}: {@link
+     * Employee} has no direct division reference (a division's departments are the only path).
+     * Both filters are optional; either or both may be {@code null}.
+     */
+    @EntityGraph(attributePaths = {"department", "manager"})
+    @Query(
+            """
+            SELECT e FROM Employee e
+            WHERE e.status <> com.caderly.caderlyhr.people.EmployeeStatus.TERMINATED
+              AND (:departmentId IS NULL OR e.department.id = :departmentId)
+              AND (:divisionId IS NULL OR e.department.division.id = :divisionId)
+            ORDER BY e.lastName ASC, e.firstName ASC
+            """)
+    List<Employee> findActiveForCalendar(
+            @Param("departmentId") @Nullable UUID departmentId,
+            @Param("divisionId") @Nullable UUID divisionId);
+
     @Query(
             value =
                     """

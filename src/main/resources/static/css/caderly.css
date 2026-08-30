@@ -39,6 +39,17 @@ body {
   min-width: 220px;
 }
 
+/* Every page's content div (id="content", flex-grow-1) is a flex item next to the
+   sidebar. Flex items default to min-width: auto, which refuses to shrink below the
+   content's intrinsic width — so a wide descendant (the calendar grid's day columns)
+   grows the whole page horizontally instead of scrolling inside its own overflow-x
+   container (.calendar-scroll). min-width: 0 lets the flex item actually shrink to
+   the available space, so the intended child scrollbar takes over instead. Harmless
+   for every other page: this only permits shrinking, it doesn't force it. */
+#content {
+  min-width: 0;
+}
+
 /* UI Guidelines §9: the skip link is off-screen until focused, then must be visible
    and above everything else. Bootstrap's .visually-hidden-focusable handles the
    reveal; this only positions it so it does not displace the topbar when shown. */
@@ -88,4 +99,51 @@ body {
 .upload-dropzone-active {
   border-color: var(--bs-primary);
   background-color: var(--bs-primary-bg-subtle);
+}
+
+/* Team calendar grid (UI Guidelines §8.4). The name column stays visible while the day
+   columns scroll horizontally — a plain `position: sticky` needs an ancestor providing the
+   scroll container, which .calendar-scroll is. */
+.calendar-scroll {
+  overflow-x: auto;
+}
+
+.calendar-name-col {
+  width: 220px;
+  position: sticky;
+  left: 0;
+  background: var(--bs-body-bg, #fff);
+  z-index: 1;
+}
+
+.calendar-day-grid {
+  min-width: 0;
+}
+
+.calendar-day-cell {
+  min-width: 28px;
+  height: 2.25rem;
+  border-left: 1px solid var(--bs-border-color-translucent);
+}
+
+/* "Shaded slightly darker" per UI Guidelines §8.4 — a tint of the theme's own secondary
+   color, not a new hardcoded gray, so it still reads correctly in dark mode. */
+.calendar-weekend {
+  background-color: var(--bs-secondary-bg, rgba(0, 0, 0, 0.035));
+}
+
+.calendar-holiday {
+  background-color: var(--bs-warning-bg-subtle);
+}
+
+.calendar-bar {
+  height: 1.5rem;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.75rem;
+  overflow: hidden;
+  cursor: default;
 }

@@ -2,6 +2,7 @@ package com.caderly.caderlyhr.people;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -61,8 +62,26 @@ public interface PeopleFacade {
      */
     boolean isManagerOf(UUID managerId, UUID employeeId);
 
+    /**
+     * Resolves an {@code identity.AppUser} id to the Employee record it's linked to, for {@code
+     * calendar.CalendarFeedService} (token owner -> whose leave to render) and Settings ->
+     * Calendar integration. Delegates to {@code EmployeeRepository#findByUserId}, already used
+     * internally by {@link #listActiveAdminApprovalInfo} but not previously exposed here.
+     */
+    Optional<UUID> findEmployeeIdByUserId(UUID userId);
+
+    /**
+     * Not-terminated employees for the team calendar grid (PRD §6.6 FR-6.2), optionally narrowed
+     * to one department and/or division. Either or both filters may be {@code null}.
+     */
+    List<EmployeeCalendarInfo> listEmployeesForCalendar(
+            @Nullable UUID departmentId, @Nullable UUID divisionId);
+
     record EmployeeHireInfo(UUID employeeId, @Nullable LocalDate hireDate) {}
 
     record EmployeeApprovalInfo(
             UUID employeeId, String fullName, String email, @Nullable UUID managerId) {}
+
+    record EmployeeCalendarInfo(
+            UUID employeeId, String fullName, @Nullable String departmentName) {}
 }

@@ -40,6 +40,14 @@
         </li>
         <li><hr class="dropdown-divider" /></li>
         <li>
+          <!--/* No general Settings shell exists yet (Change password/MFA are still deferred —
+                 CURRENT_PHASE.md's carried-forward items), so this links straight at the one
+                 settings page this phase adds rather than a multi-tab page that doesn't exist. */-->
+          <a class="dropdown-item" th:href="@{/settings/calendar}">
+            <i class="bi bi-calendar-week me-2" aria-hidden="true"></i><span th:text="#{settings.calendar.title}">Calendar integration</span>
+          </a>
+        </li>
+        <li>
           <!--/* A POST form, not a link. Logout is state-changing, so it carries the CSRF
                  token Thymeleaf injects automatically into th:action forms. */-->
           <form th:action="@{/logout}" method="post" class="px-1">

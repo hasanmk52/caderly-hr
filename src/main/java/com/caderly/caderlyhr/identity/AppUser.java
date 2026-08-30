@@ -70,6 +70,13 @@ public class AppUser extends TenantAwareEntity {
     @Column(name = "invite_expires_at")
     private @Nullable Instant inviteExpiresAt;
 
+    /**
+     * The per-user iCal feed token (PRD FR-6.5, sub-phase 1.8), stored raw rather than hashed —
+     * see ADR 0014. {@code null} until the user's first visit to Settings -> Calendar integration.
+     */
+    @Column(name = "ical_token")
+    private @Nullable String icalToken;
+
     // EAGER is deliberate: roles are needed on every authentication and there are at most three
     // per user, so the alternative is an N+1 or an @EntityGraph on every lookup for no gain.
     @OneToMany(
@@ -195,6 +202,14 @@ public class AppUser extends TenantAwareEntity {
         this.status = UserStatus.DISABLED;
     }
 
+    /**
+     * Sets (or rotates) the iCal feed token. A plain overwrite is what makes rotation instant:
+     * whoever held the previous URL loses access on the next request (CalendarTokenService).
+     */
+    public void issueIcalToken(String rawToken) {
+        this.icalToken = rawToken;
+    }
+
     public void grant(Role role) {
         if (roles.stream().noneMatch(assignment -> assignment.role() == role)) {
             roles.add(new UserRole(this, role));
@@ -241,5 +256,9 @@ public class AppUser extends TenantAwareEntity {
 
     public @Nullable String inviteTokenHash() {
         return inviteTokenHash;
+    }
+
+    public @Nullable String icalToken() {
+        return icalToken;
     }
 }

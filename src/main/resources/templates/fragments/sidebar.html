@@ -9,9 +9,7 @@
     </li>
     <li class="nav-item"><a class="nav-link" th:href="@{/profile}" th:text="#{nav.my-profile}">My Profile</a></li>
     <li class="nav-item"><a class="nav-link" th:href="@{/files}" th:text="#{nav.files}">Files</a></li>
-    <li class="nav-item">
-      <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true" th:text="#{nav.calendar}">Calendar</a>
-    </li>
+    <li class="nav-item"><a class="nav-link" th:href="@{/calendar}" th:text="#{nav.calendar}">Calendar</a></li>
     <li class="nav-item" sec:authorize="hasAnyRole('MANAGER','ADMIN')">
       <a class="nav-link" th:href="@{/for-action}" th:text="#{nav.for-action}">For Action</a>
     </li>

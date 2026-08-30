@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -76,4 +77,36 @@ public interface LeaveRequestRepository extends TenantAwareRepository<LeaveReque
             @Param("statuses") List<LeaveRequestStatus> statuses,
             @Param("start") LocalDate start,
             @Param("end") LocalDate end);
+
+    /**
+     * Team calendar grid (PRD §6.6 FR-6.1/FR-6.2, sub-phase 1.8): every APPROVED request for the
+     * given employees whose [startDate, endDate] range overlaps [from, to] (inclusive), optionally
+     * narrowed to one leave type. {@code leaveTypeId} is nullable — {@code calendar.CalendarService}
+     * passes {@code null} when the filter panel's leave-type dropdown is unset.
+     */
+    @EntityGraph(attributePaths = "leaveType")
+    @Query(
+            """
+            SELECT r FROM LeaveRequest r
+            WHERE r.status = com.caderly.caderlyhr.timeoff.LeaveRequestStatus.APPROVED
+              AND r.employeeId IN :employeeIds
+              AND r.startDate <= :to
+              AND r.endDate >= :from
+              AND (:leaveTypeId IS NULL OR r.leaveType.id = :leaveTypeId)
+            ORDER BY r.startDate ASC
+            """)
+    List<LeaveRequest> findApprovedInRangeForEmployees(
+            @Param("employeeIds") List<UUID> employeeIds,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("leaveTypeId") @Nullable UUID leaveTypeId);
+
+    /**
+     * The iCal feed's full scope (PRD AC-CALENDAR.1: "all my APPROVED leaves"), no date bound —
+     * simpler and more literally correct than an arbitrary forward window, and the row count per
+     * employee is small enough that this needs no pagination.
+     */
+    @EntityGraph(attributePaths = "leaveType")
+    List<LeaveRequest> findAllByEmployeeIdAndStatusOrderByStartDateAsc(
+            UUID employeeId, LeaveRequestStatus status);
 }
