@@ -34,7 +34,6 @@ public interface TimeoffFacade {
             UUID employeeId,
             UUID leaveRequestId,
             String leaveTypeName,
-            @Nullable String leaveTypeColor,
             @Nullable String leaveTypeIcon,
             LocalDate startDate,
             LocalDate endDate,

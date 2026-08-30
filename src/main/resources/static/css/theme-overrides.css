@@ -182,6 +182,16 @@
   --bs-btn-disabled-border-color: var(--bs-success);
 }
 
+/* Same component-local-var gotcha as .btn-primary above: .nav-pills bakes stock
+   Bootstrap blue into its own local var (--bs-nav-pills-link-active-bg), not
+   var(--bs-primary). Used today by for-action.html's "Time off requests" pill.
+   The sidebar's own .caderly-sidebar .nav-pills .nav-link.active rule below sets
+   background-color directly, which wins on specificity over this variable-driven
+   default regardless, so the sidebar's distinct soft-tint look is unaffected. */
+.nav-pills {
+  --bs-nav-pills-link-active-bg: var(--bs-primary);
+}
+
 .form-control:focus,
 .form-select:focus {
   border-color: var(--bs-primary-border-subtle);

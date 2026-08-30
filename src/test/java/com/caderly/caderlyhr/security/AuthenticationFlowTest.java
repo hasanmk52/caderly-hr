@@ -74,8 +74,6 @@ class AuthenticationFlowTest {
         seedUser(tenantA, emailInA, user -> user.grant(Role.EMPLOYEE));
     }
 
-    // ---------- login ----------
-
     @Test
     void login_whenValidCredentials_authenticatesAndRedirectsHome() throws Exception {
         mockMvc
@@ -162,8 +160,6 @@ class AuthenticationFlowTest {
                 .andExpect(status().isServiceUnavailable());
     }
 
-    // ---------- lockout ----------
-
     @Test
     void login_afterFiveFailuresInTheWindow_locksTheAccountEvenForTheCorrectPassword()
             throws Exception {
@@ -196,8 +192,6 @@ class AuthenticationFlowTest {
         assertThat(user.lastLoginAt()).isNotNull();
     }
 
-    // ---------- CSRF ----------
-
     @Test
     void login_withoutCsrfToken_isForbidden() throws Exception {
         mockMvc
@@ -214,8 +208,6 @@ class AuthenticationFlowTest {
                 .perform(post(URI.create("http://" + slugA + ".localhost/logout")))
                 .andExpect(status().isForbidden());
     }
-
-    // ---------- password policy ----------
 
     /**
      * Proves the {@code @ValidPassword} constraint is actually discovered and applied on a real
@@ -251,8 +243,6 @@ class AuthenticationFlowTest {
                 .andExpect(model().attributeExists("pageError"));
     }
 
-    // ---------- rate limiting ----------
-
     @Test
     void login_afterTenAttemptsInOneMinute_isRateLimited() throws Exception {
         for (int attempt = 0; attempt < 10; attempt++) {
@@ -263,8 +253,6 @@ class AuthenticationFlowTest {
                 .perform(loginRequest(slugA, "spray-final@example.test", "Whatever123"))
                 .andExpect(redirectedUrl("/login?rateLimited"));
     }
-
-    // ---------- helpers ----------
 
     private MockHttpServletRequestBuilder loginRequest(String slug, String email, String password) {
         return post(URI.create("http://" + slug + ".localhost/login"))

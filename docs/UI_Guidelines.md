@@ -263,8 +263,8 @@ Destructive actions (delete, terminate): confirm via modal, then show a toast on
 ### 8.4 Team Calendar
 - Row per employee (avatar + name in first column, sticky).
 - Columns = days of visible range, with weekend cells shaded slightly darker.
-- Public holidays: full column shaded with `bg-warning-subtle` and a small holiday-name label at top.
-- Leave: rounded bar spanning start-to-end, colored per LeaveType, with icon at the leading edge.
+- Public holidays: rendered as a bar in every employee's row on the holiday's date, identical styling to a leave-type bar (no separate column shading, no `bg-warning-subtle`) — distinguished only by its bold `bi-calendar-heart-fill` icon; the holiday's name surfaces via the bar's hover tooltip, same as leave bars.
+- Leave: rounded bar spanning start-to-end, same fixed brand-tinted background/border for every leave type, distinguished only by its bold `bi-*-fill` icon (centered — bars are icon-only, no name text).
 - Half-day: bar occupies 50% of the cell (top or bottom).
 - Hover any bar → Bootstrap `popover` with type, dates, duration.
 

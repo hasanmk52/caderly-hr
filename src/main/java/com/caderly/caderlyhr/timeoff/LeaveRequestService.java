@@ -72,8 +72,6 @@ public class LeaveRequestService {
         this.messages = messages;
     }
 
-    // ---- Writes ----
-
     /**
      * Books a new request (PRD §12.4 steps 1-3). {@code appBaseUrl} is the request's origin
      * (resolved by the web layer, {@code web.RequestTenant.baseUrl()}) — only that layer knows
@@ -233,8 +231,6 @@ public class LeaveRequestService {
         }
     }
 
-    // ---- Combined write-then-read (ADR 0007/0009) ----
-
     @Transactional
     public List<BookableType> bookAndListTypes(
             UUID employeeId,
@@ -279,8 +275,6 @@ public class LeaveRequestService {
         LeaveRequest cancelled = cancel(requestId, actingUserId, actingEmployeeId, actingIsAdmin);
         return listForEmployee(cancelled.employeeId());
     }
-
-    // ---- Reads ----
 
     @Transactional(readOnly = true)
     public List<BookableType> bookableTypesForEmployee(UUID employeeId) {
@@ -357,8 +351,6 @@ public class LeaveRequestService {
     public List<LeaveRequest> listCompletedByApprover(UUID deciderUserId) {
         return leaveRequests.findAllByDeciderIdOrderByDecidedAtDesc(deciderUserId);
     }
-
-    // ---- Internal helpers ----
 
     private LeaveRequest requireRequest(UUID requestId) {
         return leaveRequests

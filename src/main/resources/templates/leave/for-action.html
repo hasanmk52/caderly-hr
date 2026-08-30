@@ -47,6 +47,60 @@
   </ul>
 </div>
 
+<!--/* Completed table (UI Guidelines §8.6). Its own fragment, same reasoning as pendingList
+       above, so it can also be OOB-swapped by pendingListAndCounts below after an
+       approve/reject — otherwise the Completed tab and the Pending/Completed counts go stale
+       until the next full page load. */-->
+<div id="completedList" th:fragment="completedList">
+  <div th:if="${#lists.isEmpty(completed)}" class="text-center text-muted py-5">
+    <i class="bi bi-check2-circle fs-1 d-block mb-2" aria-hidden="true"></i>
+    <p class="mb-0" th:text="#{for-action.completed-empty}">No decisions yet.</p>
+  </div>
+  <div th:unless="${#lists.isEmpty(completed)}" class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th scope="col" th:text="#{for-action.table.employee}">Employee</th>
+          <th scope="col" th:text="#{profile.timeoff.table.type}">Type</th>
+          <th scope="col" th:text="#{profile.timeoff.table.dates}">Dates</th>
+          <th scope="col" th:text="#{profile.timeoff.table.duration}">Duration</th>
+          <th scope="col" th:text="#{common.field.status}">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="row : ${completed}">
+          <td th:text="${row.employeeName}">Jane Doe</td>
+          <td>
+            <i th:if="${row.icon != null}" th:class="'bi ' + ${row.icon}"
+               th:style="${row.color != null} ? 'color:' + ${row.color}" aria-hidden="true"></i>
+            <span th:text="${row.leaveTypeName}">Vacation</span>
+          </td>
+          <td><span th:text="${row.startDate}">2026-08-17</span> - <span th:text="${row.endDate}">2026-08-21</span></td>
+          <td th:text="${row.durationDays}">5.00</td>
+          <td>
+            <span class="badge" th:text="${row.statusLabel}"
+                  th:classappend="${row.statusLabel == 'Approved'} ? 'bg-success-subtle text-success-emphasis' : (${row.statusLabel == 'Rejected'} ? 'bg-danger-subtle text-danger-emphasis' : 'bg-secondary-subtle text-secondary-emphasis')">
+              Approved
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!--/* Returned by approve/reject instead of the bare pendingList fragment: htmx swaps
+       #pendingList normally (it's the request's own hx-target), and picks up the three
+       hx-swap-oob elements below out of the same response to refresh the Pending/Completed
+       counts and the Completed table in the same round trip — no more manual page refresh
+       needed to see them catch up (UI Guidelines §8.6). */-->
+<th:block th:fragment="pendingListAndCounts">
+  <div th:replace="~{::pendingList}"></div>
+  <span id="pendingCount" hx-swap-oob="true" class="badge bg-secondary-subtle text-secondary-emphasis" th:text="${#lists.size(pending)}">0</span>
+  <span id="completedCount" hx-swap-oob="true" class="badge bg-secondary-subtle text-secondary-emphasis" th:text="${#lists.size(completed)}">0</span>
+  <div id="completedList" hx-swap-oob="true" th:replace="~{::completedList}"></div>
+</th:block>
+
 <!--/* Reject modal body (UI Guidelines §6/§8.6): lazily loaded into the empty #rejectLeaveModalBody
        shell in for-action.html, the same convention layout.html uses for #bookLeaveModalBody. */-->
 <th:block th:fragment="rejectForm">

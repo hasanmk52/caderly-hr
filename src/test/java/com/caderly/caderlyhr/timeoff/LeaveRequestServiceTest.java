@@ -60,8 +60,6 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
     @Autowired private EmailOutboxRepository outbox;
     @Autowired private MutableClock clock;
 
-    // ---- book ----
-
     @Test
     void book_happyPath_savesPendingRequestAndQueuesEmail() {
         LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
@@ -379,8 +377,6 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
         assertThat(request.status()).isEqualTo(LeaveRequestStatus.PENDING);
     }
 
-    // ---- Overlap validation (BR-15) ----
-
     @Test
     void book_overlappingAnotherApprovedRequestOfDifferentType_throwsOverlappingRequest() {
         LeaveType vacation = asTenant(tenantA, () -> createLeaveType("10", "Vacation"));
@@ -565,8 +561,6 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
         assertThat(request.durationDays()).isEqualByComparingTo("2.00");
     }
 
-    // ---- approve / reject ----
-
     @Test
     void approve_debitsBalanceAndEmailsRequester() {
         LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
@@ -731,8 +725,6 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
-    // ---- cancel ----
-
     @Test
     void cancel_pendingRequest_cancellableAnytimeBySelf() {
         LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
@@ -842,8 +834,6 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
-    // ---- termination cascade ----
-
     @Test
     void cancelFutureRequestsForTermination_cancelsPendingAndApproved_creditsBackOnlyApproved() {
         LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
@@ -867,8 +857,6 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
         assertThat(freshApproved.status()).isEqualTo(LeaveRequestStatus.CANCELLED);
         assertThat(requireBalance(report.requireId(), type.requireId()).used()).isEqualByComparingTo("0.00");
     }
-
-    // ---- helpers ----
 
     private LocalDate today() {
         return LocalDate.now(clock);

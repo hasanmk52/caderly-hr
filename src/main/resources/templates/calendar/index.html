@@ -72,17 +72,19 @@
             <div class="calendar-name-col flex-shrink-0 py-2 px-2 fw-semibold small" th:text="#{common.field.name}">Name</div>
             <div class="calendar-day-grid flex-grow-1"
                  th:style="'display:grid; grid-template-columns: repeat(' + ${totalColumns} + ', minmax(28px,1fr));'">
-              <div th:each="day : ${days}" class="calendar-day-cell text-center small text-muted d-flex align-items-center justify-content-center"
-                   th:classappend="${day.dayOfWeek.value} >= 6 ? 'calendar-weekend' : (${#lists.contains(holidayDates, day)} ? 'calendar-holiday' : '')"
+              <!--/* Explicit grid-column (not left to auto-placement): the per-row grid below
+                     overlays bars with their own explicit grid-column, and per the CSS Grid spec
+                     explicit-position items are placed before auto-positioned ones regardless of
+                     DOM order — a day cell relying on auto-placement would get silently skipped
+                     past whichever column a bar occupies, shifting every subsequent day cell one
+                     column right (confirmed via an isolated repro). Pinning every day cell's own
+                     column keeps header and every row's cells aligned regardless of how many bars
+                     overlay them. */-->
+              <div th:each="day, dayStat : ${days}" class="calendar-day-cell text-center small text-muted d-flex align-items-center justify-content-center"
+                   th:classappend="${day.dayOfWeek.value} >= 6 ? 'calendar-weekend' : ''"
+                   th:style="'grid-column: ' + (${dayStat.index} + 1) + ';'"
                    th:text="${day.dayOfMonth}">1</div>
             </div>
-          </div>
-
-          <!--/* Holiday name labels, shown once above the grid rather than in every row. */-->
-          <div th:if="${!#lists.isEmpty(holidays)}" class="small text-muted px-2 py-1 border-bottom">
-            <span th:each="holiday, iter : ${holidays}">
-              <span th:text="${#temporals.format(holiday.date(), 'MMM d')} + ': ' + ${holiday.name()}">Sep 15: Founders Day</span><span th:unless="${iter.last}">, </span>
-            </span>
           </div>
 
           <!--/* One row per employee. UI Guidelines §8.4: name column sticky, bars span
@@ -100,14 +102,24 @@
             </div>
             <div class="calendar-day-grid flex-grow-1 position-relative"
                  th:style="'display:grid; grid-template-columns: repeat(' + ${totalColumns} + ', minmax(28px,1fr)); grid-auto-rows: 2.25rem;'">
-              <div th:each="day : ${days}" class="calendar-day-cell"
-                   th:classappend="${day.dayOfWeek.value} >= 6 ? 'calendar-weekend' : (${#lists.contains(holidayDates, day)} ? 'calendar-holiday' : '')"
-                   style="grid-row: 1;"></div>
+              <div th:each="day, dayStat : ${days}" class="calendar-day-cell"
+                   th:classappend="${day.dayOfWeek.value} >= 6 ? 'calendar-weekend' : ''"
+                   th:style="'grid-row: 1; grid-column: ' + (${dayStat.index} + 1) + ';'"></div>
               <div th:each="bar : ${row.bars}" class="calendar-bar rounded"
-                   th:style="'grid-row: 1; grid-column: ' + ${bar.startColumn} + ' / span ' + ${bar.columnSpan} + '; background-color: ' + (${bar.color} ?: 'var(--bs-secondary)') + ';'"
+                   th:style="'grid-row: 1; grid-column: ' + ${bar.startColumn} + ' / span ' + ${bar.columnSpan} + ';'"
                    data-bs-toggle="popover" data-bs-trigger="hover focus" tabindex="0"
                    th:attr="data-bs-content=${bar.tooltip}" th:aria-label="${bar.leaveTypeName}">
                 <i th:if="${bar.icon}" th:class="'bi ' + ${bar.icon}" aria-hidden="true"></i>
+              </div>
+              <!--/* A holiday applies to every employee, so the same holidayColumns list (computed
+                     once in CalendarController, not per-row) is rendered again in each row's
+                     overlay — same .calendar-bar markup/class as leave bars above, so it looks
+                     identical, distinguished only by the bold calendar-heart icon. */-->
+              <div th:each="holidayCol : ${holidayColumns}" class="calendar-bar rounded"
+                   th:style="'grid-row: 1; grid-column: ' + ${holidayCol.column} + ' / span 1;'"
+                   data-bs-toggle="popover" data-bs-trigger="hover focus" tabindex="0"
+                   th:attr="data-bs-content=${holidayCol.tooltip}" th:aria-label="${holidayCol.name}">
+                <i class="bi bi-calendar-heart-fill" aria-hidden="true"></i>
               </div>
             </div>
           </div>

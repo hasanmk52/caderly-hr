@@ -67,6 +67,26 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
             LocalDate onOrBefore, EmployeeStatus status);
 
     /**
+     * Team calendar's employee list (PRD §6.6 FR-6.2, sub-phase 1.8), not-terminated only —
+     * matching {@link #findAllByStatusNot}'s convention elsewhere rather than a strict {@code
+     * ACTIVE}-only filter. {@code divisionId} needs the join through {@code department}: {@link
+     * Employee} has no direct division reference (a division's departments are the only path).
+     * Both filters are optional; either or both may be {@code null}.
+     */
+    @EntityGraph(attributePaths = {"department", "manager"})
+    @Query(
+            """
+            SELECT e FROM Employee e
+            WHERE e.status <> com.caderly.caderlyhr.people.EmployeeStatus.TERMINATED
+              AND (:departmentId IS NULL OR e.department.id = :departmentId)
+              AND (:divisionId IS NULL OR e.department.division.id = :divisionId)
+            ORDER BY e.lastName ASC, e.firstName ASC
+            """)
+    List<Employee> findActiveForCalendar(
+            @Param("departmentId") @Nullable UUID departmentId,
+            @Param("divisionId") @Nullable UUID divisionId);
+
+    /**
      * Whether {@code managerId} is a direct or indirect manager of {@code employeeId}, walking the
      * self-referencing {@code manager_id} chain. Backs the "manager may view a report's profile,
      * direct or indirect" rule (PRD §26) — {@code EmployeeService} is the only caller.
@@ -90,26 +110,6 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
      * has to exhaust the recursion. That is the access-denied path, so the old query hung on the
      * branch that refuses access rather than the one that grants it.
      */
-    /**
-     * Team calendar's employee list (PRD §6.6 FR-6.2, sub-phase 1.8), not-terminated only —
-     * matching {@link #findAllByStatusNot}'s convention elsewhere rather than a strict {@code
-     * ACTIVE}-only filter. {@code divisionId} needs the join through {@code department}: {@link
-     * Employee} has no direct division reference (a division's departments are the only path).
-     * Both filters are optional; either or both may be {@code null}.
-     */
-    @EntityGraph(attributePaths = {"department", "manager"})
-    @Query(
-            """
-            SELECT e FROM Employee e
-            WHERE e.status <> com.caderly.caderlyhr.people.EmployeeStatus.TERMINATED
-              AND (:departmentId IS NULL OR e.department.id = :departmentId)
-              AND (:divisionId IS NULL OR e.department.division.id = :divisionId)
-            ORDER BY e.lastName ASC, e.firstName ASC
-            """)
-    List<Employee> findActiveForCalendar(
-            @Param("departmentId") @Nullable UUID departmentId,
-            @Param("divisionId") @Nullable UUID divisionId);
-
     @Query(
             value =
                     """

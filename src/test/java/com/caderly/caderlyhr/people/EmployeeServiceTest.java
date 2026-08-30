@@ -525,8 +525,6 @@ class EmployeeServiceTest extends TenantIsolationTestBase {
         assertThat(count).isEqualTo(1);
     }
 
-    // ---- fixtures ----
-
     private Employee createActiveEmployee(String firstName, String lastName) {
         Employee employee =
                 asTenant(tenantA, () -> employeeService.create(form(firstName, lastName, uniqueEmail()), BASE_URL, TENANT_NAME));

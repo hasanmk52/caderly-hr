@@ -55,7 +55,6 @@ class TimeoffFacadeImpl implements TimeoffFacade {
                 request.employeeId(),
                 request.requireId(),
                 type.name(),
-                type.color(),
                 type.icon(),
                 request.startDate(),
                 request.endDate(),

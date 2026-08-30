@@ -8,6 +8,7 @@ import com.caderly.caderlyhr.calendar.CalendarTokenService;
 import com.caderly.caderlyhr.identity.AppUserPrincipal;
 import com.caderly.caderlyhr.org.OrgFacade;
 import com.caderly.caderlyhr.timeoff.LeaveTypeService;
+import com.caderly.caderlyhr.timeoff.TimeoffFacade.HolidayMarker;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -88,8 +89,8 @@ class CalendarController {
         model.addAttribute("days", from.datesUntil(to.plusDays(1)).toList());
         model.addAttribute("totalColumns", totalColumns);
         model.addAttribute("rows", view.rows().stream().map(row -> toRowView(row, from, to)).toList());
-        model.addAttribute("holidayDates", view.holidays().stream().map(h -> h.date()).toList());
-        model.addAttribute("holidays", view.holidays());
+        model.addAttribute(
+                "holidayColumns", view.holidays().stream().map(h -> toHolidayColumnView(h, from)).toList());
         model.addAttribute("departmentOptions", org.listActiveDepartments());
         model.addAttribute("divisionOptions", org.listActiveDivisions());
         model.addAttribute("leaveTypeOptions", leaveTypes.listAll());
@@ -149,7 +150,35 @@ class CalendarController {
                         "%s: %s to %s (%s days)".formatted(
                                 bar.leaveTypeName(), bar.startDate(), bar.endDate(), bar.durationDays()),
                         LocaleContextHolder.getLocale());
-        return new BarView(bar.leaveTypeName(), bar.color(), bar.icon(), startColumn, columnSpan, tooltip);
+        return new BarView(bar.leaveTypeName(), boldIcon(bar.icon()), startColumn, columnSpan, tooltip);
+    }
+
+    /**
+     * A holiday applies to every employee, so its grid column is computed once and shared across
+     * every row's overlay — unlike leave bars, which are per-employee. Rendered with the exact same
+     * {@code .calendar-bar} markup/CSS class as leave bars (see {@code calendar/index.html}) so a
+     * holiday looks identical to a leave bar, distinguished only by its bold calendar-heart icon.
+     */
+    private HolidayColumnView toHolidayColumnView(HolidayMarker holiday, LocalDate from) {
+        int column = (int) ChronoUnit.DAYS.between(from, holiday.date()) + 1;
+        String tooltip =
+                messages.getMessage(
+                        "calendar.grid.holiday-tooltip",
+                        new Object[] {holiday.name(), holiday.date()},
+                        "%s (%s)".formatted(holiday.name(), holiday.date()),
+                        LocaleContextHolder.getLocale());
+        return new HolidayColumnView(holiday.name(), column, tooltip);
+    }
+
+    /**
+     * Calendar bars use each leave type's solid "-fill" icon variant for better legibility against
+     * the bar's light tinted background. Every entry in {@code AdminLeaveController.ICON_OPTIONS}
+     * is deliberately curated to have a "-fill" counterpart in the pinned bootstrap-icons 1.13.1
+     * webjar (see that constant's Javadoc), so this needs no exception handling — a future icon
+     * option without one would need to be reconsidered there, not worked around here.
+     */
+    private static @Nullable String boldIcon(@Nullable String icon) {
+        return icon == null ? null : icon + "-fill";
     }
 
     /** Resolves {@code key} through {@code messages.properties} (ADR 0013), then fires the toast. */
@@ -163,9 +192,10 @@ class CalendarController {
 
     record BarView(
             String leaveTypeName,
-            @Nullable String color,
             @Nullable String icon,
             int startColumn,
             int columnSpan,
             String tooltip) {}
+
+    record HolidayColumnView(String name, int column, String tooltip) {}
 }

@@ -62,31 +62,40 @@ class AdminLeaveController {
         this.messages = messages;
     }
 
-    // ---- Leave Types ----
-
     /**
      * Curated set of Bootstrap Icons offered when assigning a leave type's {@code icon} (UI
      * Guidelines §5: Bootstrap Icons only). Fixed and small rather than a searchable browser of
      * all ~2000 icons — every name here is verified against the pinned {@code bootstrap-icons}
-     * 1.13.1 webjar; {@code UI_Guidelines.md}'s own illustrative examples ({@code bi-palm}, {@code
-     * bi-bandaid}) do not actually exist in that icon set and must not be used.
+     * 1.13.1 webjar; {@code UI_Guidelines.md}'s illustrative {@code bi-palm} does not actually
+     * exist in that icon set and must not be used ({@code bi-bandaid}, also named there, does
+     * exist and is used below).
+     *
+     * <p>Every entry here also has a solid "-fill" counterpart in the pinned webjar — deliberately
+     * curated that way so {@code CalendarController.boldIcon} can bolden any of them on the
+     * calendar with a plain {@code icon + "-fill"}, no exceptions to track. {@code bi-thermometer-
+     * half}, {@code bi-person-hearts}, and {@code bi-cash-coin} were dropped for exactly this
+     * reason (none has a "-fill" version) in favor of {@code bi-bandaid}, {@code bi-people}, and
+     * {@code bi-wallet} respectively.
+     *
+     * <p>{@code bi-calendar-heart} is deliberately excluded: Phase 1.8 reserved it as the fixed,
+     * non-assignable icon for Public Holidays (UI_Guidelines.md §8.4) — leaving it selectable here
+     * too would let a leave type render with the exact same glyph as a holiday.
      */
     private static final List<IconOption> ICON_OPTIONS =
             List.of(
                     new IconOption("bi-airplane", "Airplane"),
                     new IconOption("bi-sun", "Sun"),
                     new IconOption("bi-heart-pulse", "Heart pulse"),
-                    new IconOption("bi-thermometer-half", "Thermometer"),
+                    new IconOption("bi-bandaid", "Bandaid"),
                     new IconOption("bi-hospital", "Hospital"),
-                    new IconOption("bi-person-hearts", "Person hearts"),
+                    new IconOption("bi-people", "People"),
                     new IconOption("bi-heart", "Heart"),
                     new IconOption("bi-calendar-event", "Calendar event"),
-                    new IconOption("bi-calendar-heart", "Calendar heart"),
                     new IconOption("bi-calendar-minus", "Calendar minus"),
                     new IconOption("bi-house-door", "House"),
                     new IconOption("bi-briefcase", "Briefcase"),
                     new IconOption("bi-mortarboard", "Mortarboard"),
-                    new IconOption("bi-cash-coin", "Cash coin"),
+                    new IconOption("bi-wallet", "Wallet"),
                     new IconOption("bi-umbrella", "Umbrella"),
                     new IconOption("bi-person", "Person"));
 
@@ -196,8 +205,6 @@ class AdminLeaveController {
         return "admin/leave-types :: content";
     }
 
-    // ---- Holidays ----
-
     @GetMapping("/admin/holidays")
     @PreAuthorize("hasRole('ADMIN')")
     String holidaysPage(Model model) {
@@ -272,8 +279,6 @@ class AdminLeaveController {
         model.addAttribute("holidays", result.holidays());
         return "admin/holidays :: content";
     }
-
-    // ---- Manual balance adjustment (backend-only, no dedicated screen this phase) ----
 
     @PostMapping("/admin/employees/{employeeId}/leave-balances/{leaveTypeId}/adjust")
     @PreAuthorize("hasRole('ADMIN')")

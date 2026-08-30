@@ -73,7 +73,6 @@ public class CalendarService {
         return new LeaveBar(
                 entry.leaveRequestId(),
                 entry.leaveTypeName(),
-                entry.leaveTypeColor(),
                 entry.leaveTypeIcon(),
                 entry.startDate(),
                 entry.endDate(),
@@ -87,10 +86,15 @@ public class CalendarService {
     public record EmployeeCalendarRow(
             UUID employeeId, String fullName, @Nullable String departmentName, List<LeaveBar> bars) {}
 
+    /**
+     * No color field: every bar renders with the same fixed brand-theme background/border
+     * (CSS {@code .calendar-bar}), leave types are told apart only by their bold {@code icon}
+     * glyph (see {@code CalendarController.boldIcon}) — a deliberate product decision, not an
+     * oversight (an earlier per-leave-type color-hash version of this record was reverted).
+     */
     public record LeaveBar(
             UUID leaveRequestId,
             String leaveTypeName,
-            @Nullable String color,
             @Nullable String icon,
             LocalDate startDate,
             LocalDate endDate,

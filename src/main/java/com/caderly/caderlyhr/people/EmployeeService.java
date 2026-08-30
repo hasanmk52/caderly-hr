@@ -405,8 +405,6 @@ public class EmployeeService {
         emergencyContacts.delete(contact);
     }
 
-    // ---- Government IDs ----
-
     @Transactional(readOnly = true)
     public List<GovernmentId> listGovernmentIds(UUID employeeId) {
         return governmentIds.findAllByEmployeeIdOrderByIdTypeAsc(employeeId);

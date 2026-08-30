@@ -132,18 +132,20 @@ body {
   background-color: var(--bs-secondary-bg, rgba(0, 0, 0, 0.035));
 }
 
-.calendar-holiday {
-  background-color: var(--bs-warning-bg-subtle);
-}
-
+/* Every bar shares this same fixed brand-theme look regardless of leave type — a light tint of
+   the brand color plus a bold brand-colored border. Leave types are told apart only by their
+   bold icon glyph (CalendarController.boldIcon), not by color (a reverted earlier per-leave-type
+   color-hash version of this rule is gone on purpose). */
 .calendar-bar {
   height: 1.5rem;
   align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
   font-size: 0.75rem;
   overflow: hidden;
   cursor: default;
+  background-color: color-mix(in oklab, var(--bs-primary) 16%, var(--bs-body-bg));
+  border: 2px solid var(--bs-primary);
+  color: var(--bs-primary);
 }

@@ -78,8 +78,8 @@ class LeaveApprovalController {
                 leaveRequests.approveAndListPending(
                         id, principal.userId(), decider.employeeId(), decider.name(), decider.isAdmin(), null);
         toast(response, "toast.leave-request.approved", "Request approved");
-        model.addAttribute("pending", toRows(fresh));
-        return "leave/for-action :: pendingList";
+        addPendingAndCompleted(model, fresh, principal.userId());
+        return "leave/for-action :: pendingListAndCounts";
     }
 
     @PostMapping("/for-action/leave-requests/{id}/reject")
@@ -102,8 +102,8 @@ class LeaveApprovalController {
                             decider.isAdmin(),
                             form.decisionNote());
             toast(response, "toast.leave-request.rejected", "Request rejected");
-            model.addAttribute("pending", toRows(fresh));
-            return "leave/for-action :: pendingList";
+            addPendingAndCompleted(model, fresh, principal.userId());
+            return "leave/for-action :: pendingListAndCounts";
         }
         model.addAttribute("rejectRequestId", id);
         return "leave/for-action :: rejectForm";
@@ -128,6 +128,17 @@ class LeaveApprovalController {
      */
     private List<ApprovalRow> toRows(List<LeaveRequest> requests) {
         return requests.stream().map(this::toRow).toList();
+    }
+
+    /**
+     * Approve/reject both remove a row from Pending and add one to Completed, so both model
+     * attributes are refreshed together here — the response fragment (pendingListAndCounts)
+     * OOB-swaps the Completed table and both tab counts alongside the Pending list, instead of
+     * leaving them stale until the next full page load.
+     */
+    private void addPendingAndCompleted(Model model, List<LeaveRequest> freshPending, UUID deciderUserId) {
+        model.addAttribute("pending", toRows(freshPending));
+        model.addAttribute("completed", toRows(leaveRequests.listCompletedByApprover(deciderUserId)));
     }
 
     private ApprovalRow toRow(LeaveRequest request) {
