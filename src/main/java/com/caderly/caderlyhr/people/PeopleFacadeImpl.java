@@ -8,6 +8,7 @@ import com.caderly.caderlyhr.identity.UserStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,8 +77,28 @@ class PeopleFacadeImpl implements PeopleFacade {
         return employees.isManagerOf(managerId, employeeId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<UUID> findEmployeeIdByUserId(UUID userId) {
+        return employees.findByUserId(userId).map(Employee::requireId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmployeeCalendarInfo> listEmployeesForCalendar(
+            @Nullable UUID departmentId, @Nullable UUID divisionId) {
+        return employees.findActiveForCalendar(departmentId, divisionId).stream()
+                .map(PeopleFacadeImpl::toCalendarInfo)
+                .toList();
+    }
+
     private static EmployeeApprovalInfo toApprovalInfo(Employee employee) {
         UUID managerId = employee.manager() == null ? null : employee.manager().requireId();
         return new EmployeeApprovalInfo(employee.requireId(), employee.fullName(), employee.email(), managerId);
+    }
+
+    private static EmployeeCalendarInfo toCalendarInfo(Employee employee) {
+        String departmentName = employee.department() == null ? null : employee.department().name();
+        return new EmployeeCalendarInfo(employee.requireId(), employee.fullName(), departmentName);
     }
 }

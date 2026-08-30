@@ -114,6 +114,65 @@ class IdentityTenantIsolationTest extends TenantIsolationTestBase {
     }
 
     @Test
+    void findByIcalToken_whenTokenBelongsToOtherTenant_returnsEmpty() {
+        String token = "ical-" + UUID.randomUUID();
+        asTenant(
+                tenantA,
+                () -> {
+                    AppUser user = users.findByEmail(emailA).orElseThrow();
+                    user.issueIcalToken(token);
+                    return users.save(user);
+                });
+
+        assertThat(asTenant(tenantB, () -> users.findByIcalToken(token))).isEmpty();
+        assertThat(asTenant(tenantA, () -> users.findByIcalToken(token))).isPresent();
+    }
+
+    @Test
+    void rawJdbc_withTenantBSetting_rlsHidesTenantAsIcalToken() throws Exception {
+        // Independent of Hibernate: proves the token-to-calendar-data path can't be walked even
+        // if the ORM restriction were bypassed — the DoD's explicit ask for this one endpoint,
+        // since it's the sole route into tenant data that isn't behind normal session auth.
+        String token = "ical-rls-" + UUID.randomUUID();
+        asTenant(
+                tenantA,
+                () -> {
+                    AppUser user = users.findByEmail(emailA).orElseThrow();
+                    user.issueIcalToken(token);
+                    return users.save(user);
+                });
+
+        assertThat(selectIcalTokensAsRestrictedRole(tenantB)).doesNotContain(token);
+        assertThat(selectIcalTokensAsRestrictedRole(tenantA)).contains(token);
+    }
+
+    private List<String> selectIcalTokensAsRestrictedRole(UUID tenantId) throws Exception {
+        List<String> tokens = new ArrayList<>();
+        try (Connection connection =
+                DriverManager.getConnection(postgres.getJdbcUrl(), "rls_probe", "rls_probe")) {
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps =
+                        connection.prepareStatement("SELECT set_config('app.tenant_id', ?, true)")) {
+                    ps.setString(1, tenantId.toString());
+                    ps.execute();
+                }
+                try (PreparedStatement ps =
+                                connection.prepareStatement(
+                                        "SELECT ical_token FROM caderly_hr.app_user WHERE ical_token IS NOT NULL");
+                        ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        tokens.add(rs.getString(1));
+                    }
+                }
+            } finally {
+                connection.rollback();
+            }
+        }
+        return tokens;
+    }
+
+    @Test
     void rawJdbc_withTenantASetting_rlsReturnsOnlyTenantAUsers() throws Exception {
         // Independent of Hibernate: proves the Postgres policy holds even if the ORM
         // restriction were bypassed. Uses the non-superuser rls_probe role.

@@ -25,4 +25,11 @@ public interface AppUserRepository extends TenantAwareRepository<AppUser> {
 
     /** Backs {@code people.PeopleFacade#listActiveAdminApprovalInfo} (PRD §12.4's Admin fallback). */
     List<AppUser> findAllByStatus(UserStatus status);
+
+    /**
+     * Backs the public iCal feed ({@code calendar.CalendarFeedService}). Looked up by raw token
+     * value (ADR 0014) — {@code @TenantId} still scopes the row to whichever tenant the request's
+     * subdomain resolved, exactly like {@code PasswordResetTokenRepository#findByTokenHash}.
+     */
+    Optional<AppUser> findByIcalToken(String icalToken);
 }
