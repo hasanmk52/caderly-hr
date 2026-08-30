@@ -1,63 +1,56 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.8 — Team Calendar
-**Branch:** `phase-1.8-team-calendar` (not yet created — create it before writing any code)
-**Goal:** A grid view of the whole team's approved time off (rows = employees, columns = days, colored bars per leave type, filterable by department/division/leave type), plus a per-user tokenized iCal feed URL an employee can subscribe to in Google Calendar/Outlook and see their own approved leave show up automatically.
+**Working on:** Phase 1.9 — Home Dashboard + For Action inbox
+**Branch:** `phase-1.9-home-dashboard` (not yet created — create it before writing any code)
+**Goal:** The Home page (`/`) becomes a real dashboard of htmx-loaded widgets — not just the "Welcome" banner and balance cards it has today — matching the PRD's wireframe. The "For Action" inbox itself (pending approvals + tasks) already shipped in Phase 1.6; this phase's remaining scope is the Home page widgets, plus whatever "For Action" polish, if any, a closer read of PRD §6.8/§24.6 turns up.
 
 ## Read these before doing anything
 
-1. `docs/Caderly_Implementation_Plan.md` — the "1.8 Team Calendar" section under Phase 1 — MVP
-2. `docs/Caderly_PRD.md` — §6.6 (FR-6.1–6.5: team calendar view, filters, iCal feed), §9.4 (US-CAL.3, iCal subscription story), §24.5 (Calendar page UI: header/grid/filter panel), §24.10 (Settings → Calendar integration tab, iCal URL + copy button), AC-CALENDAR.1 (acceptance criterion: subscribe → within 24h Google Calendar shows APPROVED leaves as all-day events), §23 (REST: `GET /api/v1/calendar/team`, `GET /api/v1/calendar/ical.ics?token=`)
-3. `CLAUDE.md` — §4 (package structure — no `calendar` package is listed yet; decide where `CalendarService` lives, most likely a new package, and add it to CLAUDE.md §4 if so), §6 A07 (iCal endpoint is intentionally public/no-session, authenticated by a per-user token instead — this is a deliberate exception to "every controller method needs a role check," not an oversight; make the token itself a 32-byte `SecureRandom` value per CLAUDE.md §6 A02's token-generation rule, and decide whether it needs to be stored hashed like password-reset tokens or can be looked up directly — the iCal use case (a long-lived, repeatedly-fetched URL) differs from a one-time reset token, so don't copy that pattern without checking whether it actually fits)
-4. `docs/UI_Guidelines.md` — check §8.4 "Team Calendar" (already named in the guidelines) for the grid/filter-panel conventions this phase should follow, and the empty-state pattern for "no leave in this period"
+1. `docs/Caderly_Implementation_Plan.md` — the "1.9 Home Dashboard + For Action inbox" section under Phase 1 — MVP
+2. `docs/Caderly_PRD.md` — §24.2 (Home Dashboard wireframe, the widget list), §8 feature #13 (a shorter, possibly more authoritative widget list — see the open discrepancy below), §6.8 FR-8.1–8.4 (For Action — likely already fully satisfied by Phase 1.6's `LeaveApprovalController`/`for-action.html`, but confirm rather than assume), §24.6 (For Action wireframe, to confirm nothing there is still open)
+3. `CLAUDE.md` — §4 (package structure — this phase is aggregation/read-only across `people`, `timeoff`, `documents`; decide whether it needs its own package or stays inline in `web.HomeController` given how small it is), §6 A01 (RBAC — Home is already `isAuthenticated()`-equivalent via `hasRole('EMPLOYEE')`, confirm the new widgets need no additional role gating)
+4. `docs/UI_Guidelines.md` §8.2 (Home dashboard widgets — 3/2/1-column responsive grid, each widget a `card` with `card-header` title + optional `card-footer` "View all" link, **independently htmx-loaded on page load via `hx-get`/`hx-trigger="load"`**, and explicitly: "Never render more than 6 widgets by default")
+
+## Open discrepancy to resolve before planning — do not silently pick one
+
+PRD §24.2's full wireframe lists **7** widgets: Welcome, Book Time Off, My Peers, Time Off Today, My Days Off, Company News (static MVP tile), Resources (top 3 company files). PRD §8's high-level MVP feature list (feature #13) names only **4**: "book time off, my peers, time off today, upcoming holidays" — a materially different, shorter set that also swaps in "upcoming holidays" for the last slot rather than My Days Off/Company News/Resources. UI Guidelines §8.2's "never more than 6 widgets" caps whichever list wins, but doesn't resolve which widgets make the cut. Read both sections closely (not just the excerpts here) and either reconcile them or ask — don't default to the longer list just because it's more detailed.
 
 ## Already in place — do not redo
 
-- **Everything through 1.7**: full tenancy/auth/org/people/leave/files-and-documents stack. `leave_request` rows with `status = APPROVED` are exactly the data this phase renders — no new leave-domain logic needed, this phase is a read/projection layer over what 1.6 already built.
-- **`timeoff.LeaveRequestRepository`**: has the query shapes (`findAllByEmployeeIdOrderBySubmittedAtDesc` etc.) to model `CalendarService.buildTeamCalendar`'s query after — check whether a new tenant-wide "approved leave in a date range, optionally filtered by department/division/leave type" query method is needed, or whether an existing one composes.
-- **`org.OrgFacade`**: already exposes department/division lookups for filter-panel dropdowns — reuse it, don't duplicate a query into `calendar` (or wherever this phase's package lands).
-- **Sidebar `Calendar` link**: currently a `disabled` stub in `templates/fragments/sidebar.html` (same pattern the Files link was in before Phase 1.7 enabled it) — this phase turns it into a real link, same as 1.7 did for Files.
-- **Files & Documents (Phase 1.7)**: `storage.FileStorage`/`documents.*` are unrelated to this phase; nothing here should touch them. ADR 0012 documents the S3 deferral and upload-validation shape for that phase, not this one.
+- **`web.HomeController` + `templates/home.html`**: `GET /` already renders "Welcome, {FirstName}!" and the "Book Time Off" balance-card widget (`BalanceService.listCurrentYearForEmployee`), gracefully degrading to a name-free "Welcome!" with no cards for a principal with no linked Employee (Admin-only dev accounts). This is two of the wireframe's widgets already done — extend this controller/template, don't replace it.
+- **For Action (Phase 1.6)**: `web.LeaveApprovalController`, `templates/for-action.html` — Tasks/Time-off-requests tabs, Pending/Completed sub-tabs, Approve/Reject with note modals, Manager-scope vs Admin-org-wide visibility (PRD FR-8.2/8.3). Confirm FR-8.4's "system-generated tasks" (e.g. "Complete your profile") exist; if not, that's this phase's job per the Implementation Plan's "For Action inbox" wording, not a Phase 2 deferral — check before assuming.
+- **Team Calendar (Phase 1.8)**: `calendar.CalendarService`/`TimeoffFacade`/`PeopleFacade` — the "Time Off Today" widget (who's out today, tenant-wide) and "My Peers" widget's "Out today" tab almost certainly want to reuse `TimeoffFacade.listApprovedLeaveInRange(today, today, ...)` rather than a new query; check before adding a parallel one. `calendar` package's `package-info.java` currently says its only consumer is the team-calendar grid/feed — update that Javadoc if Home becomes a second consumer.
+- **Files (Phase 1.7)**: `documents.CompanyFileService.listAll()` — the "Resources" widget (if it survives the discrepancy above) is "top 3 company files," a thin slice of this, not new upload/storage logic.
+- **Sidebar `Home` link**: already enabled and the default landing page; no sidebar change needed.
 
-## Remaining Phase 1.8 work
-
-### Schema
-
-- `user_ical_token` table, or a token column on `app_user` (PRD phrases it as "or" — decide which, and write an ADR if the choice isn't obvious from existing precedent). Tenant-scoped if a new table; check RLS applies correctly either way — a public, no-session endpoint reading this data still needs the token lookup itself to resolve the correct tenant context (`TenantContext.runAsSystem` plus an explicit tenant-scoped query, similar to how `PasswordResetToken` lookups work today — check that precedent first).
+## Remaining Phase 1.9 work (pending the discrepancy above)
 
 ### Backend
 
-- `CalendarService.buildTeamCalendar(from, to, filter)` — filter by department, division, and/or leave type (PRD §24.5); returns an employee-day matrix of approved leave.
-- iCal feed endpoint `GET /api/v1/calendar/ical.ics?token=<token>` — public, no `@PreAuthorize` role check (token-authenticated instead — this is the deliberate exception CLAUDE.md §6 A01 anticipates for public endpoints: "Public endpoints satisfy this with `permitAll()` rather than by omission"). Returns the token owner's own approved leave (and possibly their team's, per FR-6.5 — check the exact scope) as `VEVENT`s. Check whether an iCal-generation library already exists as a dependency or needs to be added (CLAUDE.md §12: new dependency needs a stop-and-ask).
-- Token generation/rotation: decide whether the token is user-generated on first visit to Settings → Calendar integration, or provisioned at invite time.
+- Per-widget data for whichever widgets the resolved list includes: My Peers (same-department + same-manager peers, `PeopleFacade` needs a query for this — check whether one already exists before adding), Time Off Today / Upcoming Holidays (`TimeoffFacade`), My Days Off (`TimeoffFacade.listAllApprovedLeaveForEmployee`-shaped, upcoming-only), Company News (MVP: a static "Welcome to Caderly" tile per PRD §24.2 — no backend needed), Resources (`documents.CompanyFileService`).
+- Per UI Guidelines §8.2, each widget loads independently: likely one `GET /widgets/<name>` htmx-fragment endpoint per widget rather than one big `home()` method assembling everything server-side up front — confirm this against how `AdminLeaveController`'s or similar existing htmx-fragment endpoints are shaped before inventing a new pattern.
 
 ### Frontend
 
-- Calendar page (PRD §24.5): month/week selector, Today button, filter panel (department/division/leave type), Grid/List view toggle, rows = employees with colored bars per leave type, tooltip on hover.
-- Settings → Calendar integration tab (PRD §24.10): shows the unique iCal URL with a copy-to-clipboard button.
-- Enable the sidebar's `Calendar` link.
+- `templates/home.html`: extend into the 3/2/1-column responsive widget grid (UI Guidelines §8.2), each widget its own `card` with `hx-trigger="load"`.
+- Widget partials/fragments per widget, each with its own empty state (UI Guidelines §7.1) — e.g., "My Peers" with none, "My Days Off" with nothing upcoming.
 
 ### Tests
 
-- iCal output validates against the format (check for an existing validator dependency, or hand-verify against RFC 5545's minimum required fields — don't add a new dependency without checking CLAUDE.md §12 first).
-- Grid renders correctly across month boundaries (a leave request spanning the last/first day of a month, and a request entirely outside the visible range).
-- Token-based auth: a request with a missing/invalid/revoked token gets a clear 4xx, not a 500 or a silent empty calendar (which would look like "no leave" rather than "bad token").
-- Tenant isolation: the token itself must resolve to exactly one tenant/employee — a raw-JDBC RLS test proving a token can't be used to read another tenant's calendar, matching every prior phase's isolation-test shape.
-- RBAC: the team calendar page requires `isAuthenticated()` per PRD §26 ("View team calendar ✅ all" — Employee, Manager, and Admin all get full visibility, no role gate beyond being signed in); the iCal feed is the one deliberate exception to a role check, authenticated by token instead — confirm this is a conscious design choice, not a gap, before writing the RBAC test for it.
+- Widget renders empty state gracefully (Implementation Plan's own testing note) — one test per widget's empty-data path.
+- RBAC: confirm no new role gate is needed (Home is tenant-member-visible, no PRD §26 row for it beyond being signed in) — write the test proving it rather than assuming.
 
-## Definition of Done for Phase 1.8
+## Definition of Done for Phase 1.9
 
-- Priya subscribes to her iCal URL in Google Calendar and sees her approved leave appear as an all-day event (PRD's own DoD wording — verify this manually against a real Google Calendar subscription if feasible, not just RFC-shape correctness).
-- The Calendar page renders a month grid of the whole tenant's approved leave, filterable by department/division/leave type.
-- A request with a bad or missing iCal token gets a clear error, not a 500.
-- Tenant isolation proven for the token-to-calendar-data path specifically (this is the one new endpoint this phase adds that isn't behind normal session auth, so it needs its own isolation proof, not just inherited confidence from RLS).
-- `./mvnw verify` green, ArchUnit green with no new exemptions (the public iCal endpoint will need a `permitAll()`-equivalent that ArchUnit's `@PreAuthorize`-on-every-method rule still expects — check whether that rule needs a documented, deliberate exemption pattern, or whether the endpoint still carries `@PreAuthorize("permitAll()")` explicitly, matching the login/reset-password precedent in `SecurityConfig`).
+- Home page matches whichever widget list the discrepancy above resolves to, each independently htmx-loaded, none exceeding UI Guidelines §8.2's 6-widget cap.
+- Every widget has a designed empty state — no bare "no results" per UI Guidelines §7.1.
+- `./mvnw verify` green, ArchUnit green, no new exemptions.
 
-## Not in scope for Phase 1.8 — do not start any of this
+## Not in scope for Phase 1.9 — do not start any of this
 
-- Home Dashboard + For Action inbox widgets — Phase 1.9, though it depends on 1.6/1.7/1.8 all being done first.
-- Absence Calendar Export (month PDF/CSV, PRD FR-10.4) — a Reports-phase concern (1.12), not this one, even though it sounds calendar-adjacent.
-- Notification event wiring for calendar-related events — Phase 1.10.
+- Notification event wiring (birthday/anniversary/document-expiry reminders that might feed a widget) — Phase 1.10. If a widget needs this data, read it directly rather than waiting on the notification system.
+- Company News beyond the MVP static tile (Admin-authored posts) — explicitly Phase 2 per PRD §24.2.
+- Org tree view toggle on People (PRD §8.3 UI Guidelines, unrelated to Home) — still Phase 2, not touched by this phase.
 
 ## Carried forward — open items
 
@@ -67,20 +60,23 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
 - **Password-reset enumeration safety is response-shape only**, not constant-time. ADR 0006 decision E.
 - **No common-password blocklist.** ADR 0006 decision F.
 - **Tenant primary colour not yet injected into `--bs-primary`.** Phase 1.10 owns tenant branding.
-- **Peer-to-peer profile viewing (PRD §26 "View peer profile 🔒 basic") is not implemented.** Deferred since Phase 1.4; still not this phase's job.
+- **Peer-to-peer profile viewing (PRD §26 "View peer profile 🔒 basic") is not implemented.** Deferred since Phase 1.4; still not this phase's job (even though "My Peers" widget is adjacent — the widget shows names/avatars, not full profile access).
 - **`EmployeeTerminationJob`/`AnnualGrantJob` process tenants serially, not in parallel.** Still fine at current scale (CLAUDE.md §11) — revisit only with a benchmark showing a problem.
 - **Manual leave-balance adjustment (`BalanceService.adjustManually`) has no dedicated admin screen**, by design — backend capability, RBAC-tested only. Revisit if a real need surfaces.
 - **`AdminEmployeeController`'s write-then-separate-read transaction shape has an open correctness question** (ADR 0009's Context/Consequences) — not investigated.
 - **A booking whose computed duration is exactly zero working days is not rejected** (Phase 1.6, ADR 0010's Consequences) — no PRD requirement for a minimum-duration guard.
 - **`listPendingForApprover`'s Manager-scope filter runs one `isManagerOf` CTE call per tenant-wide pending request**, not a single batched query (Phase 1.6, ADR 0010's Consequences). Fine at current tenant sizes.
-- **`S3FileStorage` does not exist.** `storage.FileStorage`'s `presignedUrl()` seam is ready for it, but no cloud tenant needs it yet (Phase 1.7, ADR 0012 Decision A). The first cloud tenant onboarding is the trigger to build it — and to revisit whether CLAUDE.md §6a's outbox pattern applies to it, which it deliberately does not for the local-filesystem case.
-- **`GlobalExceptionHandler`'s `MaxUploadSizeExceededException` handler is untested at the servlet-enforcement level** (Phase 1.7, ADR 0012 Decision D) — only its own rendering logic has a test. MockMvc's `MOCK` web environment cannot exercise real container-level multipart size limits; a `RANDOM_PORT` + real HTTP client test would close this gap if ever worth the cost.
-- **No orphan-file sweeper** for the harmless-orphan-on-partial-failure cases `documents.CompanyFileService`/`EmployeeDocumentService` accept (Phase 1.7, ADR 0012 Decision C). Not needed at current upload volume; revisit with evidence, not preemptively.
-- **PRD's "Local and S3 backends both pass the same test suite" testing note (Phase 1.7's own DoD wording) does not apply** — S3 is deferred (see above), so there is only one backend to run the contract test suite against right now. `storage.FileStorageContractTest` is written so a future `S3FileStorageTest` can extend it without rewriting the cases.
+- **`S3FileStorage` does not exist.** `storage.FileStorage`'s `presignedUrl()` seam is ready for it, but no cloud tenant needs it yet (Phase 1.7, ADR 0012 Decision A). The first cloud tenant onboarding is the trigger to build it.
+- **`GlobalExceptionHandler`'s `MaxUploadSizeExceededException` handler is untested at the servlet-enforcement level** (Phase 1.7, ADR 0012 Decision D).
+- **No orphan-file sweeper** for the harmless-orphan-on-partial-failure cases `documents.CompanyFileService`/`EmployeeDocumentService` accept (Phase 1.7, ADR 0012 Decision C).
+- **The iCal feed's scope is the token owner's own approved leave only**, not their team's — FR-6.5's "optionally team's leave" was scoped out of Phase 1.8 with the user's sign-off; revisit only if a real request surfaces (Phase 1.8, ADR 0014).
+- **The iCal token is stored raw (unhashed) on `app_user`**, a deliberate deviation from CLAUDE.md §6 A02's reset-token hashing rule — see ADR 0014 before "fixing" this.
+- **Team Calendar has no Week view or Grid/List toggle** — PRD §24.5 names both, but Phase 1.8 shipped month-view-only as a documented simplification (the DoD only required a filterable month grid). Revisit if a real need surfaces.
+- **No general `/settings` page/shell exists** — Phase 1.8 added exactly one page, `/settings/calendar`, linked directly from the topbar account menu rather than building a multi-tab Settings shell for tabs (Change password, MFA) that don't exist yet. The next feature that needs a Settings tab is the natural trigger to introduce the shell.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to whatever sub-phase comes next (this file's 1.7 → 1.8 update is the template).
-3. Commit `phase-1.8-team-calendar` and open a PR against `main`.
+2. Update this file to whatever sub-phase comes next (this file's 1.8 → 1.9 update is the template).
+3. Commit `phase-1.9-home-dashboard` and open a PR against `main`.
 4. Do not start the next phase in the same session.

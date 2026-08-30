@@ -54,6 +54,7 @@ com.caderly.caderlyhr
 ├── org             # Division, Department
 ├── people          # Employee + sub-entities
 ├── timeoff         # LeaveType, LeaveBalance, LeaveRequest, PublicHoliday
+├── calendar        # CalendarService (team grid), CalendarTokenService, CalendarFeedService (iCal)
 ├── documents       # CompanyFile, EmployeeDocument
 ├── notifications   # EmailOutbox, EmailTemplate
 ├── audit           # AuditEntry, LoginAudit, AuditListener
