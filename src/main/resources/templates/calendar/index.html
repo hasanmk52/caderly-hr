@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:replace="~{layout :: layout(#{nav.calendar}, ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 th:text="#{nav.calendar}">Calendar</h1>
+    </div>
+
+    <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/calendar}">
+      <input type="hidden" name="month" th:value="${visibleMonth}" />
+
+      <div class="col-auto">
+        <div class="btn-group" role="group" th:aria-label="#{calendar.month-nav}">
+          <a class="btn btn-outline-secondary btn-sm"
+             th:href="@{/calendar(month=${previousMonth}, departmentId=${selectedDepartmentId}, divisionId=${selectedDivisionId}, leaveTypeId=${selectedLeaveTypeId})}"
+             th:aria-label="#{calendar.previous-month}">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+          </a>
+          <a class="btn btn-outline-secondary btn-sm"
+             th:href="@{/calendar(month=${currentMonth}, departmentId=${selectedDepartmentId}, divisionId=${selectedDivisionId}, leaveTypeId=${selectedLeaveTypeId})}"
+             th:text="#{calendar.today}">Today</a>
+          <a class="btn btn-outline-secondary btn-sm"
+             th:href="@{/calendar(month=${nextMonth}, departmentId=${selectedDepartmentId}, divisionId=${selectedDivisionId}, leaveTypeId=${selectedLeaveTypeId})}"
+             th:aria-label="#{calendar.next-month}">
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+      <div class="col-auto">
+        <span class="fs-5 fw-semibold" th:text="${#temporals.format(monthLabel, 'MMMM yyyy')}">September 2026</span>
+      </div>
+
+      <div class="col-auto ms-auto">
+        <label class="form-label" for="filter-department" th:text="#{common.field.department}">Department</label>
+        <select class="form-select form-select-sm" id="filter-department" name="departmentId" onchange="this.form.submit()">
+          <option value="" th:text="#{calendar.filter.all-departments}">All departments</option>
+          <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}"
+                  th:selected="${option.id == selectedDepartmentId}">Engineering</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-division" th:text="#{common.field.division}">Division</label>
+        <select class="form-select form-select-sm" id="filter-division" name="divisionId" onchange="this.form.submit()">
+          <option value="" th:text="#{calendar.filter.all-divisions}">All divisions</option>
+          <option th:each="option : ${divisionOptions}" th:value="${option.id}" th:text="${option.name}"
+                  th:selected="${option.id == selectedDivisionId}">Operations</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-leave-type" th:text="#{calendar.filter.leave-type}">Leave type</label>
+        <select class="form-select form-select-sm" id="filter-leave-type" name="leaveTypeId" onchange="this.form.submit()">
+          <option value="" th:text="#{calendar.filter.all-leave-types}">All leave types</option>
+          <option th:each="option : ${leaveTypeOptions}" th:value="${option.id}" th:text="${option.name()}"
+                  th:selected="${option.id == selectedLeaveTypeId}">Vacation</option>
+        </select>
+      </div>
+    </form>
+
+    <div th:if="${#lists.isEmpty(rows)}" class="text-center text-muted py-5 mb-5">
+      <i class="bi bi-calendar3 fs-1 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0" th:text="#{calendar.empty}">No one matches these filters.</p>
+    </div>
+
+    <div th:unless="${#lists.isEmpty(rows)}" class="card">
+      <div class="calendar-scroll">
+        <div style="min-width: max-content;">
+
+          <!--/* Header row: blank name-column cell, then one cell per day. */-->
+          <div class="d-flex border-bottom">
+            <div class="calendar-name-col flex-shrink-0 py-2 px-2 fw-semibold small" th:text="#{common.field.name}">Name</div>
+            <div class="calendar-day-grid flex-grow-1"
+                 th:style="'display:grid; grid-template-columns: repeat(' + ${totalColumns} + ', minmax(28px,1fr));'">
+              <div th:each="day : ${days}" class="calendar-day-cell text-center small text-muted d-flex align-items-center justify-content-center"
+                   th:classappend="${day.dayOfWeek.value} >= 6 ? 'calendar-weekend' : (${#lists.contains(holidayDates, day)} ? 'calendar-holiday' : '')"
+                   th:text="${day.dayOfMonth}">1</div>
+            </div>
+          </div>
+
+          <!--/* Holiday name labels, shown once above the grid rather than in every row. */-->
+          <div th:if="${!#lists.isEmpty(holidays)}" class="small text-muted px-2 py-1 border-bottom">
+            <span th:each="holiday, iter : ${holidays}">
+              <span th:text="${#temporals.format(holiday.date(), 'MMM d')} + ': ' + ${holiday.name()}">Sep 15: Founders Day</span><span th:unless="${iter.last}">, </span>
+            </span>
+          </div>
+
+          <!--/* One row per employee. UI Guidelines §8.4: name column sticky, bars span
+                 start-to-end via CSS grid column start/span rather than a per-day matrix. */-->
+          <div th:each="row : ${rows}" class="d-flex align-items-stretch border-bottom">
+            <div class="calendar-name-col flex-shrink-0 py-2 px-2 d-flex align-items-center gap-2">
+              <span class="rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                    style="width: 1.75rem; height: 1.75rem;" aria-hidden="true">
+                <i class="bi bi-person-fill small"></i>
+              </span>
+              <span class="text-truncate">
+                <a th:href="@{/profile/{id}(id=${row.employeeId})}" th:text="${row.fullName}">Jane Doe</a>
+                <span class="d-block text-muted" style="font-size: 0.7rem;" th:text="${row.departmentName}">Engineering</span>
+              </span>
+            </div>
+            <div class="calendar-day-grid flex-grow-1 position-relative"
+                 th:style="'display:grid; grid-template-columns: repeat(' + ${totalColumns} + ', minmax(28px,1fr)); grid-auto-rows: 2.25rem;'">
+              <div th:each="day : ${days}" class="calendar-day-cell"
+                   th:classappend="${day.dayOfWeek.value} >= 6 ? 'calendar-weekend' : (${#lists.contains(holidayDates, day)} ? 'calendar-holiday' : '')"
+                   style="grid-row: 1;"></div>
+              <div th:each="bar : ${row.bars}" class="calendar-bar rounded"
+                   th:style="'grid-row: 1; grid-column: ' + ${bar.startColumn} + ' / span ' + ${bar.columnSpan} + '; background-color: ' + (${bar.color} ?: 'var(--bs-secondary)') + ';'"
+                   data-bs-toggle="popover" data-bs-trigger="hover focus" tabindex="0"
+                   th:attr="data-bs-content=${bar.tooltip}">
+                <i th:if="${bar.icon}" th:class="'bi ' + ${bar.icon}" aria-hidden="true"></i>
+                <span class="text-truncate ms-1" th:text="${bar.leaveTypeName}">Vacation</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</th:block>
+</body>
+</html>

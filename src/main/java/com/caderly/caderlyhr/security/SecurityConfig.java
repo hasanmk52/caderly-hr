@@ -146,6 +146,11 @@ class SecurityConfig {
                                                 FORGOT_PASSWORD_PATH,
                                                 "/reset-password",
                                                 "/accept-invite",
+                                                // Token-authenticated, not session-authenticated (CLAUDE.md §6
+                                                // A01's deliberate exception — see api.CalendarFeedController's
+                                                // Javadoc). The URL-level permitAll() here is what makes the
+                                                // controller's own @PreAuthorize("permitAll()") reachable at all.
+                                                "/api/v1/calendar/ical.ics",
                                                 "/webjars/**",
                                                 "/css/**",
                                                 "/js/**",

@@ -23,6 +23,12 @@
  *      reading the browser console, not assumed — so the input-assignment logic lives here
  *      instead. Delegated on `document.body`, matching every other handler in this file, so it
  *      keeps working on a dropzone htmx swaps in later without any rebinding.
+ *   5. Team calendar leave-bar hover tooltips (UI Guidelines §8.4). Bootstrap does not
+ *      auto-initialize popovers; the calendar page is a plain full-page GET (no htmx fragment
+ *      swap), so DOMContentLoaded is the only initialization point it needs.
+ *   6. Copy-to-clipboard (Settings -> Calendar integration). Plain `navigator.clipboard` call
+ *      delegated on `document.body`, same reasoning as responsibility 4 — not an Alpine
+ *      expression, so there is no first-mover risk on the CSP-safe Alpine build's constraints.
  */
 (function () {
   "use strict";
@@ -167,4 +173,24 @@
     });
     toast.show();
   }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
+      bootstrap.Popover.getOrCreateInstance(el, { trigger: "hover focus", html: false });
+    });
+  });
+
+  document.body.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-copy-target]");
+    if (!button) {
+      return;
+    }
+    var target = document.getElementById(button.getAttribute("data-copy-target"));
+    if (!target || !navigator.clipboard) {
+      return;
+    }
+    navigator.clipboard.writeText(target.value).then(function () {
+      showToast(button.getAttribute("data-copied-message") || "Copied");
+    });
+  });
 })();
