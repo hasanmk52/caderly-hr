@@ -53,7 +53,7 @@ final class TimeoffEmails {
                 """
                 <h2>%s</h2>
                 <p>%s</p>
-                <p><a href="%s" style="background:#4f46e5;color:#fff;padding:10px 18px;\
+                <p><a href="%s" style="background:#0F5568;color:#fff;padding:10px 18px;\
                 border-radius:8px;text-decoration:none;display:inline-block">%s</a></p>
                 """
                         .formatted(heading, message, escape(reviewUrl), cta));
