@@ -6,9 +6,11 @@ import com.caderly.caderlyhr.timeoff.TimeoffFacade;
 import com.caderly.caderlyhr.timeoff.TimeoffFacade.ApprovedLeaveEntry;
 import com.caderly.caderlyhr.timeoff.TimeoffFacade.HolidayMarker;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
@@ -66,7 +68,8 @@ public class CalendarService {
                         .toList();
 
         List<HolidayMarker> holidays = timeoff.listPublicHolidaysInRange(from, to);
-        return new TeamCalendarView(rows, holidays);
+        Set<DayOfWeek> weekendDays = timeoff.currentWeekendDays();
+        return new TeamCalendarView(rows, holidays, weekendDays);
     }
 
     private static LeaveBar toBar(ApprovedLeaveEntry entry) {
@@ -81,7 +84,8 @@ public class CalendarService {
                 entry.durationDays());
     }
 
-    public record TeamCalendarView(List<EmployeeCalendarRow> rows, List<HolidayMarker> holidays) {}
+    public record TeamCalendarView(
+            List<EmployeeCalendarRow> rows, List<HolidayMarker> holidays, Set<DayOfWeek> weekendDays) {}
 
     public record EmployeeCalendarRow(
             UUID employeeId, String fullName, @Nullable String departmentName, List<LeaveBar> bars) {}

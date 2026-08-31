@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.timeoff;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -29,6 +31,13 @@ public interface TimeoffFacade {
 
     /** Public holidays overlapping [from, to] — the grid's shaded holiday columns (UI §8.4). */
     List<HolidayMarker> listPublicHolidaysInRange(LocalDate from, LocalDate to);
+
+    /**
+     * The current tenant's configured weekend days (PRD §12.5, §21), decoded from {@code
+     * tenant.Tenant.weekendDays}' bitmask — the same source {@code LeaveRequestService} uses for
+     * duration math, so the calendar grid's weekend shading can never disagree with it.
+     */
+    Set<DayOfWeek> currentWeekendDays();
 
     record ApprovedLeaveEntry(
             UUID employeeId,

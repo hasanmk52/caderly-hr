@@ -1,7 +1,10 @@
 package com.caderly.caderlyhr.timeoff;
 
+import com.caderly.caderlyhr.tenant.TenantFacade;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -12,10 +15,13 @@ class TimeoffFacadeImpl implements TimeoffFacade {
 
     private final LeaveRequestRepository leaveRequests;
     private final PublicHolidayRepository holidays;
+    private final TenantFacade tenants;
 
-    TimeoffFacadeImpl(LeaveRequestRepository leaveRequests, PublicHolidayRepository holidays) {
+    TimeoffFacadeImpl(
+            LeaveRequestRepository leaveRequests, PublicHolidayRepository holidays, TenantFacade tenants) {
         this.leaveRequests = leaveRequests;
         this.holidays = holidays;
+        this.tenants = tenants;
     }
 
     @Override
@@ -47,6 +53,12 @@ class TimeoffFacadeImpl implements TimeoffFacade {
                 .filter(h -> !h.date().isBefore(from) && !h.date().isAfter(to))
                 .map(h -> new HolidayMarker(h.date(), h.name()))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Set<DayOfWeek> currentWeekendDays() {
+        return LeaveDurationCalculator.decodeWeekend(tenants.currentWeekendDays());
     }
 
     private static ApprovedLeaveEntry toEntry(LeaveRequest request) {

@@ -81,7 +81,7 @@
                      column keeps header and every row's cells aligned regardless of how many bars
                      overlay them. */-->
               <div th:each="day, dayStat : ${days}" class="calendar-day-cell text-center small text-muted d-flex align-items-center justify-content-center"
-                   th:classappend="${day.dayOfWeek.value} >= 6 ? 'calendar-weekend' : ''"
+                   th:classappend="${weekendDays.contains(day.dayOfWeek)} ? 'calendar-weekend' : ''"
                    th:style="'grid-column: ' + (${dayStat.index} + 1) + ';'"
                    th:text="${day.dayOfMonth}">1</div>
             </div>
@@ -103,7 +103,7 @@
             <div class="calendar-day-grid flex-grow-1 position-relative"
                  th:style="'display:grid; grid-template-columns: repeat(' + ${totalColumns} + ', minmax(28px,1fr)); grid-auto-rows: 2.25rem;'">
               <div th:each="day, dayStat : ${days}" class="calendar-day-cell"
-                   th:classappend="${day.dayOfWeek.value} >= 6 ? 'calendar-weekend' : ''"
+                   th:classappend="${weekendDays.contains(day.dayOfWeek)} ? 'calendar-weekend' : ''"
                    th:style="'grid-row: 1; grid-column: ' + (${dayStat.index} + 1) + ';'"></div>
               <div th:each="bar : ${row.bars}" class="calendar-bar rounded"
                    th:style="'grid-row: 1; grid-column: ' + ${bar.startColumn} + ' / span ' + ${bar.columnSpan} + ';'"

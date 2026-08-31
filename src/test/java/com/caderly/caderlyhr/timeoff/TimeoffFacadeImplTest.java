@@ -6,9 +6,11 @@ import com.caderly.caderlyhr.people.Employee;
 import com.caderly.caderlyhr.people.EmployeeRepository;
 import com.caderly.caderlyhr.tenantisolation.TenantIsolationTestBase;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -196,6 +198,13 @@ class TimeoffFacadeImplTest extends TenantIsolationTestBase {
                 asTenant(tenantA, () -> timeoff.listPublicHolidaysInRange(MONTH_START, MONTH_END));
 
         assertThat(markers).extracting(TimeoffFacade.HolidayMarker::name).containsExactly("Founders Day");
+    }
+
+    @Test
+    void currentWeekendDays_decodesTenantsDefaultBitmaskToSaturdaySunday() {
+        Set<DayOfWeek> weekend = asTenant(tenantA, () -> timeoff.currentWeekendDays());
+
+        assertThat(weekend).containsExactlyInAnyOrder(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
     }
 
     // leave_request.employee_id carries a real FK to employee(id) (V202608171000), even though

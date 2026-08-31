@@ -11,10 +11,13 @@ import com.caderly.caderlyhr.timeoff.LeaveTypeService;
 import com.caderly.caderlyhr.timeoff.TimeoffFacade.HolidayMarker;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
@@ -88,9 +91,12 @@ class CalendarController {
         model.addAttribute("currentMonth", YearMonth.now(clock));
         model.addAttribute("days", from.datesUntil(to.plusDays(1)).toList());
         model.addAttribute("totalColumns", totalColumns);
-        model.addAttribute("rows", view.rows().stream().map(row -> toRowView(row, from, to)).toList());
+        model.addAttribute(
+                "rows",
+                view.rows().stream().map(row -> toRowView(row, from, to, view.weekendDays())).toList());
         model.addAttribute(
                 "holidayColumns", view.holidays().stream().map(h -> toHolidayColumnView(h, from)).toList());
+        model.addAttribute("weekendDays", view.weekendDays());
         model.addAttribute("departmentOptions", org.listActiveDepartments());
         model.addAttribute("divisionOptions", org.listActiveDivisions());
         model.addAttribute("leaveTypeOptions", leaveTypes.listAll());
@@ -133,25 +139,70 @@ class CalendarController {
         }
     }
 
-    private CalendarRowView toRowView(EmployeeCalendarRow row, LocalDate from, LocalDate to) {
-        List<BarView> bars = row.bars().stream().map(bar -> toBarView(bar, from, to)).toList();
+    private CalendarRowView toRowView(
+            EmployeeCalendarRow row, LocalDate from, LocalDate to, Set<DayOfWeek> weekendDays) {
+        List<BarView> bars =
+                row.bars().stream().flatMap(bar -> toBarViews(bar, from, to, weekendDays).stream()).toList();
         return new CalendarRowView(row.employeeId(), row.fullName(), row.departmentName(), bars);
     }
 
-    private BarView toBarView(LeaveBar bar, LocalDate from, LocalDate to) {
+    /**
+     * One {@link LeaveBar} becomes one {@link BarView} per contiguous run of working days within
+     * its (month-clamped) range — a weekend day inside the range gets no bar segment, so the
+     * grid's weekend shading underneath stays visible. Every segment reuses the same tooltip,
+     * built once from the bar's original unclamped dates/duration, so hovering any fragment still
+     * shows the whole leave period.
+     */
+    private List<BarView> toBarViews(LeaveBar bar, LocalDate from, LocalDate to, Set<DayOfWeek> weekendDays) {
         LocalDate clampedStart = bar.startDate().isBefore(from) ? from : bar.startDate();
         LocalDate clampedEnd = bar.endDate().isAfter(to) ? to : bar.endDate();
-        int startColumn = (int) ChronoUnit.DAYS.between(from, clampedStart) + 1;
-        int columnSpan = (int) ChronoUnit.DAYS.between(clampedStart, clampedEnd) + 1;
-        String tooltip =
-                messages.getMessage(
-                        "calendar.grid.bar-tooltip",
-                        new Object[] {bar.leaveTypeName(), bar.startDate(), bar.endDate(), bar.durationDays()},
-                        "%s: %s to %s (%s days)".formatted(
-                                bar.leaveTypeName(), bar.startDate(), bar.endDate(), bar.durationDays()),
-                        LocaleContextHolder.getLocale());
-        return new BarView(bar.leaveTypeName(), boldIcon(bar.icon()), startColumn, columnSpan, tooltip);
+        String tooltip = tooltipFor(bar);
+        return splitIntoWorkingSegments(clampedStart, clampedEnd, weekendDays).stream()
+                .map(
+                        segment -> {
+                            int startColumn = (int) ChronoUnit.DAYS.between(from, segment.start()) + 1;
+                            int columnSpan = (int) ChronoUnit.DAYS.between(segment.start(), segment.end()) + 1;
+                            return new BarView(
+                                    bar.leaveTypeName(), boldIcon(bar.icon()), startColumn, columnSpan, tooltip);
+                        })
+                .toList();
     }
+
+    private String tooltipFor(LeaveBar bar) {
+        return messages.getMessage(
+                "calendar.grid.bar-tooltip",
+                new Object[] {bar.leaveTypeName(), bar.startDate(), bar.endDate(), bar.durationDays()},
+                "%s: %s to %s (%s days)".formatted(
+                        bar.leaveTypeName(), bar.startDate(), bar.endDate(), bar.durationDays()),
+                LocaleContextHolder.getLocale());
+    }
+
+    /**
+     * Walks {@code [start, end]} one day at a time, breaking into contiguous runs of non-weekend
+     * days — a run closes the moment a weekend day is hit and reopens on the next working day. An
+     * all-weekend range naturally yields an empty list (nothing to render); an empty {@code
+     * weekend} set naturally yields one segment spanning the whole range (today's un-split
+     * behavior) — no special-casing needed for either.
+     */
+    static List<Segment> splitIntoWorkingSegments(LocalDate start, LocalDate end, Set<DayOfWeek> weekend) {
+        List<Segment> segments = new ArrayList<>();
+        LocalDate segmentStart = null;
+        for (LocalDate cursor = start; !cursor.isAfter(end); cursor = cursor.plusDays(1)) {
+            boolean isWeekend = weekend.contains(cursor.getDayOfWeek());
+            if (!isWeekend && segmentStart == null) {
+                segmentStart = cursor;
+            } else if (isWeekend && segmentStart != null) {
+                segments.add(new Segment(segmentStart, cursor.minusDays(1)));
+                segmentStart = null;
+            }
+        }
+        if (segmentStart != null) {
+            segments.add(new Segment(segmentStart, end));
+        }
+        return segments;
+    }
+
+    record Segment(LocalDate start, LocalDate end) {}
 
     /**
      * A holiday applies to every employee, so its grid column is computed once and shared across
