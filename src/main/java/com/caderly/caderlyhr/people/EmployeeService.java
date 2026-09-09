@@ -14,6 +14,7 @@ import com.caderly.caderlyhr.security.SessionRevoker;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -108,6 +109,40 @@ public class EmployeeService {
     @Transactional(readOnly = true)
     public Optional<Employee> findByUserId(UUID userId) {
         return employees.findByUserId(userId);
+    }
+
+    /**
+     * Blank/null fields among exactly the set {@link EmployeeForms.SelfProfilePatch} lets an
+     * employee edit themselves — the derived "Complete your profile" task on For Action (PRD
+     * FR-8.4, sub-phase 1.9's ADR 0015). {@code addressLine2} is deliberately excluded: it is
+     * legitimately empty for most addresses, so counting it would make the task permanently
+     * unclearable. Returns field keys (matching {@code common.field.*} message keys), not prose —
+     * the web layer resolves the label.
+     */
+    @Transactional(readOnly = true)
+    public List<String> incompleteSelfServiceFields(UUID employeeId) {
+        Employee employee = require(employeeId);
+        List<String> missing = new ArrayList<>();
+        if (isBlank(employee.phone())) {
+            missing.add("phone");
+        }
+        if (isBlank(employee.addressLine1())) {
+            missing.add("address-line1");
+        }
+        if (isBlank(employee.city())) {
+            missing.add("city");
+        }
+        if (isBlank(employee.country())) {
+            missing.add("country");
+        }
+        if (isBlank(employee.postalCode())) {
+            missing.add("postal-code");
+        }
+        return List.copyOf(missing);
+    }
+
+    private static boolean isBlank(@Nullable String value) {
+        return value == null || value.isBlank();
     }
 
     /**

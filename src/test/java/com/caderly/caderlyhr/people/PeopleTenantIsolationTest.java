@@ -1,7 +1,9 @@
 package com.caderly.caderlyhr.people;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.caderly.caderlyhr.common.NotFoundException;
 import com.caderly.caderlyhr.tenantisolation.TenantIsolationTestBase;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -27,6 +29,7 @@ class PeopleTenantIsolationTest extends TenantIsolationTestBase {
 
     @Autowired private EmployeeRepository employees;
     @Autowired private EmergencyContactRepository emergencyContacts;
+    @Autowired private PeopleFacade peopleFacade;
     @Autowired private PostgreSQLContainer postgres;
 
     private String emailA;
@@ -95,6 +98,25 @@ class PeopleTenantIsolationTest extends TenantIsolationTestBase {
                 .hasSize(1);
         assertThat(asTenant(tenantB, () -> emergencyContacts.findAllByEmployeeIdOrderByNameAsc(employeeAId)))
                 .isEmpty();
+    }
+
+    /**
+     * {@code listPeers} resolves the subject employee first (CLAUDE.md §5 rule 8): under RLS,
+     * tenant B's connection cannot see tenant A's row at all, so it fails the same way every other
+     * {@code PeopleFacade} lookup does on a cross-tenant id — {@link NotFoundException}, not a
+     * silently empty peer list.
+     */
+    @Test
+    void listPeers_whenTenantBActiveOnTenantAEmployee_throwsNotFound() {
+        UUID employeeAId =
+                asTenant(tenantA, () -> employees.findAll()).stream()
+                        .filter(e -> e.email().equals(emailA))
+                        .findFirst()
+                        .orElseThrow()
+                        .getId();
+
+        assertThatThrownBy(() -> asTenant(tenantB, () -> peopleFacade.listPeers(employeeAId)))
+                .isInstanceOf(NotFoundException.class);
     }
 
     @Test

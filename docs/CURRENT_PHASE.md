@@ -1,56 +1,91 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.9 — Home Dashboard + For Action inbox
-**Branch:** `phase-1.9-home-dashboard` (not yet created — create it before writing any code)
-**Goal:** The Home page (`/`) becomes a real dashboard of htmx-loaded widgets — not just the "Welcome" banner and balance cards it has today — matching the PRD's wireframe. The "For Action" inbox itself (pending approvals + tasks) already shipped in Phase 1.6; this phase's remaining scope is the Home page widgets, plus whatever "For Action" polish, if any, a closer read of PRD §6.8/§24.6 turns up.
+**Working on:** Phase 1.10 — Notifications: templates, event wiring, admin view
+**Branch:** `phase-1.10-notifications` (not yet created — create it before writing any code)
+**Goal:** Turn the plain inline-string emails Phase 1.2/1.6 already send (invite, password reset,
+leave requested/approved/rejected/cancelled) into a real Thymeleaf-templated, per-tenant-branded
+catalog, wire up every remaining event PRD §17.2 names (holiday reminder, birthday, work
+anniversary, document expiry), and give Admin a way to see and retry failed sends.
 
 ## Read these before doing anything
 
-1. `docs/Caderly_Implementation_Plan.md` — the "1.9 Home Dashboard + For Action inbox" section under Phase 1 — MVP
-2. `docs/Caderly_PRD.md` — §24.2 (Home Dashboard wireframe, the widget list), §8 feature #13 (a shorter, possibly more authoritative widget list — see the open discrepancy below), §6.8 FR-8.1–8.4 (For Action — likely already fully satisfied by Phase 1.6's `LeaveApprovalController`/`for-action.html`, but confirm rather than assume), §24.6 (For Action wireframe, to confirm nothing there is still open)
-3. `CLAUDE.md` — §4 (package structure — this phase is aggregation/read-only across `people`, `timeoff`, `documents`; decide whether it needs its own package or stays inline in `web.HomeController` given how small it is), §6 A01 (RBAC — Home is already `isAuthenticated()`-equivalent via `hasRole('EMPLOYEE')`, confirm the new widgets need no additional role gating)
-4. `docs/UI_Guidelines.md` §8.2 (Home dashboard widgets — 3/2/1-column responsive grid, each widget a `card` with `card-header` title + optional `card-footer` "View all" link, **independently htmx-loaded on page load via `hx-get`/`hx-trigger="load"`**, and explicitly: "Never render more than 6 widgets by default")
-
-## Open discrepancy to resolve before planning — do not silently pick one
-
-PRD §24.2's full wireframe lists **7** widgets: Welcome, Book Time Off, My Peers, Time Off Today, My Days Off, Company News (static MVP tile), Resources (top 3 company files). PRD §8's high-level MVP feature list (feature #13) names only **4**: "book time off, my peers, time off today, upcoming holidays" — a materially different, shorter set that also swaps in "upcoming holidays" for the last slot rather than My Days Off/Company News/Resources. UI Guidelines §8.2's "never more than 6 widgets" caps whichever list wins, but doesn't resolve which widgets make the cut. Read both sections closely (not just the excerpts here) and either reconcile them or ask — don't default to the longer list just because it's more detailed.
+1. `docs/Caderly_Implementation_Plan.md` — the "1.10 Notifications" section under Phase 1 — MVP
+2. `docs/Caderly_PRD.md` — §6.9 (Tasks & Notifications FR-9.1–9.4), §17 (Notifications — channels,
+   the full event list in §17.2, delivery in §17.3, per-user digest preference explicitly deferred
+   to Phase 2 in §17.4 — don't build it early)
+3. `CLAUDE.md` — §6a (durable outbox contract — every event below goes through `email_outbox`,
+   never `mailSender.send()` inline), §7 (Thymeleaf email templates live in
+   `src/main/resources/templates/email/*.html`; user-facing text still goes through
+   `messages.properties` per ADR 0013 — templates are not an exception)
 
 ## Already in place — do not redo
 
-- **`web.HomeController` + `templates/home.html`**: `GET /` already renders "Welcome, {FirstName}!" and the "Book Time Off" balance-card widget (`BalanceService.listCurrentYearForEmployee`), gracefully degrading to a name-free "Welcome!" with no cards for a principal with no linked Employee (Admin-only dev accounts). This is two of the wireframe's widgets already done — extend this controller/template, don't replace it.
-- **For Action (Phase 1.6)**: `web.LeaveApprovalController`, `templates/for-action.html` — Tasks/Time-off-requests tabs, Pending/Completed sub-tabs, Approve/Reject with note modals, Manager-scope vs Admin-org-wide visibility (PRD FR-8.2/8.3). Confirm FR-8.4's "system-generated tasks" (e.g. "Complete your profile") exist; if not, that's this phase's job per the Implementation Plan's "For Action inbox" wording, not a Phase 2 deferral — check before assuming.
-- **Team Calendar (Phase 1.8)**: `calendar.CalendarService`/`TimeoffFacade`/`PeopleFacade` — the "Time Off Today" widget (who's out today, tenant-wide) and "My Peers" widget's "Out today" tab almost certainly want to reuse `TimeoffFacade.listApprovedLeaveInRange(today, today, ...)` rather than a new query; check before adding a parallel one. `calendar` package's `package-info.java` currently says its only consumer is the team-calendar grid/feed — update that Javadoc if Home becomes a second consumer.
-- **Files (Phase 1.7)**: `documents.CompanyFileService.listAll()` — the "Resources" widget (if it survives the discrepancy above) is "top 3 company files," a thin slice of this, not new upload/storage logic.
-- **Sidebar `Home` link**: already enabled and the default landing page; no sidebar change needed.
+- **`notifications.system.EmailOutbox`/`EmailOutboxRepository`/`EmailDispatcher`/`EmailDelivery`**
+  (Phase 1.2): the durable outbox itself — write intent row, `@Scheduled` dispatcher, retry with
+  backoff, `FAILED` terminal state. This phase extends what gets enqueued, not the dispatch
+  mechanism.
+- **Invite + password reset emails** (`identity.IdentityEmails`, `identity.InviteService`,
+  `identity.PasswordResetService`): already wired, but as inline-built subject/body strings, not
+  Thymeleaf templates — check whether migrating them to the new template mechanism is in this
+  phase's scope or a nice-to-have; PRD §17.2 lists them as already-satisfied, so don't treat them
+  as blocking.
+- **Leave lifecycle emails** (`timeoff.TimeoffEmails`, called from `timeoff.LeaveRequestService`):
+  requested (to approver), approved/rejected (to employee) already fire on the real business
+  actions. Same inline-string caveat as above — confirm cancelled is actually wired (§17.2 lists it;
+  a quick grep of `TimeoffEmails`/`LeaveRequestService.cancel` will confirm either way).
+- **`EmployeeTerminationJob`/`AnnualGrantJob`** (Phase 1.4/1.5): the two existing `@Scheduled` jobs
+  this phase's new ones (holiday reminder, birthday/anniversary, document expiry) should match in
+  shape — one call per tenant, `TenantContext.runAsSystem`.
 
-## Remaining Phase 1.9 work (pending the discrepancy above)
+## Remaining Phase 1.10 work
 
 ### Backend
 
-- Per-widget data for whichever widgets the resolved list includes: My Peers (same-department + same-manager peers, `PeopleFacade` needs a query for this — check whether one already exists before adding), Time Off Today / Upcoming Holidays (`TimeoffFacade`), My Days Off (`TimeoffFacade.listAllApprovedLeaveForEmployee`-shaped, upcoming-only), Company News (MVP: a static "Welcome to Caderly" tile per PRD §24.2 — no backend needed), Resources (`documents.CompanyFileService`).
-- Per UI Guidelines §8.2, each widget loads independently: likely one `GET /widgets/<name>` htmx-fragment endpoint per widget rather than one big `home()` method assembling everything server-side up front — confirm this against how `AdminLeaveController`'s or similar existing htmx-fragment endpoints are shaped before inventing a new pattern.
+- Thymeleaf templates in `src/main/resources/templates/email/*.html`, one per event.
+- `EmailTemplateService.render(templateKey, model)` merging per-tenant branding (logo URL, primary
+  color, tenant name) — check `tenant.Tenant` for what branding fields already exist before adding
+  new ones.
+- Wire the events PRD §17.2 names that aren't firing yet: holiday reminder (day-before, whole
+  tenant), birthday & work anniversary (to team, per config), document expiry (30/14/7 days
+  before, to employee + Admin). Each needs its own `@Scheduled` job or a daily sweep, per
+  CLAUDE.md §6a — no `@Async`.
+- Admin outbox viewer: `/admin/notifications`, paginated table (date, to, subject, status,
+  attempts, last error), filter by status/date, "retry" action for `FAILED` rows.
+- Per-tenant notification toggles (disable birthday/anniversary/etc.) — one settings page per the
+  Implementation Plan; confirm against PRD FR-9.3 whether this is Admin-only and per-category.
 
 ### Frontend
 
-- `templates/home.html`: extend into the 3/2/1-column responsive widget grid (UI Guidelines §8.2), each widget its own `card` with `hx-trigger="load"`.
-- Widget partials/fragments per widget, each with its own empty state (UI Guidelines §7.1) — e.g., "My Peers" with none, "My Days Off" with nothing upcoming.
+- `templates/admin/notifications.html` (new) — table + filter + retry, matching
+  `admin/holidays.html`'s CRUD-grid shape (ADR 0007) as closely as the read-mostly nature of this
+  page allows.
+- Notification toggle settings page — decide whether this lives under `/admin` (tenant-wide
+  config) or `/settings` (the DoD is about tenant-wide categories, so `/admin` is the likely fit;
+  confirm before building).
 
 ### Tests
 
-- Widget renders empty state gracefully (Implementation Plan's own testing note) — one test per widget's empty-data path.
-- RBAC: confirm no new role gate is needed (Home is tenant-member-visible, no PRD §26 row for it beyond being signed in) — write the test proving it rather than assuming.
+- Snapshot/rendering test per template: branding merge correct, no missing tokens/keys.
+- Integration test per event: perform the business action (or advance the clock past a
+  scheduled-job boundary via `MutableClock`), assert the correct `email_outbox` row exists with
+  the correct recipient(s).
+- E2E: Admin sees a `FAILED` row after a simulated SMTP outage, clicks retry, row transitions to
+  `SENT`.
 
-## Definition of Done for Phase 1.9
+## Definition of Done for Phase 1.10
 
-- Home page matches whichever widget list the discrepancy above resolves to, each independently htmx-loaded, none exceeding UI Guidelines §8.2's 6-widget cap.
-- Every widget has a designed empty state — no bare "no results" per UI Guidelines §7.1.
-- `./mvnw verify` green, ArchUnit green, no new exemptions.
+- Every event in PRD §17.2 produces a correctly-branded email (verified in MailHog or the outbox
+  table, not just "the code compiles").
+- Admin can inspect failed sends and retry them from `/admin/notifications`.
+- Per-tenant category toggles work: disabling a category stops that event from enqueuing.
+- `./mvnw verify` green, ArchUnit green (no `mailSender.send()`/inline HTTP call outside the
+  outbox pattern — CLAUDE.md §6a), no new exemptions.
 
-## Not in scope for Phase 1.9 — do not start any of this
+## Not in scope for Phase 1.10 — do not start any of this
 
-- Notification event wiring (birthday/anniversary/document-expiry reminders that might feed a widget) — Phase 1.10. If a widget needs this data, read it directly rather than waiting on the notification system.
-- Company News beyond the MVP static tile (Admin-authored posts) — explicitly Phase 2 per PRD §24.2.
-- Org tree view toggle on People (PRD §8.3 UI Guidelines, unrelated to Home) — still Phase 2, not touched by this phase.
+- Per-user digest-vs-immediate preference (PRD §17.4) — explicitly Phase 2.
+- Slack/MS Teams webhook notifications — Phase 2, needs its own `webhook_outbox` (CLAUDE.md §6a
+  already names this as planned, not built).
 
 ## Carried forward — open items
 
@@ -59,8 +94,11 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
 - **Lockout is keyed on the user, not (email + IP)** — blocked on `login_audit`, Phase 1.11. ADR 0006 decision B.
 - **Password-reset enumeration safety is response-shape only**, not constant-time. ADR 0006 decision E.
 - **No common-password blocklist.** ADR 0006 decision F.
-- **Tenant primary colour not yet injected into `--bs-primary`.** Phase 1.10 owns tenant branding.
-- **Peer-to-peer profile viewing (PRD §26 "View peer profile 🔒 basic") is not implemented.** Deferred since Phase 1.4; still not this phase's job (even though "My Peers" widget is adjacent — the widget shows names/avatars, not full profile access).
+- **Tenant primary colour not yet injected into `--bs-primary`.** This phase's branding-merge work
+  is the natural trigger to finally close this out — check before deferring it again.
+- **Peer-to-peer profile viewing (PRD §26 "View peer profile 🔒 basic") is not implemented.**
+  Deferred since Phase 1.4. Home's "My Peers" widget (Phase 1.9) deliberately shows names/avatars
+  only, with no profile link for a plain Employee viewer, for exactly this reason (ADR 0015).
 - **`EmployeeTerminationJob`/`AnnualGrantJob` process tenants serially, not in parallel.** Still fine at current scale (CLAUDE.md §11) — revisit only with a benchmark showing a problem.
 - **Manual leave-balance adjustment (`BalanceService.adjustManually`) has no dedicated admin screen**, by design — backend capability, RBAC-tested only. Revisit if a real need surfaces.
 - **`AdminEmployeeController`'s write-then-separate-read transaction shape has an open correctness question** (ADR 0009's Context/Consequences) — not investigated.
@@ -73,10 +111,17 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
 - **The iCal token is stored raw (unhashed) on `app_user`**, a deliberate deviation from CLAUDE.md §6 A02's reset-token hashing rule — see ADR 0014 before "fixing" this.
 - **Team Calendar has no Week view or Grid/List toggle** — PRD §24.5 names both, but Phase 1.8 shipped month-view-only as a documented simplification (the DoD only required a filterable month grid). Revisit if a real need surfaces.
 - **No general `/settings` page/shell exists** — Phase 1.8 added exactly one page, `/settings/calendar`, linked directly from the topbar account menu rather than building a multi-tab Settings shell for tabs (Change password, MFA) that don't exist yet. The next feature that needs a Settings tab is the natural trigger to introduce the shell.
+- **Home dashboard's Company News widget was dropped in favor of Upcoming Holidays** (Phase 1.9,
+  ADR 0015) — PRD §24.2's wireframe still names it; the real feature (Admin-authored posts) stays
+  Phase 2 as originally planned. Revisit the grid's sixth slot only if Company News ships for real.
+- **For Action's Tasks pane is system-generated only — "Complete your profile," derived, no
+  table.** Admin-assigned tasks (the other half of FR-8.4) need a `Task` entity/migration/RLS/
+  assignment UI that Phase 1.9's "DB changes: none new" scope explicitly ruled out (ADR 0015). The
+  next phase that can afford a new table is the natural owner.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to whatever sub-phase comes next (this file's 1.8 → 1.9 update is the template).
-3. Commit `phase-1.9-home-dashboard` and open a PR against `main`.
+2. Update this file to whatever sub-phase comes next (this file's 1.9 → 1.10 update is the template).
+3. Commit `phase-1.10-notifications` and open a PR against `main`.
 4. Do not start the next phase in the same session.

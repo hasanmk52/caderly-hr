@@ -123,4 +123,26 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
                     """,
             nativeQuery = true)
     boolean isManagerOf(@Param("managerId") UUID managerId, @Param("employeeId") UUID employeeId);
+
+    /**
+     * Home's "My Peers" widget (PRD §24.2, sub-phase 1.9): same department or same manager as
+     * {@code employeeId}, excluding the employee itself and anyone terminated. Either filter may be
+     * {@code null} (an employee with neither a department nor a manager has no peers, not every
+     * other unassigned employee) — matching {@link #findActiveForCalendar}'s optional-filter
+     * convention rather than treating a null as "match everything".
+     */
+    @EntityGraph(attributePaths = {"department", "manager"})
+    @Query(
+            """
+            SELECT e FROM Employee e
+            WHERE e.status <> com.caderly.caderlyhr.people.EmployeeStatus.TERMINATED
+              AND e.id <> :employeeId
+              AND ( (:departmentId IS NOT NULL AND e.department.id = :departmentId)
+                 OR (:managerId IS NOT NULL AND e.manager.id = :managerId) )
+            ORDER BY e.lastName ASC, e.firstName ASC
+            """)
+    List<Employee> findPeers(
+            @Param("employeeId") UUID employeeId,
+            @Param("departmentId") @Nullable UUID departmentId,
+            @Param("managerId") @Nullable UUID managerId);
 }

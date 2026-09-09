@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -28,14 +29,19 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
 /**
- * "For Action" leave approval inbox (PRD §12.4 steps 3-6, §26; UI_Guidelines §8.6). Manager
- * approval authority is transitive (direct + indirect reports, via {@code
+ * "For Action" inbox (PRD §6.8, §12.4 steps 3-6, §26; UI_Guidelines §8.6): a Tasks pane, open to
+ * every signed-in user, alongside the Time off requests approval pane, which stays Manager/Admin
+ * only. Manager approval authority is transitive (direct + indirect reports, via {@code
  * PeopleFacade#isManagerOf}) even though routing/notification at submit time stays direct-manager-
- * only (BR-2 MVP scope) — see the Phase 1.6 plan's decision 5. {@code @PreAuthorize
- * hasRole('MANAGER')} is the floor; the role hierarchy passes Admin through too.
+ * only (BR-2 MVP scope) — see the Phase 1.6 plan's decision 5.
+ *
+ * <p>The class-level {@code @PreAuthorize} was widened from {@code hasRole('MANAGER')} to {@code
+ * isAuthenticated()} in sub-phase 1.9 (ADR 0015) so a plain Employee can reach their own Tasks
+ * pane; every mutation endpoint (approve/reject) keeps its own method-level {@code
+ * hasRole('MANAGER')}, which overrides the class level and is unaffected by the widening.
  */
 @Controller
-@PreAuthorize("hasRole('MANAGER')")
+@PreAuthorize("isAuthenticated()")
 class LeaveApprovalController {
 
     private final LeaveRequestService leaveRequests;
@@ -49,13 +55,59 @@ class LeaveApprovalController {
     }
 
     @GetMapping("/for-action")
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("isAuthenticated()")
     String forAction(@AuthenticationPrincipal AppUserPrincipal principal, Model model) {
-        Decider decider = resolveDecider(principal);
         model.addAttribute(
-                "pending", toRows(leaveRequests.listPendingForApprover(decider.isAdmin(), decider.employeeId())));
-        model.addAttribute("completed", toRows(leaveRequests.listCompletedByApprover(principal.userId())));
+                "profileTask", employees.findByUserId(principal.userId()).map(this::buildProfileTask).orElse(null));
+        boolean isApprover = principal.roles().contains(Role.MANAGER) || principal.roles().contains(Role.ADMIN);
+        // Time off requests stays the default-active pane for an approver (that's what they came
+        // here to do); Tasks is only the default for a plain Employee, who has no approvals pane
+        // at all — see for-action.html's th:classappend on both panes/pills.
+        model.addAttribute("isApprover", isApprover);
+        if (isApprover) {
+            Decider decider = resolveDecider(principal);
+            model.addAttribute(
+                    "pending",
+                    toRows(leaveRequests.listPendingForApprover(decider.isAdmin(), decider.employeeId())));
+            model.addAttribute("completed", toRows(leaveRequests.listCompletedByApprover(principal.userId())));
+        } else {
+            model.addAttribute("pending", List.<ApprovalRow>of());
+            model.addAttribute("completed", List.<ApprovalRow>of());
+        }
         return "for-action";
+    }
+
+    /**
+     * Derived "Complete your profile" task (PRD FR-8.4, sub-phase 1.9's ADR 0015) — no {@code
+     * Task} table exists; this is computed fresh from the employee's own blank self-service
+     * fields every time the page loads, and disappears on its own once they're filled in.
+     */
+    private @Nullable ProfileTask buildProfileTask(Employee employee) {
+        List<String> missing = employees.incompleteSelfServiceFields(employee.requireId());
+        if (missing.isEmpty()) {
+            return null;
+        }
+        String summary = missing.stream().map(this::fieldLabel).collect(Collectors.joining(", "));
+        return new ProfileTask(summary, employee.requireId());
+    }
+
+    /**
+     * Maps a missing-field key from {@link EmployeeService#incompleteSelfServiceFields} onto its
+     * existing message key rather than minting new ones — {@code phone}/{@code city}/{@code
+     * country} already have {@code common.field.*} labels, and {@code address-line1}/{@code
+     * postal-code} already have {@code profile.personal.*-label} ones (people/profile.html).
+     */
+    private String fieldLabel(String key) {
+        String messageKey =
+                switch (key) {
+                    case "phone" -> "common.field.phone";
+                    case "address-line1" -> "profile.personal.address-line1-label";
+                    case "city" -> "common.field.city";
+                    case "country" -> "common.field.country";
+                    case "postal-code" -> "profile.personal.postal-code-label";
+                    default -> key;
+                };
+        return messages.getMessage(messageKey, null, key, LocaleContextHolder.getLocale());
     }
 
     @GetMapping("/for-action/leave-requests/{id}/reject-form")
@@ -165,6 +217,9 @@ class LeaveApprovalController {
     }
 
     private record Decider(UUID employeeId, String name, boolean isAdmin) {}
+
+    /** Feeds {@code for-action.html}'s Tasks pane: one derived "Complete your profile" row. */
+    record ProfileTask(String missingFieldsSummary, UUID employeeId) {}
 
     /** Feeds {@code for-action.html} (UI_Guidelines §8.6): a {@link LeaveRequest} plus its requester's name. */
     record ApprovalRow(

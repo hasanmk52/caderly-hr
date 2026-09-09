@@ -1215,6 +1215,12 @@ Widget grid (customizable, MVP presets):
 - **Company News** — Admin posts (Phase 2). MVP: static "Welcome to Caderly" tile.
 - **Resources** — links to top 3 company files.
 
+> **Sub-phase 1.9 / ADR 0015:** the shipped MVP grid swaps **Company News** for **Upcoming
+> Holidays** (§8 feature #13) — Company News's MVP form has no per-tenant data behind it, and
+> §24.2 vs. §8 disagreed on the sixth slot. "Welcome" ships as the page's `<h1>` heading, not a
+> grid card, so the six cards above (with Upcoming Holidays in place of Company News) fill UI
+> Guidelines §8.2's 6-widget cap exactly.
+
 ### 24.3 People
 - Header: "People (8)" · Search filter · View toggles: List / Grid / Org Tree.
 - List: Name, Department, Division, Type, Hire Date, Contact Details, actions (view profile).

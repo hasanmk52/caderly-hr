@@ -18,7 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 /**
  * {@code calendar}'s two entry points into {@code people} (sub-phase 1.8): resolving the iCal
  * token owner's employee id, and the team calendar grid's employee list filtered by
- * department/division.
+ * department/division. Also covers {@code listPeers}, Home's "My Peers" widget's query
+ * (sub-phase 1.9 / ADR 0015).
  */
 class PeopleFacadeImplTest extends TenantIsolationTestBase {
 
@@ -111,6 +112,84 @@ class PeopleFacadeImplTest extends TenantIsolationTestBase {
                 .containsExactly(inDivisionA.requireId());
     }
 
+    @Test
+    void listPeers_sameDepartment_excludesSelfAndTerminated() {
+        Division division = asTenant(tenantA, () -> divisionRepository.save(Division.create(uniqueName("Div"), null)));
+        Department dept =
+                asTenant(tenantA, () -> departmentRepository.save(Department.create(uniqueName("Dept"), null, division)));
+        Employee self = asTenant(tenantA, () -> saveEmployee("Self", "One", dept));
+        Employee peer = asTenant(tenantA, () -> saveEmployee("Peer", "Two", dept));
+        Employee terminatedPeer =
+                asTenant(
+                        tenantA,
+                        () -> {
+                            Employee e = saveEmployee("Gone", "Three", dept);
+                            e.changeStatus(EmployeeStatus.TERMINATED);
+                            return employees.save(e);
+                        });
+
+        List<PeopleFacade.EmployeePeerInfo> result = asTenant(tenantA, () -> peopleFacade.listPeers(self.requireId()));
+
+        assertThat(result).extracting(PeopleFacade.EmployeePeerInfo::employeeId)
+                .containsExactly(peer.requireId())
+                .doesNotContain(self.requireId(), terminatedPeer.requireId());
+    }
+
+    @Test
+    void listPeers_sameManagerDifferentDepartment_includesReports() {
+        Employee manager = asTenant(tenantA, () -> saveEmployee("Boss", "One", null));
+        Employee self = asTenant(tenantA, () -> saveEmployeeWithManager("Self", "Two", manager));
+        Employee sibling = asTenant(tenantA, () -> saveEmployeeWithManager("Sibling", "Three", manager));
+
+        List<PeopleFacade.EmployeePeerInfo> result = asTenant(tenantA, () -> peopleFacade.listPeers(self.requireId()));
+
+        assertThat(result).extracting(PeopleFacade.EmployeePeerInfo::employeeId)
+                .containsExactly(sibling.requireId());
+    }
+
+    @Test
+    void listPeers_bothSameDepartmentAndSameManager_deduplicates() {
+        Division division = asTenant(tenantA, () -> divisionRepository.save(Division.create(uniqueName("Div"), null)));
+        Department dept =
+                asTenant(tenantA, () -> departmentRepository.save(Department.create(uniqueName("Dept"), null, division)));
+        Employee manager = asTenant(tenantA, () -> saveEmployee("Boss", "One", null));
+        Employee self =
+                asTenant(
+                        tenantA,
+                        () -> {
+                            Employee e = saveEmployeeWithManager("Self", "Two", manager);
+                            e.updateAdminFields(
+                                    null, e.firstName(), e.lastName(), e.email(), null, null, null, null, null, null,
+                                    null, null, dept, null, null, BigDecimal.valueOf(8.0), null, null);
+                            return employees.save(e);
+                        });
+        Employee peer =
+                asTenant(
+                        tenantA,
+                        () -> {
+                            Employee e = saveEmployeeWithManager("Peer", "Three", manager);
+                            e.updateAdminFields(
+                                    null, e.firstName(), e.lastName(), e.email(), null, null, null, null, null, null,
+                                    null, null, dept, null, null, BigDecimal.valueOf(8.0), null, null);
+                            return employees.save(e);
+                        });
+
+        List<PeopleFacade.EmployeePeerInfo> result = asTenant(tenantA, () -> peopleFacade.listPeers(self.requireId()));
+
+        assertThat(result).extracting(PeopleFacade.EmployeePeerInfo::employeeId)
+                .containsExactly(peer.requireId());
+    }
+
+    @Test
+    void listPeers_neitherDepartmentNorManager_returnsEmpty() {
+        Employee self = asTenant(tenantA, () -> saveEmployee("Lone", "Wolf", null));
+        asTenant(tenantA, () -> saveEmployee("Other", "Person", null));
+
+        List<PeopleFacade.EmployeePeerInfo> result = asTenant(tenantA, () -> peopleFacade.listPeers(self.requireId()));
+
+        assertThat(result).isEmpty();
+    }
+
     private Employee saveEmployee(String firstName, String lastName, Department department) {
         Employee employee = Employee.create(firstName, lastName, uniqueEmail());
         employee.updateAdminFields(
@@ -132,6 +211,12 @@ class PeopleFacadeImplTest extends TenantIsolationTestBase {
                 BigDecimal.valueOf(8.0),
                 null,
                 null);
+        return employees.save(employee);
+    }
+
+    private Employee saveEmployeeWithManager(String firstName, String lastName, Employee manager) {
+        Employee employee = saveEmployee(firstName, lastName, null);
+        employee.reassignManager(manager);
         return employees.save(employee);
     }
 

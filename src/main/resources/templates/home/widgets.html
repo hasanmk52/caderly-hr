@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<!--/* Six Home dashboard widget fragments (UI Guidelines §8.2, HomeController's /widgets/*
+       endpoints, ADR 0015). Grouped in one file, like leave/for-action.html, so they are never
+       also rendered as a standalone page. Each fragment's root replaces the shell's placeholder
+       div via hx-swap="outerHTML", so it re-declares the card/h-100 classes itself. */-->
+
+<div class="card h-100" th:fragment="bookTimeOff">
+  <div class="card-header"><h3 class="card-title h6 mb-0" th:text="#{home.book-time-off-heading}">Book Time Off</h3></div>
+  <div class="card-body">
+    <div th:if="${#lists.isEmpty(leaveBalances)}" class="text-center text-muted py-3">
+      <i class="bi bi-calendar-heart fs-3 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0 small" th:text="#{home.widget.book-time-off.empty}">No leave types are set up yet.</p>
+    </div>
+    <div th:unless="${#lists.isEmpty(leaveBalances)}" class="d-flex flex-column gap-2">
+      <button type="button" class="card border text-start w-100" th:each="balance : ${leaveBalances}"
+              data-bs-toggle="modal" data-bs-target="#bookLeaveModal"
+              th:hx-get="@{/leave/new(leaveTypeId=${balance.leaveTypeId})}"
+              hx-target="#bookLeaveModalBody" hx-swap="innerHTML">
+        <div class="card-body py-2">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <i th:if="${balance.icon() != null}" th:class="'bi ' + ${balance.icon()}"
+               th:style="${balance.color() != null} ? 'color:' + ${balance.color()}" aria-hidden="true"></i>
+            <span class="fw-semibold small" th:text="${balance.leaveTypeName()}">Annual</span>
+          </div>
+          <span class="display-6 me-1" th:text="${balance.remaining()}">15</span>
+          <span class="text-muted small" th:text="#{home.days-remaining}">days remaining</span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="card h-100" th:fragment="myPeers">
+  <div class="card-header"><h3 class="card-title h6 mb-0" th:text="#{home.widget.my-peers.heading}">My Peers</h3></div>
+  <div class="card-body">
+    <div th:if="${#lists.isEmpty(peers)}" class="text-center text-muted py-3">
+      <i class="bi bi-people fs-3 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0 small" th:text="#{home.widget.my-peers.empty}">No peers to show yet.</p>
+    </div>
+    <div th:unless="${#lists.isEmpty(peers)}">
+      <ul class="nav nav-pills nav-pills-sm mb-2" role="tablist">
+        <li class="nav-item"><button class="nav-link active btn-sm" data-bs-toggle="tab" data-bs-target="#peers-all" type="button" role="tab" th:text="#{home.widget.my-peers.tab.all}">All</button></li>
+        <li class="nav-item"><button class="nav-link btn-sm" data-bs-toggle="tab" data-bs-target="#peers-out-today" type="button" role="tab" th:text="#{home.widget.my-peers.tab.out-today}">Out today</button></li>
+      </ul>
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="peers-all" role="tabpanel">
+          <div class="d-flex flex-wrap gap-2">
+            <span th:each="peer : ${peers}" class="d-inline-flex align-items-center gap-1" th:title="${peer.fullName}">
+              <span class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                    style="width: 32px; height: 32px; font-size: 0.8rem;"
+                    th:text="${#strings.substring(peer.firstName,0,1)} + ${#strings.substring(peer.lastName,0,1)}">JD</span>
+            </span>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="peers-out-today" role="tabpanel">
+          <div th:if="${#lists.isEmpty(peersOutToday)}" class="text-muted small py-2" th:text="#{home.widget.my-peers.out-today-empty}">No peers are out today.</div>
+          <div th:unless="${#lists.isEmpty(peersOutToday)}" class="d-flex flex-wrap gap-2">
+            <span th:each="peer : ${peersOutToday}" class="d-inline-flex align-items-center gap-1" th:title="${peer.fullName}">
+              <span class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                    style="width: 32px; height: 32px; font-size: 0.8rem;"
+                    th:text="${#strings.substring(peer.firstName,0,1)} + ${#strings.substring(peer.lastName,0,1)}">JD</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer" sec:authorize="hasRole('ADMIN')">
+    <a class="small" th:href="@{/admin/employees}" th:text="#{common.action.view-all}">View all</a>
+  </div>
+</div>
+
+<div class="card h-100" th:fragment="timeOffToday">
+  <div class="card-header"><h3 class="card-title h6 mb-0" th:text="#{home.widget.time-off-today.heading}">Time Off Today</h3></div>
+  <div class="card-body">
+    <div th:if="${totalEmployees == 0}" class="text-center text-muted py-3">
+      <i class="bi bi-people fs-3 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0 small" th:text="#{home.widget.time-off-today.empty}">No coworkers to show yet.</p>
+    </div>
+    <div th:unless="${totalEmployees == 0}" class="d-flex align-items-center gap-3">
+      <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden="true" class="flex-shrink-0">
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--bs-secondary-bg-subtle)" stroke-width="10"></circle>
+        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--bs-primary)" stroke-width="10"
+                stroke-linecap="round" transform="rotate(-90 40 40)"
+                th:attr="stroke-dasharray=${ringDasharray}"></circle>
+        <text x="40" y="45" text-anchor="middle" font-size="18" th:text="${#lists.size(outToday)}">0</text>
+      </svg>
+      <div>
+        <p class="mb-1 small fw-semibold" th:text="#{home.widget.time-off-today.out-of(${#lists.size(outToday)}, ${totalEmployees})}">0 of 0 out</p>
+        <p th:if="${#lists.isEmpty(outToday)}" class="text-muted small mb-0" th:text="#{home.widget.time-off-today.all-in}">Everyone's in today.</p>
+        <ul th:unless="${#lists.isEmpty(outToday)}" class="list-unstyled small mb-0">
+          <li th:each="row : ${outToday}" th:text="${row.fullName}">Jane Doe</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer"><a class="small" th:href="@{/calendar}" th:text="#{common.action.view-all}">View all</a></div>
+</div>
+
+<div class="card h-100" th:fragment="myDaysOff">
+  <div class="card-header"><h3 class="card-title h6 mb-0" th:text="#{home.widget.my-days-off.heading}">My Days Off</h3></div>
+  <div class="card-body">
+    <div th:if="${#lists.isEmpty(myDaysOff)}" class="text-center text-muted py-3">
+      <i class="bi bi-sun fs-3 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0 small" th:text="#{home.widget.my-days-off.empty}">Nothing booked yet.</p>
+    </div>
+    <ul th:unless="${#lists.isEmpty(myDaysOff)}" class="list-unstyled mb-0 small">
+      <li th:each="entry : ${myDaysOff}" class="d-flex align-items-center gap-2 mb-1">
+        <i th:if="${entry.leaveTypeIcon() != null}" th:class="'bi ' + ${entry.leaveTypeIcon()}" aria-hidden="true"></i>
+        <span th:text="${entry.leaveTypeName()}">Annual</span>
+        <span class="text-muted" th:text="${entry.startDate()} + ' - ' + ${entry.endDate()}">2026-09-10 - 2026-09-12</span>
+      </li>
+    </ul>
+  </div>
+  <div class="card-footer" th:if="${ownEmployeeId != null}">
+    <a class="small" th:href="@{/profile/{id}(id=${ownEmployeeId}, tab='timeoff')}" th:text="#{common.action.view-all}">View all</a>
+  </div>
+</div>
+
+<div class="card h-100" th:fragment="upcomingHolidays">
+  <div class="card-header"><h3 class="card-title h6 mb-0" th:text="#{home.widget.upcoming-holidays.heading}">Upcoming Holidays</h3></div>
+  <div class="card-body">
+    <div th:if="${#lists.isEmpty(upcomingHolidays)}" class="text-center text-muted py-3">
+      <i class="bi bi-calendar-heart fs-3 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0 small" th:text="#{home.widget.upcoming-holidays.empty}">No holidays configured yet.</p>
+    </div>
+    <ul th:unless="${#lists.isEmpty(upcomingHolidays)}" class="list-unstyled mb-0 small">
+      <li th:each="holiday : ${upcomingHolidays}" class="d-flex justify-content-between mb-1">
+        <span th:text="${holiday.name()}">New Year's Day</span>
+        <span class="text-muted" th:text="${holiday.date()}">2027-01-01</span>
+      </li>
+    </ul>
+  </div>
+  <div class="card-footer" sec:authorize="hasRole('ADMIN')">
+    <a class="small" th:href="@{/admin/holidays}" th:text="#{common.action.view-all}">View all</a>
+  </div>
+</div>
+
+<div class="card h-100" th:fragment="resources">
+  <div class="card-header"><h3 class="card-title h6 mb-0" th:text="#{home.widget.resources.heading}">Resources</h3></div>
+  <div class="card-body">
+    <div th:if="${#lists.isEmpty(resourceFiles)}" class="text-center text-muted py-3">
+      <i class="bi bi-folder2-open fs-3 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0 small" th:text="#{home.widget.resources.empty}">No company files yet.</p>
+    </div>
+    <ul th:unless="${#lists.isEmpty(resourceFiles)}" class="list-unstyled mb-0 small">
+      <li th:each="file : ${resourceFiles}" class="mb-1">
+        <a th:href="@{/files/{id}/download(id=${file.id})}" th:text="${file.name()}">Employee Handbook.pdf</a>
+      </li>
+    </ul>
+  </div>
+  <div class="card-footer"><a class="small" th:href="@{/files}" th:text="#{common.action.view-all}">View all</a></div>
+</div>
+
+</body>
+</html>

@@ -172,6 +172,65 @@ class EmployeeServiceTest extends TenantIsolationTestBase {
     }
 
     @Test
+    void incompleteSelfServiceFields_whenAllBlank_returnsEveryTrackedField() {
+        Employee employee = createActiveEmployee("Jane", "Doe");
+
+        List<String> missing = asTenant(tenantA, () -> employeeService.incompleteSelfServiceFields(employee.requireId()));
+
+        assertThat(missing).containsExactlyInAnyOrder("phone", "address-line1", "city", "country", "postal-code");
+    }
+
+    @Test
+    void incompleteSelfServiceFields_whenPartiallyFilled_returnsOnlyTheBlankOnes() {
+        Employee employee = createActiveEmployee("Jane", "Doe");
+        asTenant(
+                tenantA,
+                () ->
+                        employeeService.updateSelfServiceFields(
+                                employee.requireId(),
+                                new EmployeeForms.SelfProfilePatch("+1000", null, null, "Dubai", null, null)));
+
+        List<String> missing = asTenant(tenantA, () -> employeeService.incompleteSelfServiceFields(employee.requireId()));
+
+        assertThat(missing).containsExactlyInAnyOrder("address-line1", "country", "postal-code");
+    }
+
+    @Test
+    void incompleteSelfServiceFields_whenFullyFilled_returnsEmpty() {
+        Employee employee = createActiveEmployee("Jane", "Doe");
+        asTenant(
+                tenantA,
+                () ->
+                        employeeService.updateSelfServiceFields(
+                                employee.requireId(),
+                                new EmployeeForms.SelfProfilePatch("+1000", "1 Main St", null, "Dubai", "UAE", "00000")));
+
+        List<String> missing = asTenant(tenantA, () -> employeeService.incompleteSelfServiceFields(employee.requireId()));
+
+        assertThat(missing).isEmpty();
+    }
+
+    /**
+     * {@code addressLine2} is deliberately not tracked — it is legitimately empty for most
+     * addresses, so counting it would make the task permanently unclearable (sub-phase 1.9's
+     * ADR 0015).
+     */
+    @Test
+    void incompleteSelfServiceFields_neverReportsAddressLine2() {
+        Employee employee = createActiveEmployee("Jane", "Doe");
+        asTenant(
+                tenantA,
+                () ->
+                        employeeService.updateSelfServiceFields(
+                                employee.requireId(),
+                                new EmployeeForms.SelfProfilePatch("+1000", "1 Main St", null, "Dubai", "UAE", "00000")));
+
+        List<String> missing = asTenant(tenantA, () -> employeeService.incompleteSelfServiceFields(employee.requireId()));
+
+        assertThat(missing).doesNotContain("address-line2");
+    }
+
+    @Test
     void updateAdminFields_setsJobAndEncryptedCompensation() {
         Employee employee = createActiveEmployee("Jane", "Doe");
         UUID departmentId = seedDepartment();
