@@ -47,11 +47,13 @@ class OrganizationServiceTest extends TenantIsolationTestBase {
     void createDivision_withSameNameInAnotherTenant_succeeds() {
         // Uniqueness is per tenant (UNIQUE (tenant_id, name)), same as every other tenant-scoped
         // table — two companies may both have an "Engineering" division.
-        asTenant(tenantA, () -> divisions.create("Engineering", null));
+        UUID inTenantA = asTenant(tenantA, () -> divisions.create("Engineering", null).requireId());
 
         UUID inTenantB = asTenant(tenantB, () -> divisions.create("Engineering", null).requireId());
 
-        assertThat(inTenantB).isNotNull();
+        assertThat(inTenantB).isNotEqualTo(inTenantA);
+        assertThat(asTenant(tenantA, () -> divisions.require(inTenantA)).name()).isEqualTo("Engineering");
+        assertThat(asTenant(tenantB, () -> divisions.require(inTenantB)).name()).isEqualTo("Engineering");
     }
 
     @Test

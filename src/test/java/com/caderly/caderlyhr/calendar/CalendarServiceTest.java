@@ -1,6 +1,7 @@
 package com.caderly.caderlyhr.calendar;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.caderly.caderlyhr.calendar.CalendarService.TeamCalendarView;
 import com.caderly.caderlyhr.org.Department;
@@ -14,6 +15,9 @@ import com.caderly.caderlyhr.timeoff.LeaveRequest;
 import com.caderly.caderlyhr.timeoff.LeaveRequestRepository;
 import com.caderly.caderlyhr.timeoff.LeaveType;
 import com.caderly.caderlyhr.timeoff.LeaveTypeRepository;
+import com.caderly.caderlyhr.timeoff.PublicHoliday;
+import com.caderly.caderlyhr.timeoff.PublicHolidayRepository;
+import com.caderly.caderlyhr.timeoff.TimeoffFacade.HolidayMarker;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,6 +38,7 @@ class CalendarServiceTest extends TenantIsolationTestBase {
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private LeaveTypeRepository leaveTypes;
     @Autowired private LeaveRequestRepository leaveRequests;
+    @Autowired private PublicHolidayRepository publicHolidays;
 
     private static final LocalDate MONTH_START = LocalDate.of(2026, 9, 1);
     private static final LocalDate MONTH_END = LocalDate.of(2026, 9, 30);
@@ -95,16 +100,16 @@ class CalendarServiceTest extends TenantIsolationTestBase {
     @Test
     void buildTeamCalendar_includesHolidaysInTheVisibleRange() {
         // No employees needed to prove holidays come through independently of the employee list.
-        asTenant(
-                tenantA,
-                () ->
-                        leaveTypes.save(
-                                LeaveType.create("placeholder", null, null, true, false, false, true, BigDecimal.ONE, null)));
+        PublicHoliday holiday =
+                asTenant(
+                        tenantA,
+                        () -> publicHolidays.save(PublicHoliday.create(LocalDate.of(2026, 9, 15), "Founders Day")));
 
         TeamCalendarView view =
                 asTenant(tenantA, () -> calendarService.buildTeamCalendar(MONTH_START, MONTH_END, null, null, null));
 
-        assertThat(view.holidays()).isNotNull();
+        assertThat(view.holidays()).extracting(HolidayMarker::date, HolidayMarker::name)
+                .containsExactly(tuple(holiday.date(), holiday.name()));
     }
 
     private Employee saveEmployee(String firstName, String lastName, Department department) {
