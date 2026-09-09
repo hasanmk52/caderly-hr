@@ -1,9 +1,12 @@
 package com.caderly.caderlyhr.web;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.caderly.caderlyhr.TestcontainersConfiguration;
@@ -80,29 +83,43 @@ class LeaveApprovalAccessControlTest {
     }
 
     @Test
-    void forAction_asManager_returns200() throws Exception {
+    void forAction_asManager_returns200_withBothPanes() throws Exception {
         Employee manager = createEmployee("Mgr", "One", null);
         grantRole(manager, Role.MANAGER);
         UserDetails principal = loadPrincipal(manager.email());
 
-        mockMvc.perform(url("/for-action").with(user(principal))).andExpect(status().isOk());
+        mockMvc
+                .perform(url("/for-action").with(user(principal)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("id=\"tasks-pane\"")))
+                .andExpect(content().string(containsString("id=\"time-off-pane\"")));
     }
 
     @Test
-    void forAction_asAdmin_returns200() throws Exception {
+    void forAction_asAdmin_returns200_withBothPanes() throws Exception {
         Employee admin = createEmployee("Top", "Admin", null);
         grantRole(admin, Role.ADMIN);
         UserDetails principal = loadPrincipal(admin.email());
 
-        mockMvc.perform(url("/for-action").with(user(principal))).andExpect(status().isOk());
+        mockMvc
+                .perform(url("/for-action").with(user(principal)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("id=\"tasks-pane\"")))
+                .andExpect(content().string(containsString("id=\"time-off-pane\"")));
     }
 
     @Test
-    void forAction_asEmployee_returns403() throws Exception {
+    void forAction_asEmployee_returns200_withTasksPaneOnlyNoApprovalsPane() throws Exception {
+        // Sub-phase 1.9 (ADR 0015): every signed-in user reaches their own Tasks pane, but the
+        // Time off requests approvals pane stays Manager/Admin only.
         Employee employee = createEmployee("Rank", "File", null);
         UserDetails principal = loadPrincipal(employee.email());
 
-        mockMvc.perform(url("/for-action").with(user(principal))).andExpect(status().isForbidden());
+        mockMvc
+                .perform(url("/for-action").with(user(principal)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("id=\"tasks-pane\"")))
+                .andExpect(content().string(not(containsString("id=\"time-off-pane\""))));
     }
 
     @Test

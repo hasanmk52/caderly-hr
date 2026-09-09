@@ -92,6 +92,21 @@ class PeopleFacadeImpl implements PeopleFacade {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmployeePeerInfo> listPeers(UUID employeeId) {
+        Employee self = employees.findById(employeeId).orElseThrow(() -> new NotFoundException(
+                "EMPLOYEE_NOT_FOUND", "Employee not found"));
+        UUID departmentId = self.department() == null ? null : self.department().requireId();
+        UUID managerId = self.manager() == null ? null : self.manager().requireId();
+        if (departmentId == null && managerId == null) {
+            return List.of();
+        }
+        return employees.findPeers(employeeId, departmentId, managerId).stream()
+                .map(PeopleFacadeImpl::toPeerInfo)
+                .toList();
+    }
+
     private static EmployeeApprovalInfo toApprovalInfo(Employee employee) {
         UUID managerId = employee.manager() == null ? null : employee.manager().requireId();
         return new EmployeeApprovalInfo(employee.requireId(), employee.fullName(), employee.email(), managerId);
@@ -100,5 +115,16 @@ class PeopleFacadeImpl implements PeopleFacade {
     private static EmployeeCalendarInfo toCalendarInfo(Employee employee) {
         String departmentName = employee.department() == null ? null : employee.department().name();
         return new EmployeeCalendarInfo(employee.requireId(), employee.fullName(), departmentName);
+    }
+
+    private static EmployeePeerInfo toPeerInfo(Employee employee) {
+        String departmentName = employee.department() == null ? null : employee.department().name();
+        return new EmployeePeerInfo(
+                employee.requireId(),
+                employee.firstName(),
+                employee.lastName(),
+                employee.fullName(),
+                departmentName,
+                employee.jobTitle());
     }
 }

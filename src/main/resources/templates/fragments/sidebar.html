@@ -10,7 +10,9 @@
     <li class="nav-item"><a class="nav-link" th:href="@{/profile}" th:text="#{nav.my-profile}">My Profile</a></li>
     <li class="nav-item"><a class="nav-link" th:href="@{/files}" th:text="#{nav.files}">Files</a></li>
     <li class="nav-item"><a class="nav-link" th:href="@{/calendar}" th:text="#{nav.calendar}">Calendar</a></li>
-    <li class="nav-item" sec:authorize="hasAnyRole('MANAGER','ADMIN')">
+    <!--/* Open to every signed-in user since sub-phase 1.9 (ADR 0015): the Tasks pane applies to
+           anyone, even though the Time off requests pane inside stays Manager/Admin only. */-->
+    <li class="nav-item">
       <a class="nav-link" th:href="@{/for-action}" th:text="#{nav.for-action}">For Action</a>
     </li>
     <!--/* UI Guidelines §1: Admin and Reports are Admin-only. Hiding them is presentation

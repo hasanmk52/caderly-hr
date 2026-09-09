@@ -77,6 +77,13 @@ public interface PeopleFacade {
     List<EmployeeCalendarInfo> listEmployeesForCalendar(
             @Nullable UUID departmentId, @Nullable UUID divisionId);
 
+    /**
+     * Same-department or same-manager peers of {@code employeeId}, excluding the employee itself
+     * and anyone terminated (PRD §24.2 "My Peers" widget, sub-phase 1.9). An employee with neither
+     * a department nor a manager has no peers.
+     */
+    List<EmployeePeerInfo> listPeers(UUID employeeId);
+
     record EmployeeHireInfo(UUID employeeId, @Nullable LocalDate hireDate) {}
 
     record EmployeeApprovalInfo(
@@ -84,4 +91,12 @@ public interface PeopleFacade {
 
     record EmployeeCalendarInfo(
             UUID employeeId, String fullName, @Nullable String departmentName) {}
+
+    record EmployeePeerInfo(
+            UUID employeeId,
+            String firstName,
+            String lastName,
+            String fullName,
+            @Nullable String departmentName,
+            @Nullable String jobTitle) {}
 }
