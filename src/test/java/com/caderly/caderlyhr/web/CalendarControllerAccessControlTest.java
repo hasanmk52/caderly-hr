@@ -6,25 +6,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.caderly.caderlyhr.TestcontainersConfiguration;
 import com.caderly.caderlyhr.identity.AppUser;
-import com.caderly.caderlyhr.identity.AppUserDetailsService;
-import com.caderly.caderlyhr.identity.AppUserRepository;
+import com.caderly.caderlyhr.support.RbacTestSupport;
 import com.caderly.caderlyhr.tenant.Tenant;
 import com.caderly.caderlyhr.tenant.TenantContext;
-import com.caderly.caderlyhr.tenant.TenantRepository;
 import java.net.URI;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
@@ -32,19 +22,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * isAuthenticated()} is the whole access check, no role gate on top (CalendarController's
  * Javadoc). CLAUDE.md §8: one 200 test per role plus one anonymous-denied test.
  */
-@Import(TestcontainersConfiguration.class)
-@ActiveProfiles("test")
-@SpringBootTest
-@AutoConfigureMockMvc
-class CalendarControllerAccessControlTest {
-
-    @Autowired private MockMvc mockMvc;
-    @Autowired private TenantRepository tenants;
-    @Autowired private AppUserRepository appUsers;
-    @Autowired private AppUserDetailsService userDetailsService;
-
-    private String slug;
-    private UUID tenantId;
+class CalendarControllerAccessControlTest extends RbacTestSupport {
 
     @BeforeEach
     void seedTenant() {
@@ -100,19 +78,6 @@ class CalendarControllerAccessControlTest {
         String email = "settings-" + UUID.randomUUID() + "@cal.test";
         run(() -> appUsers.save(AppUser.active(email, "hash")));
         return email;
-    }
-
-    private UserDetails loadPrincipal(String email) {
-        return run(() -> userDetailsService.loadUserByUsername(email));
-    }
-
-    private <T> T run(Supplier<T> action) {
-        TenantContext.set(tenantId);
-        try {
-            return action.get();
-        } finally {
-            TenantContext.clear();
-        }
     }
 
     private MockHttpServletRequestBuilder url(String path) {

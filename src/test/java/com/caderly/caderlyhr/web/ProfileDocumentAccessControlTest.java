@@ -7,33 +7,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.caderly.caderlyhr.TestcontainersConfiguration;
 import com.caderly.caderlyhr.documents.DocumentVisibility;
 import com.caderly.caderlyhr.documents.EmployeeDocumentService;
-import com.caderly.caderlyhr.identity.AppUser;
-import com.caderly.caderlyhr.identity.AppUserDetailsService;
-import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
 import com.caderly.caderlyhr.people.Employee;
-import com.caderly.caderlyhr.people.EmployeeForms;
-import com.caderly.caderlyhr.people.EmployeeService;
+import com.caderly.caderlyhr.support.RbacTestSupport;
 import com.caderly.caderlyhr.tenant.Tenant;
 import com.caderly.caderlyhr.tenant.TenantContext;
-import com.caderly.caderlyhr.tenant.TenantRepository;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 
 /**
@@ -44,24 +32,9 @@ import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequ
  * Denied document access is 404, not 403, matching {@code EmployeeService#requireOwnedBy}'s
  * anti-enumeration convention — an ownership mismatch must look identical to "doesn't exist".
  */
-@Import(TestcontainersConfiguration.class)
-@ActiveProfiles("test")
-@SpringBootTest
-@AutoConfigureMockMvc
-class ProfileDocumentAccessControlTest {
+class ProfileDocumentAccessControlTest extends RbacTestSupport {
 
-    private static final String BASE_URL = "https://acme.localhost";
-    private static final String TENANT_NAME = "Acme";
-
-    @Autowired private MockMvc mockMvc;
-    @Autowired private TenantRepository tenants;
-    @Autowired private EmployeeService employeeService;
     @Autowired private EmployeeDocumentService employeeDocuments;
-    @Autowired private AppUserRepository appUsers;
-    @Autowired private AppUserDetailsService userDetailsService;
-
-    private String slug;
-    private UUID tenantId;
 
     @BeforeEach
     void seedTenant() {
@@ -255,56 +228,8 @@ class ProfileDocumentAccessControlTest {
         return pdf();
     }
 
-    private Employee createEmployee(String firstName, String lastName) {
-        Employee employee =
-                run(
-                        () ->
-                                employeeService.create(
-                                        new EmployeeForms.CreateEmployee(
-                                                firstName,
-                                                lastName,
-                                                UUID.randomUUID() + "@example.test",
-                                                null, null, null, null, null, null, null, null, null, null, null,
-                                                null, null, null, null, null),
-                                        BASE_URL,
-                                        TENANT_NAME));
-        run(() -> employeeService.activateForUser(employee.userId()));
-        return run(() -> employeeService.require(employee.requireId()));
-    }
-
     private void makeManagerOf(Employee manager, Employee report) {
         run(() -> employeeService.reassignManager(report.requireId(), manager.requireId()));
-    }
-
-    private void grantRole(Employee employee, Role role) {
-        run(
-                () -> {
-                    AppUser user = appUsers.findById(employee.userId()).orElseThrow();
-                    user.grant(role);
-                    return appUsers.save(user);
-                });
-    }
-
-    private UserDetails loadPrincipal(String email) {
-        return run(() -> userDetailsService.loadUserByUsername(email));
-    }
-
-    private <T> T run(Supplier<T> action) {
-        TenantContext.set(tenantId);
-        try {
-            return action.get();
-        } finally {
-            TenantContext.clear();
-        }
-    }
-
-    private void run(Runnable action) {
-        TenantContext.set(tenantId);
-        try {
-            action.run();
-        } finally {
-            TenantContext.clear();
-        }
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder url(String path) {

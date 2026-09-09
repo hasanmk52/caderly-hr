@@ -7,30 +7,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.caderly.caderlyhr.TestcontainersConfiguration;
-import com.caderly.caderlyhr.identity.AppUser;
-import com.caderly.caderlyhr.identity.AppUserDetailsService;
-import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
 import com.caderly.caderlyhr.people.Employee;
-import com.caderly.caderlyhr.people.EmployeeForms;
-import com.caderly.caderlyhr.people.EmployeeService;
 import com.caderly.caderlyhr.people.GovernmentIdType;
+import com.caderly.caderlyhr.support.RbacTestSupport;
 import com.caderly.caderlyhr.tenant.Tenant;
 import com.caderly.caderlyhr.tenant.TenantContext;
-import com.caderly.caderlyhr.tenant.TenantRepository;
 import java.net.URI;
 import java.util.UUID;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Regression coverage: an added Government ID's {@code idNumber} — encrypted at rest via {@link
@@ -40,23 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * com.caderly.caderlyhr.people.GovernmentId}'s class doc always said the field is "visible ... to ...
  * the owning employee."
  */
-@Import(TestcontainersConfiguration.class)
-@ActiveProfiles("test")
-@SpringBootTest
-@AutoConfigureMockMvc
-class ProfileGovernmentIdTest {
-
-    private static final String BASE_URL = "https://acme.localhost";
-    private static final String TENANT_NAME = "Acme";
-
-    @Autowired private MockMvc mockMvc;
-    @Autowired private TenantRepository tenants;
-    @Autowired private EmployeeService employeeService;
-    @Autowired private AppUserDetailsService userDetailsService;
-    @Autowired private AppUserRepository appUsers;
-
-    private String slug;
-    private UUID tenantId;
+class ProfileGovernmentIdTest extends RbacTestSupport {
 
     @BeforeEach
     void seedTenant() {
@@ -108,51 +80,4 @@ class ProfileGovernmentIdTest {
                 .andExpect(content().string(Matchers.not(Matchers.containsString("ID number"))));
     }
 
-    private void grantRole(Employee employee, Role role) {
-        run(
-                () -> {
-                    AppUser user = appUsers.findById(employee.userId()).orElseThrow();
-                    user.grant(role);
-                    return appUsers.save(user);
-                });
-    }
-
-    private Employee createEmployee(String firstName, String lastName) {
-        Employee employee =
-                run(
-                        () ->
-                                employeeService.create(
-                                        new EmployeeForms.CreateEmployee(
-                                                firstName,
-                                                lastName,
-                                                UUID.randomUUID() + "@example.test",
-                                                null, null, null, null, null, null, null, null, null, null, null,
-                                                null, null, null, null, null),
-                                        BASE_URL,
-                                        TENANT_NAME));
-        run(() -> employeeService.activateForUser(employee.userId()));
-        return run(() -> employeeService.require(employee.requireId()));
-    }
-
-    private UserDetails loadPrincipal(String email) {
-        return run(() -> userDetailsService.loadUserByUsername(email));
-    }
-
-    private <T> T run(java.util.function.Supplier<T> action) {
-        TenantContext.set(tenantId);
-        try {
-            return action.get();
-        } finally {
-            TenantContext.clear();
-        }
-    }
-
-    private void run(Runnable action) {
-        TenantContext.set(tenantId);
-        try {
-            action.run();
-        } finally {
-            TenantContext.clear();
-        }
-    }
 }

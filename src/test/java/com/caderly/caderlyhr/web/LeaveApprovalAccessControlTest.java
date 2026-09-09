@@ -9,17 +9,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.caderly.caderlyhr.TestcontainersConfiguration;
 import com.caderly.caderlyhr.identity.AppUser;
-import com.caderly.caderlyhr.identity.AppUserDetailsService;
-import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
 import com.caderly.caderlyhr.people.Employee;
-import com.caderly.caderlyhr.people.EmployeeForms;
-import com.caderly.caderlyhr.people.EmployeeService;
+import com.caderly.caderlyhr.support.RbacTestSupport;
 import com.caderly.caderlyhr.tenant.Tenant;
 import com.caderly.caderlyhr.tenant.TenantContext;
-import com.caderly.caderlyhr.tenant.TenantRepository;
 import com.caderly.caderlyhr.timeoff.LeaveRequest;
 import com.caderly.caderlyhr.timeoff.LeaveRequestService;
 import com.caderly.caderlyhr.timeoff.LeaveType;
@@ -30,16 +25,10 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * CLAUDE.md §8: one 200/403 test per role for the For Action page, plus the specific authority
@@ -47,25 +36,10 @@ import org.springframework.test.web.servlet.MockMvc;
  * unrelated-manager case is the actual RBAC gap this phase closes — before booking/approval
  * existed there was no "manager of a specific employee" boundary to test at all.
  */
-@Import(TestcontainersConfiguration.class)
-@ActiveProfiles("test")
-@SpringBootTest
-@AutoConfigureMockMvc
-class LeaveApprovalAccessControlTest {
+class LeaveApprovalAccessControlTest extends RbacTestSupport {
 
-    private static final String BASE_URL = "https://acme.localhost";
-    private static final String TENANT_NAME = "Acme";
-
-    @Autowired private MockMvc mockMvc;
-    @Autowired private TenantRepository tenants;
-    @Autowired private EmployeeService employeeService;
-    @Autowired private AppUserRepository appUsers;
-    @Autowired private AppUserDetailsService userDetailsService;
     @Autowired private LeaveTypeService leaveTypeService;
     @Autowired private LeaveRequestService leaveRequestService;
-
-    private String slug;
-    private UUID tenantId;
 
     @BeforeEach
     void seedTenant() {
@@ -288,66 +262,12 @@ class LeaveApprovalAccessControlTest {
 
     private LeaveType leaveTypeCache;
 
-    private Employee createEmployee(String firstName, String lastName, java.util.UUID managerId) {
-        Employee employee =
-                run(
-                        () ->
-                                employeeService.create(
-                                        new EmployeeForms.CreateEmployee(
-                                                firstName,
-                                                lastName,
-                                                UUID.randomUUID() + "@example.test",
-                                                null,
-                                                null,
-                                                null,
-                                                null,
-                                                null,
-                                                null,
-                                                null,
-                                                LocalDate.now(),
-                                                null,
-                                                null,
-                                                managerId,
-                                                null,
-                                                null,
-                                                null,
-                                                null,
-                                                null),
-                                        BASE_URL,
-                                        TENANT_NAME));
-        run(() -> employeeService.activateForUser(employee.userId()));
-        return run(() -> employeeService.require(employee.requireId()));
-    }
-
-    private void grantRole(Employee employee, Role role) {
-        run(
-                () -> {
-                    AppUser user = appUsers.findById(employee.userId()).orElseThrow();
-                    user.grant(role);
-                    return appUsers.save(user);
-                });
-    }
-
-    private UserDetails loadPrincipal(String email) {
-        return run(() -> userDetailsService.loadUserByUsername(email));
-    }
-
-    private <T> T run(Supplier<T> action) {
-        TenantContext.set(tenantId);
-        try {
-            return action.get();
-        } finally {
-            TenantContext.clear();
-        }
-    }
-
-    private void run(Runnable action) {
-        TenantContext.set(tenantId);
-        try {
-            action.run();
-        } finally {
-            TenantContext.clear();
-        }
+    /**
+     * Always hires as of today (not {@code null}, the base class's default) — balance-on-hire
+     * (see {@link #seedTenant()}) only grants against leave types active "at hire time".
+     */
+    private Employee createEmployee(String firstName, String lastName, UUID managerId) {
+        return createEmployee(firstName, lastName, LocalDate.now(), null, managerId);
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder url(String path) {

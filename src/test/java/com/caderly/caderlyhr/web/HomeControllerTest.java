@@ -6,22 +6,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.caderly.caderlyhr.TestcontainersConfiguration;
 import com.caderly.caderlyhr.documents.CompanyFileService;
 import com.caderly.caderlyhr.identity.AppUser;
 import com.caderly.caderlyhr.identity.AppUserDetailsService;
-import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
 import com.caderly.caderlyhr.org.Department;
 import com.caderly.caderlyhr.org.DepartmentRepository;
 import com.caderly.caderlyhr.org.Division;
 import com.caderly.caderlyhr.org.DivisionRepository;
 import com.caderly.caderlyhr.people.Employee;
-import com.caderly.caderlyhr.people.EmployeeForms;
-import com.caderly.caderlyhr.people.EmployeeService;
+import com.caderly.caderlyhr.support.RbacTestSupport;
 import com.caderly.caderlyhr.tenant.Tenant;
 import com.caderly.caderlyhr.tenant.TenantContext;
-import com.caderly.caderlyhr.tenant.TenantRepository;
 import com.caderly.caderlyhr.timeoff.LeaveRequest;
 import com.caderly.caderlyhr.timeoff.LeaveRequestService;
 import com.caderly.caderlyhr.timeoff.LeaveType;
@@ -31,17 +27,11 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.time.LocalDate;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * PRD §24.2's Home dashboard: the shell greeting/grid, and each of the six widget fragment
@@ -50,29 +40,14 @@ import org.springframework.test.web.servlet.MockMvc;
  * HomeController} binds {@code @AuthenticationPrincipal AppUserPrincipal}, which only resolves
  * against the real type (see {@link ProfileAccessControlTest}'s javadoc for the same gotcha).
  */
-@Import(TestcontainersConfiguration.class)
-@ActiveProfiles("test")
-@SpringBootTest
-@AutoConfigureMockMvc
-class HomeControllerTest {
+class HomeControllerTest extends RbacTestSupport {
 
-    private static final String BASE_URL = "https://acme.localhost";
-    private static final String TENANT_NAME = "Acme";
-
-    @Autowired private MockMvc mockMvc;
-    @Autowired private TenantRepository tenants;
-    @Autowired private EmployeeService employeeService;
-    @Autowired private AppUserRepository appUsers;
-    @Autowired private AppUserDetailsService userDetailsService;
     @Autowired private LeaveTypeService leaveTypeService;
     @Autowired private LeaveRequestService leaveRequestService;
     @Autowired private PublicHolidayService publicHolidayService;
     @Autowired private CompanyFileService companyFileService;
     @Autowired private DivisionRepository divisions;
     @Autowired private DepartmentRepository departments;
-
-    private String slug;
-    private UUID tenantId;
 
     @BeforeEach
     void seedTenant() {
@@ -325,47 +300,12 @@ class HomeControllerTest {
                 .andExpect(content().string(containsString("No company files yet.")));
     }
 
-    private Employee createEmployee(String firstName, String lastName) {
-        return createEmployee(firstName, lastName, null);
-    }
-
     private Employee createEmployee(String firstName, String lastName, LocalDate hireDate) {
-        return createEmployee(firstName, lastName, hireDate, null);
+        return createEmployee(firstName, lastName, hireDate, null, null);
     }
 
     private Employee createEmployeeInDepartment(String firstName, String lastName, UUID departmentId) {
-        return createEmployee(firstName, lastName, LocalDate.now(), departmentId);
-    }
-
-    private Employee createEmployee(String firstName, String lastName, LocalDate hireDate, UUID departmentId) {
-        Employee employee =
-                run(
-                        () ->
-                                employeeService.create(
-                                        new EmployeeForms.CreateEmployee(
-                                                firstName,
-                                                lastName,
-                                                UUID.randomUUID() + "@example.test",
-                                                null, // employeeCode
-                                                null, // phone
-                                                null, // birthDate
-                                                null, // gender
-                                                null, // maritalStatus
-                                                null, // nationality
-                                                null, // citizenship
-                                                hireDate,
-                                                null, // employmentType
-                                                departmentId,
-                                                null, // managerId
-                                                null, // jobTitle
-                                                null, // workLocation
-                                                null, // workingHoursPerDay
-                                                null, // currency
-                                                null), // baseCompensation
-                                        BASE_URL,
-                                        TENANT_NAME));
-        run(() -> employeeService.activateForUser(employee.userId()));
-        return run(() -> employeeService.require(employee.requireId()));
+        return createEmployee(firstName, lastName, LocalDate.now(), departmentId, null);
     }
 
     private Employee createAdminEmployee(String firstName, String lastName) {
@@ -398,28 +338,6 @@ class HomeControllerTest {
                     return appUsers.save(admin);
                 });
         return loadPrincipal(email);
-    }
-
-    private UserDetails loadPrincipal(String email) {
-        return run(() -> userDetailsService.loadUserByUsername(email));
-    }
-
-    private <T> T run(Supplier<T> action) {
-        TenantContext.set(tenantId);
-        try {
-            return action.get();
-        } finally {
-            TenantContext.clear();
-        }
-    }
-
-    private void run(Runnable action) {
-        TenantContext.set(tenantId);
-        try {
-            action.run();
-        } finally {
-            TenantContext.clear();
-        }
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder url(String path) {

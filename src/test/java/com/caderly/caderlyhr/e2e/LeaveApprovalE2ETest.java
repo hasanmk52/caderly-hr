@@ -6,41 +6,24 @@ import com.caderly.caderlyhr.identity.AppUser;
 import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
 import com.caderly.caderlyhr.notifications.system.EmailOutbox;
-import com.caderly.caderlyhr.notifications.system.EmailOutboxRepository;
 import com.caderly.caderlyhr.people.Employee;
 import com.caderly.caderlyhr.people.EmployeeForms;
 import com.caderly.caderlyhr.people.EmployeeRepository;
 import com.caderly.caderlyhr.people.EmployeeService;
+import com.caderly.caderlyhr.support.PlaywrightE2ETestBase;
 import com.caderly.caderlyhr.tenant.Tenant;
 import com.caderly.caderlyhr.tenant.TenantContext;
 import com.caderly.caderlyhr.tenant.TenantRepository;
 import com.caderly.caderlyhr.timeoff.LeaveBalance;
 import com.caderly.caderlyhr.timeoff.LeaveBalanceRepository;
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
-import com.microsoft.playwright.BrowserType;
-import com.microsoft.playwright.Page;
-import com.microsoft.playwright.Playwright;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Phase 1.6's DoD headline flow, end to end through a real browser (CLAUDE.md §3, §8): an Employee
@@ -49,55 +32,18 @@ import org.springframework.test.context.ActiveProfiles;
  * Action inbox, and the employee's balance reflects the debit. Mirrors {@code
  * LeaveConfigE2ETest}/{@code EmployeeLifecycleE2ETest}'s helpers rather than re-deriving them.
  */
-@Import(com.caderly.caderlyhr.TestcontainersConfiguration.class)
-@ActiveProfiles("test")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class LeaveApprovalE2ETest {
+class LeaveApprovalE2ETest extends PlaywrightE2ETestBase {
 
-    private static final Pattern TOKEN_IN_LINK = Pattern.compile("[?&]token=([A-Za-z0-9_%\\-]+)");
-    private static final String EMPLOYEE_PASSWORD = "NewPassphrase1";
     private static final String ADMIN_PASSWORD = "AdminPassphrase1";
-
-    @LocalServerPort private int port;
 
     @Autowired private TenantRepository tenants;
     @Autowired private AppUserRepository appUsers;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private EmailOutboxRepository outbox;
     @Autowired private EmployeeRepository employees;
     @Autowired private EmployeeService employeeService;
     @Autowired private LeaveBalanceRepository balances;
 
-    private static Playwright playwright;
-    private static Browser browser;
-    private BrowserContext context;
-    private Page page;
-
-    private String baseUrl;
     private UUID tenantId;
-
-    @BeforeAll
-    static void launchBrowser() {
-        playwright = Playwright.create();
-        browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
-    }
-
-    @AfterAll
-    static void closeBrowser() {
-        browser.close();
-        playwright.close();
-    }
-
-    @BeforeEach
-    void newPage() {
-        context = browser.newContext();
-        page = context.newPage();
-    }
-
-    @AfterEach
-    void closeContext() {
-        context.close();
-    }
 
     @Test
     void employeeBooksTimeOff_adminApproves_balanceUpdatesAndEmailQueued() {
@@ -121,7 +67,7 @@ class LeaveApprovalE2ETest {
         page.waitForSelector(".toast-body:has-text('Time off request submitted')");
 
         // "requested" email queued to the Admin fallback (no manager set on this employee).
-        assertThat(tokenFromLastEmailTo(adminEmail, "requested time off")).isNotEmpty();
+        assertThat(emailsQueuedTo(adminEmail, "requested time off")).isNotEmpty();
 
         logout();
         loginAs(adminEmail, ADMIN_PASSWORD);
@@ -190,18 +136,6 @@ class LeaveApprovalE2ETest {
         }
     }
 
-    private void loginAs(String email, String password) {
-        page.navigate(baseUrl + "/login");
-        page.fill("#email", email);
-        page.fill("#password", password);
-        page.click("button[type=submit]");
-    }
-
-    private void logout() {
-        page.click("#accountMenuButton");
-        page.click("button:has-text('Log out')");
-    }
-
     private void createLeaveType() {
         page.navigate(baseUrl + "/admin/leave-types");
         page.click("button:has-text('Add Leave Type')");
@@ -224,13 +158,6 @@ class LeaveApprovalE2ETest {
         page.waitForSelector(".toast-body:has-text('Employee created')");
     }
 
-    private void acceptInvite(String rawToken) {
-        page.navigate(baseUrl + "/accept-invite?token=" + rawToken);
-        page.fill("#password", EMPLOYEE_PASSWORD);
-        page.fill("#confirmPassword", EMPLOYEE_PASSWORD);
-        page.click("button[type=submit]");
-    }
-
     private void bookTimeOff(LocalDate start, LocalDate end) {
         page.navigate(baseUrl + "/");
         page.click("button:has-text('Book time off')");
@@ -241,19 +168,12 @@ class LeaveApprovalE2ETest {
         page.click("button:has-text('Submit request')");
     }
 
-    /** {@code email_outbox} is system-scoped (no RLS), same as {@code EmployeeLifecycleE2ETest}. */
-    private String tokenFromLastEmailTo(String email) {
-        List<EmailOutbox> found =
-                TenantContext.runAsSystem(
-                        "e2e test: read outbox",
-                        () -> outbox.findAll().stream().filter(row -> row.toEmail().equals(email)).toList());
-        assertThat(found).as("queued invite email to %s", email).isNotEmpty();
-        Matcher matcher = TOKEN_IN_LINK.matcher(found.getLast().bodyHtml());
-        assertThat(matcher.find()).as("token in email body").isTrue();
-        return URLDecoder.decode(matcher.group(1), StandardCharsets.UTF_8);
-    }
-
-    private List<EmailOutbox> tokenFromLastEmailTo(String email, String subjectContains) {
+    /**
+     * Distinct from {@link #tokenFromLastEmailTo(String)} — this asserts an email was queued (by
+     * subject substring), it doesn't extract an invite token. Kept as a separate name after the
+     * test-suite audit flagged the two as a same-name/different-purpose overload collision.
+     */
+    private List<EmailOutbox> emailsQueuedTo(String email, String subjectContains) {
         return TenantContext.runAsSystem(
                 "e2e test: read outbox",
                 () ->

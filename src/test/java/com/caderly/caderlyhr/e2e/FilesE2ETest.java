@@ -2,35 +2,23 @@ package com.caderly.caderlyhr.e2e;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.caderly.caderlyhr.TestcontainersConfiguration;
 import com.caderly.caderlyhr.identity.AppUser;
 import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
+import com.caderly.caderlyhr.support.PlaywrightE2ETestBase;
 import com.caderly.caderlyhr.tenant.Tenant;
 import com.caderly.caderlyhr.tenant.TenantContext;
 import com.caderly.caderlyhr.tenant.TenantRepository;
 import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
-import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Download;
-import com.microsoft.playwright.Page;
-import com.microsoft.playwright.Playwright;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Phase 1.7's DoD headline flow (PRD §6.7 FR-7.1, §9.5 US-F.1), end to end through a real browser:
@@ -39,12 +27,7 @@ import org.springframework.test.context.ActiveProfiles;
  * only (CLAUDE.md §6 A01) — so both principals here are seeded as plain {@code AppUser}s, the same
  * shortcut {@code EmployeeLifecycleE2ETest} takes for its Admin.
  */
-@Import(TestcontainersConfiguration.class)
-@ActiveProfiles("test")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class FilesE2ETest {
-
-    @LocalServerPort private int port;
+class FilesE2ETest extends PlaywrightE2ETestBase {
 
     @Autowired private TenantRepository tenants;
     @Autowired private AppUserRepository appUsers;
@@ -52,34 +35,9 @@ class FilesE2ETest {
 
     @TempDir private Path tempDir;
 
-    private static Playwright playwright;
-    private static Browser browser;
-    private BrowserContext context;
-    private Page page;
-
-    private String baseUrl;
-
-    @BeforeAll
-    static void launchBrowser() {
-        playwright = Playwright.create();
-        browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
-    }
-
-    @AfterAll
-    static void closeBrowser() {
-        browser.close();
-        playwright.close();
-    }
-
-    @BeforeEach
-    void newPage() {
-        context = browser.newContext(new Browser.NewContextOptions().setAcceptDownloads(true));
-        page = context.newPage();
-    }
-
-    @AfterEach
-    void closeContext() {
-        context.close();
+    @Override
+    protected Browser.NewContextOptions contextOptions() {
+        return new Browser.NewContextOptions().setAcceptDownloads(true);
     }
 
     @Test
@@ -129,15 +87,4 @@ class FilesE2ETest {
         }
     }
 
-    private void loginAs(String email, String password) {
-        page.navigate(baseUrl + "/login");
-        page.fill("#email", email);
-        page.fill("#password", password);
-        page.click("button[type=submit]");
-    }
-
-    private void logout() {
-        page.click("#accountMenuButton");
-        page.click("button:has-text('Log out')");
-    }
 }
