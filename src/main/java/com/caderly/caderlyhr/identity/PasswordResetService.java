@@ -2,18 +2,18 @@ package com.caderly.caderlyhr.identity;
 
 import com.caderly.caderlyhr.common.SecureToken;
 import com.caderly.caderlyhr.common.ValidationException;
+import com.caderly.caderlyhr.notifications.EmailEvent;
 import com.caderly.caderlyhr.notifications.EmailOutboxService;
-import com.caderly.caderlyhr.tenant.TenantContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.MessageSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +31,6 @@ public class PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
     private final Clock clock;
-    private final MessageSource messages;
 
     PasswordResetService(
             AppUserRepository users,
@@ -39,15 +38,13 @@ public class PasswordResetService {
             EmailOutboxService emailOutbox,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher events,
-            Clock clock,
-            MessageSource messages) {
+            Clock clock) {
         this.users = users;
         this.resetTokens = resetTokens;
         this.emailOutbox = emailOutbox;
         this.passwordEncoder = passwordEncoder;
         this.events = events;
         this.clock = clock;
-        this.messages = messages;
     }
 
     /**
@@ -81,10 +78,10 @@ public class PasswordResetService {
                         user, SecureToken.hash(rawToken), clock.instant().plus(RESET_TTL)));
 
         emailOutbox.enqueue(
-                TenantContext.require(),
+                EmailEvent.PASSWORD_RESET,
                 email,
-                IdentityEmails.resetSubject(messages, Locale.ENGLISH, tenantName),
-                IdentityEmails.resetBody(messages, Locale.ENGLISH, tenantName, resetUrl(appBaseUrl, rawToken)));
+                Map.of("resetUrl", resetUrl(appBaseUrl, rawToken)),
+                tenantName);
 
         log.info("Password reset token issued for {}", email);
     }

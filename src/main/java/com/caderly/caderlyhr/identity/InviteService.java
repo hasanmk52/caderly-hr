@@ -3,8 +3,8 @@ package com.caderly.caderlyhr.identity;
 import com.caderly.caderlyhr.common.ConflictException;
 import com.caderly.caderlyhr.common.SecureToken;
 import com.caderly.caderlyhr.common.ValidationException;
+import com.caderly.caderlyhr.notifications.EmailEvent;
 import com.caderly.caderlyhr.notifications.EmailOutboxService;
-import com.caderly.caderlyhr.tenant.TenantContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -12,12 +12,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.MessageSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,21 +34,18 @@ public class InviteService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
     private final Clock clock;
-    private final MessageSource messages;
 
     InviteService(
             AppUserRepository users,
             EmailOutboxService emailOutbox,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher events,
-            Clock clock,
-            MessageSource messages) {
+            Clock clock) {
         this.users = users;
         this.emailOutbox = emailOutbox;
         this.passwordEncoder = passwordEncoder;
         this.events = events;
         this.clock = clock;
-        this.messages = messages;
     }
 
     /** Backs the admin user list — a service-layer read so it has its own transaction (CLAUDE.md §7: never on the controller). */
@@ -89,10 +86,10 @@ public class InviteService {
         AppUser saved = users.save(user);
 
         emailOutbox.enqueue(
-                TenantContext.require(),
+                EmailEvent.INVITE,
                 normalisedEmail,
-                IdentityEmails.inviteSubject(messages, Locale.ENGLISH, tenantName),
-                IdentityEmails.inviteBody(messages, Locale.ENGLISH, tenantName, acceptUrl(appBaseUrl, rawToken)));
+                Map.of("acceptUrl", acceptUrl(appBaseUrl, rawToken)),
+                tenantName);
 
         // The token is never logged — it is a live credential until redeemed.
         log.info("Invited {} with roles {}", normalisedEmail, roles);

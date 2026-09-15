@@ -78,15 +78,21 @@ class EmailSmtpDeliveryTest extends TenantIsolationTestBase {
     @Test
     void enqueuedEmail_isDeliveredToTheSmtpServerWithItsSubjectAndBody() throws Exception {
         String recipient = "recipient-" + UUID.randomUUID() + "@example.test";
-        String subject = "Welcome to Caderly";
-        String body = "<p>Set your password</p>";
 
         UUID rowId =
                 asTenant(
-                        tenantA,
-                        () ->
-                                transactions.execute(
-                                        status -> outboxService.enqueue(tenantA, recipient, subject, body)));
+                                tenantA,
+                                () ->
+                                        transactions.execute(
+                                                status ->
+                                                        outboxService.enqueue(
+                                                                EmailEvent.INVITE,
+                                                                recipient,
+                                                                java.util.Map.of(
+                                                                        "acceptUrl",
+                                                                        "https://acme.localhost/accept-invite?token=t"),
+                                                                "Tenant A")))
+                        .orElseThrow();
 
         dispatcher.dispatchPending();
 
@@ -98,8 +104,12 @@ class EmailSmtpDeliveryTest extends TenantIsolationTestBase {
                         .findFirst()
                         .orElseThrow(() -> new AssertionError("No message delivered to " + recipient));
 
-        assertThat(delivered.getSubject()).isEqualTo(subject);
-        assertThat(GreenMailUtil.getBody(delivered)).contains("Set your password");
+        // Subject and body come from the template catalogue now, not from the caller, so this
+        // asserts the whole render-then-deliver path rather than a string round trip.
+        assertThat(delivered.getSubject()).isEqualTo("You have been invited to Tenant A on Caderly");
+        // The templated body is long enough that the transfer encoding wraps it with soft line
+        // breaks; undo those before matching, or the assertion depends on where the wrap lands.
+        assertThat(unfold(GreenMailUtil.getBody(delivered))).contains("Set your password");
         assertThat(delivered.getFrom()[0].toString()).isEqualTo("no-reply@caderly.test");
 
         EmailOutbox row =
@@ -107,6 +117,11 @@ class EmailSmtpDeliveryTest extends TenantIsolationTestBase {
                         "test: read outbox row", () -> outbox.findById(rowId).orElseThrow());
         assertThat(row.status()).isEqualTo(EmailStatus.SENT);
         assertThat(row.sentAt()).isNotNull();
+    }
+
+    /** Removes quoted-printable soft line breaks ("=" at end of line). */
+    private static String unfold(String body) {
+        return body.replace("=\r\n", "").replace("=\n", "");
     }
 
     private static boolean hasRecipient(MimeMessage message, String recipient) {

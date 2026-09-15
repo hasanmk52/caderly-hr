@@ -42,6 +42,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Import(MutableClockConfiguration.class)
 class EmailOutboxTest extends TenantIsolationTestBase {
 
+    /** Any templated event will do here: this file tests durability, not copy. */
+    private static final java.util.Map<String, Object> MODEL =
+            java.util.Map.of("acceptUrl", "https://acme.localhost/accept-invite?token=t");
+
     @Autowired private EmailOutboxService outboxService;
     @Autowired private EmailOutboxRepository outbox;
     @Autowired private EmailDispatcher dispatcher;
@@ -83,7 +87,7 @@ class EmailOutboxTest extends TenantIsolationTestBase {
                         () ->
                                 asTenant(
                                         tenantA,
-                                        () -> outboxService.enqueue(tenantA, "x@example.test", "s", "b")))
+                                        () -> outboxService.enqueue(EmailEvent.INVITE, "x@example.test", MODEL, "Acme")))
                 .isInstanceOf(IllegalTransactionStateException.class);
     }
 
@@ -99,7 +103,7 @@ class EmailOutboxTest extends TenantIsolationTestBase {
                                                 transactions.execute(
                                                         status -> {
                                                             outboxService.enqueue(
-                                                                    tenantA, recipient, "Subject", "<p>Body</p>");
+                                                                    EmailEvent.INVITE, recipient, MODEL, "Acme");
                                                             throw new IllegalStateException("business failure");
                                                         })))
                 .isInstanceOf(IllegalStateException.class);
@@ -216,14 +220,19 @@ class EmailOutboxTest extends TenantIsolationTestBase {
 
     @Test
     void enqueue_forSystemMail_acceptsNullTenant() {
+        // Super Admin and system mail belongs to no tenant, so the row's tenant_id is null
+        // (the column is nullable by design — see the create_email_outbox migration header).
+        // The tenant is read from TenantContext now, so "no tenant" means system mode.
         UUID rowId =
-                asTenant(
-                        tenantA,
+                TenantContext.runAsSystem(
+                        "test: enqueue system mail",
                         () ->
-                                transactions.execute(
-                                        status ->
-                                                outboxService.enqueue(
-                                                        null, "ops@example.test", "System", "<p>x</p>")));
+                                transactions
+                                        .execute(
+                                                status ->
+                                                        outboxService.enqueue(
+                                                                EmailEvent.INVITE, "ops@example.test", MODEL, "Caderly"))
+                                        .orElseThrow());
 
         assertThat(findRow(rowId).tenantId()).isNull();
     }
@@ -235,18 +244,20 @@ class EmailOutboxTest extends TenantIsolationTestBase {
         // Any Admin viewer over it must therefore filter by tenant_id itself.
         String toA = "a-" + UUID.randomUUID() + "@example.test";
         String toB = "b-" + UUID.randomUUID() + "@example.test";
-        asTenant(tenantA, () -> transactions.execute(s -> outboxService.enqueue(tenantA, toA, "s", "b")));
-        asTenant(tenantB, () -> transactions.execute(s -> outboxService.enqueue(tenantB, toB, "s", "b")));
+        asTenant(tenantA, () -> transactions.execute(s -> outboxService.enqueue(EmailEvent.INVITE, toA, MODEL, "A")));
+        asTenant(tenantB, () -> transactions.execute(s -> outboxService.enqueue(EmailEvent.INVITE, toB, MODEL, "B")));
 
         assertThat(allRecipients()).contains(toA, toB);
     }
 
     private UUID enqueue(String recipient) {
         return asTenant(
-                tenantA,
-                () ->
-                        transactions.execute(
-                                status -> outboxService.enqueue(tenantA, recipient, "Subject", "<p>Body</p>")));
+                        tenantA,
+                        () ->
+                                transactions.execute(
+                                        status ->
+                                                outboxService.enqueue(EmailEvent.INVITE, recipient, MODEL, "Acme")))
+                .orElseThrow();
     }
 
     /**

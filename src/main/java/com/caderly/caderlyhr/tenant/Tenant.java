@@ -34,9 +34,6 @@ public class Tenant {
     @Column(name = "logo_url", length = 500)
     private @Nullable String logoUrl;
 
-    @Column(name = "primary_color", length = 7)
-    private @Nullable String primaryColor;
-
     @Column(name = "timezone", nullable = false, length = 50)
     private String timezone;
 
@@ -49,6 +46,24 @@ public class Tenant {
 
     @Column(name = "suspended", nullable = false)
     private boolean suspended;
+
+    /**
+     * PRD FR-9.3's per-tenant notification categories. Only the four optional ones are switchable
+     * — invite, password reset and the leave lifecycle are the product working, not a category
+     * anyone should be able to mute. Birthday and anniversary start off: PRD §17.2 marks both
+     * "opt-in per tenant".
+     */
+    @Column(name = "notify_holiday_reminder", nullable = false)
+    private boolean notifyHolidayReminder;
+
+    @Column(name = "notify_document_expiry", nullable = false)
+    private boolean notifyDocumentExpiry;
+
+    @Column(name = "notify_birthday", nullable = false)
+    private boolean notifyBirthday;
+
+    @Column(name = "notify_work_anniversary", nullable = false)
+    private boolean notifyWorkAnniversary;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -63,6 +78,8 @@ public class Tenant {
         this.name = "";
         this.timezone = "UTC";
         this.locale = "en";
+        this.notifyHolidayReminder = true;
+        this.notifyDocumentExpiry = true;
     }
 
     public Tenant(String slug, String name) {
@@ -72,6 +89,12 @@ public class Tenant {
         this.locale = "en";
         this.weekendDays = 96;
         this.suspended = false;
+        // Mirrors the DDL defaults in V202609151000 so a Tenant built in code and one read back
+        // from a fresh insert agree.
+        this.notifyHolidayReminder = true;
+        this.notifyDocumentExpiry = true;
+        this.notifyBirthday = false;
+        this.notifyWorkAnniversary = false;
     }
 
     public void suspend() {
@@ -80,6 +103,30 @@ public class Tenant {
 
     public void reinstate() {
         this.suspended = false;
+    }
+
+    public void updateNotificationSettings(
+            boolean holidayReminder, boolean documentExpiry, boolean birthday, boolean workAnniversary) {
+        this.notifyHolidayReminder = holidayReminder;
+        this.notifyDocumentExpiry = documentExpiry;
+        this.notifyBirthday = birthday;
+        this.notifyWorkAnniversary = workAnniversary;
+    }
+
+    public boolean isNotifyHolidayReminder() {
+        return notifyHolidayReminder;
+    }
+
+    public boolean isNotifyDocumentExpiry() {
+        return notifyDocumentExpiry;
+    }
+
+    public boolean isNotifyBirthday() {
+        return notifyBirthday;
+    }
+
+    public boolean isNotifyWorkAnniversary() {
+        return notifyWorkAnniversary;
     }
 
     public @Nullable UUID getId() {
@@ -96,10 +143,6 @@ public class Tenant {
 
     public @Nullable String getLogoUrl() {
         return logoUrl;
-    }
-
-    public @Nullable String getPrimaryColor() {
-        return primaryColor;
     }
 
     public String getTimezone() {

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="page(content)">
+<!--/*
+  Shared chrome for every transactional email (PRD §17.1, BRAND.source.md §8.2). Before
+  sub-phase 1.10 this markup existed twice, in identity.IdentityEmails.wrap() and
+  timeoff.TimeoffEmails.wrap(), as Java text blocks.
+
+  Three deliberate departures from the rest of templates/:
+
+  1. Hex literals, not var(--bs-primary). Mail clients do not support CSS custom properties and
+     most strip <style> blocks entirely, so colour has to be inline and literal. Values are
+     Caderly Petrol and friends from docs/design-system/tokens/colors.css — the same source
+     static/css/theme-overrides.css reads. This is the one sanctioned exception to
+     UI_Guidelines §2's "never hardcode hex in templates"; see §2 for the note.
+  2. Table layout at a fixed 600px. Outlook's word-rendering engine has no flexbox or grid.
+  3. No @{...} link expressions anywhere. Rendering happens off the request thread with a plain
+     Thymeleaf Context (see EmailTemplateService) — absolute URLs arrive as model attributes.
+
+  There is no per-tenant colour: one Caderly brand serves every tenant (ADR 0016). A tenant logo,
+  where one is uploaded, sits beside the wordmark as a guest, never in place of it.
+*/-->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title th:text="#{common.app-name}">Caderly</title>
+</head>
+<body style="margin:0;padding:0;background:#F7F7F9;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background:#F7F7F9;padding:24px 12px;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+             style="width:600px;max-width:100%;background:#FFFFFF;border:1px solid #E3E4E9;border-radius:12px;
+                    font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                    color:#15171C;line-height:1.55;font-size:15px;">
+
+        <tr>
+          <td style="padding:20px 28px;border-bottom:1px solid #E3E4E9;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="font-size:17px;font-weight:600;letter-spacing:-0.01em;color:#0F5568;"
+                    th:text="#{common.app-name}">Caderly</td>
+                <!--/* Hairline divider then the tenant's own mark, when they have uploaded one.
+                       The text fallback below it is what most tenants will show for a long time,
+                       so it is designed rather than tolerated (BRAND.source.md §8.1). */-->
+                <td th:if="${logoUrl}" style="padding-left:14px;border-left:1px solid #E3E4E9;">
+                  <img th:src="${logoUrl}" th:alt="${tenantName}" height="24"
+                       style="height:24px;display:block;border:0;" />
+                </td>
+                <td th:unless="${logoUrl}"
+                    style="padding-left:14px;border-left:1px solid #E3E4E9;font-size:15px;color:#4A5160;"
+                    th:text="${tenantName}">Acme</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:28px;" th:replace="${content}"></td>
+        </tr>
+
+        <tr>
+          <td style="padding:16px 28px 22px;border-top:1px solid #E3E4E9;font-size:13px;color:#5F6675;"
+              th:text="#{email.common.footer(${tenantName})}">
+            Sent by Acme via Caderly.
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body th:replace="~{email/_layout :: page(~{::content})}">
+<td th:fragment="content">
+  <h1 th:replace="~{email/_components :: heading(#{email.invite.body.heading(${tenantName})})}"></h1>
+  <p style="margin:0 0 4px;" th:text="#{email.invite.body.message}">
+    An administrator has invited you to Caderly. Choose a password to activate your account.
+  </p>
+  <table th:replace="~{email/_components :: cta(${acceptUrl}, #{email.invite.body.cta})}"></table>
+  <!--/* The bare URL matters: a mail client that strips the button above still leaves something
+         the reader can copy. PlaywrightE2ETestBase.tokenFromLastEmailTo also reads the token out
+         of this href, so the ?token=<raw> shape must survive any redesign. */-->
+  <p style="margin:16px 0 0;font-size:13px;color:#5F6675;" th:text="#{email.common.paste-link}">
+    Or paste this link into your browser:
+  </p>
+  <p style="margin:2px 0 0;font-size:13px;word-break:break-all;">
+    <a th:href="${acceptUrl}" th:text="${acceptUrl}" style="color:#0F5568;">https://acme.caderly.app/accept-invite?token=…</a>
+  </p>
+  <p style="margin:16px 0 0;font-size:13px;color:#5F6675;" th:text="#{email.invite.body.expiry}">
+    This link can be used once and expires in 24 hours.
+  </p>
+</td>
+</body>
+</html>

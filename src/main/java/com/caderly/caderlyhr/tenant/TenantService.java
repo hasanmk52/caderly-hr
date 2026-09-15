@@ -3,10 +3,12 @@ package com.caderly.caderlyhr.tenant;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Tenant lookup behind a Caffeine cache: the resolution filter hits this on every request, and the
@@ -59,10 +61,51 @@ public class TenantService implements TenantFacade {
 
     @Override
     public int currentWeekendDays() {
+        return requireCurrent().getWeekendDays();
+    }
+
+    @Override
+    public TenantBranding currentBranding() {
+        Tenant tenant = requireCurrent();
+        return new TenantBranding(tenant.getName(), tenant.getLogoUrl());
+    }
+
+    @Override
+    public ZoneId currentTimezone() {
+        return ZoneId.of(requireCurrent().getTimezone());
+    }
+
+    @Override
+    public NotificationSettings currentNotificationSettings() {
+        Tenant tenant = requireCurrent();
+        return new NotificationSettings(
+                tenant.isNotifyHolidayReminder(),
+                tenant.isNotifyDocumentExpiry(),
+                tenant.isNotifyBirthday(),
+                tenant.isNotifyWorkAnniversary());
+    }
+
+    /**
+     * Not cached, unlike {@link #bySlug}: {@code TenantSummary} is what the 60s cache holds and it
+     * carries none of these flags, so an Admin toggling a category sees the effect on the next
+     * enqueue rather than up to a minute later.
+     */
+    @Override
+    @Transactional
+    public void updateNotificationSettings(NotificationSettings settings) {
+        Tenant tenant = requireCurrent();
+        tenant.updateNotificationSettings(
+                settings.holidayReminder(),
+                settings.documentExpiry(),
+                settings.birthday(),
+                settings.workAnniversary());
+        repository.save(tenant);
+    }
+
+    private Tenant requireCurrent() {
         UUID tenantId = TenantContext.require();
         return repository
                 .findById(tenantId)
-                .map(Tenant::getWeekendDays)
                 .orElseThrow(() -> new IllegalStateException("No tenant row for id " + tenantId));
     }
 

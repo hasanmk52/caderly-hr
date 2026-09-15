@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body th:replace="~{email/_layout :: page(~{::content})}">
+<td th:fragment="content">
+  <h1 th:replace="~{email/_components :: heading(#{email.birthday.body.heading(${celebrantName})})}"></h1>
+  <p style="margin:0;" th:text="#{email.birthday.body.message(${celebrantName})}">
+    Today is Priya Nair's birthday.
+  </p>
+</td>
+</body>
+</html>
