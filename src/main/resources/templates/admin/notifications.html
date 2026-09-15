@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:replace="~{layout :: layout(#{admin.notifications.title}, ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+      <h1 th:text="#{admin.notifications.heading}">Notifications</h1>
+    </div>
+
+    <!--/* PRD FR-9.3. Saves on change rather than behind a Save button, matching the leave-type
+           activate/deactivate toggle: a switch that needs confirming does not read as a switch. */-->
+    <div id="notification-settings" th:fragment="settings" class="card mb-4" style="max-width: 44rem;">
+      <div class="card-header">
+        <span class="fw-semibold" th:text="#{admin.notifications.categories-heading}">What we send</span>
+      </div>
+      <div class="card-body">
+        <form th:hx-post="@{/admin/notifications/settings}" hx-trigger="change"
+              hx-target="#notification-settings" hx-swap="outerHTML">
+
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="notify-holiday-reminder"
+                   name="holidayReminder" value="true" th:checked="${settings.holidayReminder()}" />
+            <label class="form-check-label" for="notify-holiday-reminder"
+                   th:text="#{admin.notifications.category.holiday-reminder}">Public holiday reminders</label>
+            <div class="form-text" th:text="#{admin.notifications.category.holiday-reminder-help}">
+              Tells everyone the evening before a public holiday.
+            </div>
+          </div>
+
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="notify-document-expiry"
+                   name="documentExpiry" value="true" th:checked="${settings.documentExpiry()}" />
+            <label class="form-check-label" for="notify-document-expiry"
+                   th:text="#{admin.notifications.category.document-expiry}">Expiring documents</label>
+            <div class="form-text" th:text="#{admin.notifications.category.document-expiry-help}">
+              Warns the employee and every Admin 30, 14 and 7 days out.
+            </div>
+          </div>
+
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="notify-birthday"
+                   name="birthday" value="true" th:checked="${settings.birthday()}" />
+            <label class="form-check-label" for="notify-birthday"
+                   th:text="#{admin.notifications.category.birthday}">Birthdays</label>
+            <div class="form-text" th:text="#{admin.notifications.category.birthday-help}">
+              Tells the celebrant's department and team on the day.
+            </div>
+          </div>
+
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="notify-work-anniversary"
+                   name="workAnniversary" value="true" th:checked="${settings.workAnniversary()}" />
+            <label class="form-check-label" for="notify-work-anniversary"
+                   th:text="#{admin.notifications.category.work-anniversary}">Work anniversaries</label>
+            <div class="form-text" th:text="#{admin.notifications.category.work-anniversary-help}">
+              Tells the celebrant's department and team on the day.
+            </div>
+          </div>
+
+          <p class="text-muted small mb-0 mt-3" th:text="#{admin.notifications.always-on}">
+            Invites, password resets and the time-off lifecycle always send.
+          </p>
+        </form>
+      </div>
+    </div>
+
+    <h2 class="h5 mb-3" th:text="#{admin.notifications.log-heading}">Delivery log</h2>
+
+    <div id="notifications-content" th:fragment="content">
+
+      <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/notifications}">
+        <div class="col-auto">
+          <label class="form-label" for="filter-status" th:text="#{common.field.status}">Status</label>
+          <select class="form-select" id="filter-status" name="status" onchange="this.form.submit()">
+            <option value="" th:text="#{admin.notifications.filter.all-statuses}">All statuses</option>
+            <option th:each="option : ${statusOptions}" th:value="${option}"
+                    th:selected="${option == selectedStatus}"
+                    th:text="#{|admin.notifications.status.${#strings.toLowerCase(option)}|}">Sent</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label" for="filter-from" th:text="#{admin.notifications.filter.from}">From</label>
+          <input class="form-control" type="date" id="filter-from" name="from"
+                 th:value="${selectedFrom}" onchange="this.form.submit()" />
+        </div>
+        <div class="col-auto">
+          <label class="form-label" for="filter-to" th:text="#{admin.notifications.filter.to}">To</label>
+          <input class="form-control" type="date" id="filter-to" name="to"
+                 th:value="${selectedTo}" onchange="this.form.submit()" />
+        </div>
+      </form>
+
+      <div th:if="${#lists.isEmpty(rows)}" class="text-center text-muted py-5">
+        <i class="bi bi-envelope fs-1 d-block mb-2" aria-hidden="true"></i>
+        <p class="mb-0" th:text="#{admin.notifications.empty}">
+          No email has been sent for this tenant yet, or nothing matches these filters.
+        </p>
+      </div>
+
+      <div th:unless="${#lists.isEmpty(rows)}" class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col" th:text="#{admin.notifications.table.queued}">Queued</th>
+              <th scope="col" th:text="#{admin.notifications.table.to}">To</th>
+              <th scope="col" th:text="#{admin.notifications.table.subject}">Subject</th>
+              <th scope="col" th:text="#{admin.notifications.table.event}">Event</th>
+              <th scope="col" th:text="#{common.field.status}">Status</th>
+              <th scope="col" th:text="#{admin.notifications.table.attempts}">Attempts</th>
+              <th scope="col" th:text="#{admin.notifications.table.last-error}">Last error</th>
+              <th scope="col" class="text-end" th:text="#{common.table.actions}">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="row : ${rows}">
+              <td class="text-nowrap" th:text="${#temporals.format(row.createdAt(), 'MMM dd, yyyy HH:mm')}">Sep 15, 2026 09:12</td>
+              <td th:text="${row.toEmail()}">priya@acme.test</td>
+              <td th:text="${row.subject()}">Your Vacation request was approved</td>
+              <td th:text="${row.event() == null} ? '—' : #{|admin.notifications.event.${row.event().templateKey()}|}">Leave approved</td>
+              <td>
+                <span class="badge"
+                      th:classappend="${row.status().name() == 'SENT'} ? 'text-bg-success'
+                                    : (${row.status().name() == 'FAILED'} ? 'text-bg-danger' : 'text-bg-warning')"
+                      th:text="#{|admin.notifications.status.${#strings.toLowerCase(row.status())}|}">Sent</span>
+              </td>
+              <td th:text="${row.attempts()}">1</td>
+              <!--/* Truncated in the cell, full text in the tooltip: a stack-trace-shaped SMTP
+                     error would otherwise own the whole row. */-->
+              <td class="text-truncate" style="max-width: 18rem;"
+                  th:title="${row.lastError()}" th:text="${row.lastError()} ?: ''">MailSendException: connection refused</td>
+              <td class="text-end">
+                <button th:if="${row.retryable()}" type="button" class="btn btn-outline-secondary btn-sm"
+                        th:aria-label="#{admin.notifications.aria.retry}"
+                        th:hx-post="@{/admin/notifications/{id}/retry(id=${row.id()}, status=${selectedStatus}, from=${selectedFrom}, to=${selectedTo}, page=${pageNumber})}"
+                        hx-target="#notifications-content" hx-swap="outerHTML">
+                  <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                  <span th:text="#{admin.notifications.retry}">Retry</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!--/* UI Guidelines §6: prev/next only. The delivery log is read in date order, so there is
+             nothing to jump to by page number. */-->
+      <nav th:if="${totalPages > 1}" class="d-flex align-items-center gap-3 mt-3"
+           th:aria-label="#{admin.notifications.log-heading}">
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item" th:classappend="${hasPrevious} ? '' : 'disabled'">
+            <a class="page-link"
+               th:href="@{/admin/notifications(status=${selectedStatus}, from=${selectedFrom}, to=${selectedTo}, page=${pageNumber - 1})}"
+               th:text="#{common.pagination.previous}">Previous</a>
+          </li>
+          <li class="page-item" th:classappend="${hasNext} ? '' : 'disabled'">
+            <a class="page-link"
+               th:href="@{/admin/notifications(status=${selectedStatus}, from=${selectedFrom}, to=${selectedTo}, page=${pageNumber + 1})}"
+               th:text="#{common.pagination.next}">Next</a>
+          </li>
+        </ul>
+        <span class="text-muted small" th:text="#{common.pagination.page-of(${pageNumber + 1}, ${totalPages})}">Page 1 of 3</span>
+      </nav>
+
+    </div>
+  </div>
+</th:block>
+</body>
+</html>

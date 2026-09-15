@@ -97,8 +97,8 @@
  * pattern Bootstrap uses internally — override each component's local vars, not
  * the property directly. Scoped to what's actually used in these templates
  * (.btn-primary/.btn-danger, their .btn-outline-* counterparts, form focus rings,
- * checkboxes) — no pagination or dropdown-active styling exists in the templates
- * today.
+ * checkboxes, and since sub-phase 1.10 .pagination) — no dropdown-active styling
+ * exists in the templates today.
  */
 .btn-primary {
   --bs-btn-color: #fff;
@@ -190,6 +190,21 @@
    default regardless, so the sidebar's distinct soft-tint look is unaffected. */
 .nav-pills {
   --bs-nav-pills-link-active-bg: var(--bs-primary);
+}
+
+/* Same gotcha again, for the app's first paginated list (admin/notifications.html).
+   Bootstrap compiles $primary into --bs-pagination-color/-active-bg, so untouched
+   pagination renders stock blue against an otherwise petrol page. */
+.pagination {
+  --bs-pagination-color: var(--bs-primary);
+  --bs-pagination-hover-color: color-mix(in oklab, var(--bs-primary) 85%, black);
+  --bs-pagination-hover-bg: var(--bs-primary-bg-subtle);
+  --bs-pagination-hover-border-color: var(--bs-primary-border-subtle);
+  --bs-pagination-focus-color: color-mix(in oklab, var(--bs-primary) 85%, black);
+  --bs-pagination-focus-bg: var(--bs-primary-bg-subtle);
+  --bs-pagination-focus-box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color);
+  --bs-pagination-active-bg: var(--bs-primary);
+  --bs-pagination-active-border-color: var(--bs-primary);
 }
 
 .form-control:focus,
