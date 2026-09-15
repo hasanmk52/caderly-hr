@@ -8,6 +8,7 @@ import com.caderly.caderlyhr.common.ValidationException;
 import com.caderly.caderlyhr.identity.AppUser;
 import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
+import com.caderly.caderlyhr.notifications.EmailEvent;
 import com.caderly.caderlyhr.notifications.system.EmailOutbox;
 import com.caderly.caderlyhr.notifications.system.EmailOutboxRepository;
 import com.caderly.caderlyhr.people.Employee;
@@ -738,6 +739,30 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
                         () -> leaveRequestService.cancel(request.requireId(), report.userId(), report.requireId(), false));
 
         assertThat(cancelled.status()).isEqualTo(LeaveRequestStatus.CANCELLED);
+    }
+
+    @Test
+    void cancel_bySelf_notifiesTheApprover() {
+        // PRD §17.2's "Leave cancelled by employee → Approver". notifyCancellation had no test
+        // before sub-phase 1.10 — the only lifecycle email that did not.
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "Cancel", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "Cancel", manager.requireId()));
+        LeaveRequest request = bookOneDay(report, type, nextWeekday());
+
+        asTenant(
+                tenantA,
+                () -> leaveRequestService.cancel(request.requireId(), report.userId(), report.requireId(), false));
+
+        List<EmailOutbox> queued = asTenant(tenantA, () -> outbox.findByTenantIdOrderByCreatedAtDesc(tenantA));
+        assertThat(queued)
+                .filteredOn(email -> EmailEvent.LEAVE_CANCELLED.name().equals(email.eventType()))
+                .singleElement()
+                .satisfies(
+                        email -> {
+                            assertThat(email.toEmail()).isEqualTo(manager.email());
+                            assertThat(email.subject()).contains("cancelled their");
+                        });
     }
 
     @Test

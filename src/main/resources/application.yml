@@ -98,6 +98,17 @@ caderly:
       # Once a day is enough: termination_date is a date, not a timestamp, so nothing is
       # lost by not reacting within the same minute the clock crosses midnight.
       cron: "0 0 0 * * *"
+    daily-reminder-job:
+      enabled: true
+      # Birthdays, work anniversaries and expiring government IDs (PRD §17.2). Early enough
+      # that a birthday email arrives before the team has said it in person.
+      cron: "0 0 8 * * *"
+  timeoff:
+    holiday-reminder-job:
+      enabled: true
+      # Evening, not midnight: "tomorrow" has to still read as tomorrow to someone who opens
+      # the mail before bed.
+      cron: "0 0 17 * * *"
   storage:
     # S3-compatible backend is deferred (ADR 0012) — "local" is the only value LocalFileStorage's
     # @ConditionalOnProperty currently matches.

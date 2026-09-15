@@ -29,6 +29,11 @@ caderly:
       # Tests drive the job by calling its public method directly at a known moment, matching
       # EmailDispatcher's pattern.
       enabled: false
+    daily-reminder-job:
+      enabled: false
+  timeoff:
+    holiday-reminder-job:
+      enabled: false
   storage:
     backend: local
     local:

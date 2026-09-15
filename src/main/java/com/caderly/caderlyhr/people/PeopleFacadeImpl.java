@@ -107,6 +107,14 @@ class PeopleFacadeImpl implements PeopleFacade {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmployeeContact> listActiveEmployeeContacts() {
+        return employees.findAllByStatusNot(EmployeeStatus.TERMINATED).stream()
+                .map(e -> new EmployeeContact(e.requireId(), e.fullName(), e.email()))
+                .toList();
+    }
+
     private static EmployeeApprovalInfo toApprovalInfo(Employee employee) {
         UUID managerId = employee.manager() == null ? null : employee.manager().requireId();
         return new EmployeeApprovalInfo(employee.requireId(), employee.fullName(), employee.email(), managerId);
