@@ -82,6 +82,29 @@ class ArchitectureTest {
     }
 
     @Test
+    void sendingMail_isConfinedToTheOutboxDispatcher() {
+        // CLAUDE.md §6a rule 1. Until sub-phase 1.10 this was convention only: nothing stopped a
+        // service calling mailSender.send() straight from a request path, where it either blocks
+        // the user on a third party or — worse — succeeds after its own transaction rolled back,
+        // announcing something that did not happen. notifications.system is the outbox's own
+        // package, where the @Scheduled dispatcher legitimately performs the SMTP call.
+        //
+        // The rule is written against the whole JavaMailSender type, not just send(): a class that
+        // holds one has already taken the dependency, and the next edit is the one that sends.
+        ArchRule rule =
+                noClasses()
+                        .that()
+                        .resideOutsideOfPackage("com.caderly.caderlyhr.notifications.system..")
+                        .should()
+                        .dependOnClassesThat()
+                        .areAssignableTo(org.springframework.mail.MailSender.class)
+                        .because(
+                                "every outbound email must go through EmailOutboxService (CLAUDE.md §6a);"
+                                    + " only notifications.system may touch a MailSender");
+        rule.check(PRODUCTION_CLASSES);
+    }
+
+    @Test
     void nativeQueriesAndJdbc_areConfinedToRepositories() {
         // CLAUDE.md §8. Native SQL bypasses Hibernate's @TenantId restriction entirely, so it
         // is the one place a cross-tenant read could reappear after ADR 0004. Repositories are
