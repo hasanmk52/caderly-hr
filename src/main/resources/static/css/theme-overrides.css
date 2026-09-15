@@ -11,7 +11,7 @@
  */
 
 :root {
-  /* Primary — Cadrely Petrol (docs/design-system/tokens/colors.css --brand).
+  /* Primary — Caderly Petrol (docs/design-system/tokens/colors.css --brand).
      Petrol has no published tint/shade scale the way the old indigo borrowed
      Tailwind's, so -bg-subtle/-border-subtle come straight from the design
      system's --brand-fill/--brand-line, and derived shades below use
@@ -27,10 +27,10 @@
   --bs-link-hover-color-rgb: 13, 68, 92;
   --bs-focus-ring-color: rgba(15, 85, 104, 0.25);
 
-  /* Status — Cadrely's verify/notice/halt triad (docs/design-system/tokens/colors.css).
-     Cadrely's own AA contrast table already validates each base hex for direct
+  /* Status — Caderly's verify/notice/halt triad (docs/design-system/tokens/colors.css).
+     Caderly's own AA contrast table already validates each base hex for direct
      text use, so -text-emphasis is the base value, not a further-darkened one.
-     Cadrely defines no info-equivalent (the triad is closed and independent of
+     Caderly defines no info-equivalent (the triad is closed and independent of
      brand), so info is aliased straight to primary instead of keeping
      Bootstrap's unrelated stock sky-blue. */
   --bs-success: #1F6B45;

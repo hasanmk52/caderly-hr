@@ -54,7 +54,7 @@ Two layers: **system colors** (Bootstrap 5 semantic) and **tenant brand color** 
 | `--bs-border-color` | `#e5e7eb` | Default hairline borders, table dividers |
 | `--bs-tertiary-bg` | `#f3f4f6` | Hover backgrounds (sidebar inactive hover, dropdown-item hover) |
 
-`--bs-info` is aliased directly to `--bs-primary` because the Cadrely design system defines no info-equivalent color — its verify/notice/halt triad is closed and independent of brand. Success/warning/danger were adopted as Cadrely's verify/notice/halt as-is (no further tinting) since Cadrely documents that triad as a stable, brand-independent status set with its own AA contrast verification.
+`--bs-info` is aliased directly to `--bs-primary` because the Caderly design system defines no info-equivalent color — its verify/notice/halt triad is closed and independent of brand. Success/warning/danger were adopted as Caderly's verify/notice/halt as-is (no further tinting) since Caderly documents that triad as a stable, brand-independent status set with its own AA contrast verification.
 
 Sidebar is **not** a solid dark color — it's `bg-white` with a `border-end`, per the fragment actually shipped (`fragments/sidebar.html`). Active item: `--bs-primary-bg-subtle` tint + `--bs-primary` 3 px left border + `--bs-primary-text-emphasis` text. Inactive hover: `--bs-tertiary-bg`. (An earlier version of this doc specified a solid dark-navy sidebar with a solid-fill active state; that was never built. This section now documents the light sidebar that exists.)
 

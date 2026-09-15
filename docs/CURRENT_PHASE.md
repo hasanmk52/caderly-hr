@@ -41,6 +41,9 @@ anniversary, document expiry), and give Admin a way to see and retry failed send
 
 ### Backend
 
+- **DB:** extend `email_outbox` only if needed (`event_type` for filtering, `template_key`).
+  Additive Flyway migration + RLS unchanged — no non-additive schema change without an ADR
+  (CLAUDE.md §12).
 - Thymeleaf templates in `src/main/resources/templates/email/*.html`, one per event.
 - `EmailTemplateService.render(templateKey, model)` merging per-tenant branding (logo URL, primary
   color, tenant name) — check `tenant.Tenant` for what branding fields already exist before adding

@@ -1,4 +1,4 @@
-# Cadrely — Brand Concept
+# Caderly — Brand Concept
 
 **Version:** 1.0
 **Status:** Decided
@@ -6,7 +6,7 @@
 **Date:** 2026-08-29
 **Owner:** MHZ Software
 **Supersedes:** Helyx brand concept (name retired — see §11)
-**Companion documents:** `Helyx_PRD.md` (to be renamed), `UI_Guidelines.md`, `CLAUDE.md`
+**Companion documents:** `Caderly_PRD.md`, `UI_Guidelines.md`, `CLAUDE.md`
 
 ---
 
@@ -23,7 +23,7 @@ checklist. §3 is the one to read before writing any user-facing string.
 
 ## 1. Name and concept
 
-**Cadrely** — pronounced **KAD-ruh-lee**. Standardise on this and say it the same
+**Caderly** — pronounced **KAD-ruh-lee**. Standardise on this and say it the same
 way in every demo; the first customer who says "kad-RAY-lee" will otherwise decide
 it for us.
 
@@ -47,7 +47,7 @@ your manager approves, no carry-over, IDs expire. It exists with or without
 software. Usually it lives half in a handbook nobody has opened and half in the
 head of one person in HR, which is why employees ask instead of knowing.
 
-Cadrely's job is to **make the frame visible and then get out of the way.** Not to
+Caderly's job is to **make the frame visible and then get out of the way.** Not to
 add process — to render the process the company already has, exactly, and show
 every edge of it. That is a different promise from every other tool in the
 category, which sell you *their* frame and ask you to adapt.
@@ -58,12 +58,12 @@ Configure the frame once per tenant; the people move through it.
 ### 1.2 Blurb (for decks, sites, design tools)
 
 ```
-Cadrely.
+Caderly.
 
 Policy clarity, without the gatekeeping.
 Most HR software is built to manage people — score performance, track engagement,
 route requests into a queue, and answer "why" with "contact your administrator."
-Cadrely shows the arithmetic. We believe a rule you can see is a rule you can trust.
+Caderly shows the arithmetic. We believe a rule you can see is a rule you can trust.
 The policy is still your company's — knowing it shouldn't be a favour.
 ```
 
@@ -79,9 +79,9 @@ without explanation. Requests vanish into a queue. Errors say "contact your
 administrator." Policy lives in a PDF nobody has opened since onboarding.
 
 > **Positioning statement.** For small and mid-sized companies whose HR tool is
-> either a spreadsheet or a suite they use 5% of, Cadrely is an HRIS that enforces
+> either a spreadsheet or a suite they use 5% of, Caderly is an HRIS that enforces
 > your policy exactly and explains every number it shows. Where other systems hide
-> the rule and surface the result, Cadrely shows the arithmetic — so employees stop
+> the rule and surface the result, Caderly shows the arithmetic — so employees stop
 > asking HR, and HR stops doing arithmetic.
 
 ### 2.1 The three claims
@@ -117,7 +117,7 @@ is telling them. Every example below derives from a business rule already in the
 | Termination (`BR-11`) | Access ended today. 2 upcoming leave requests were cancelled. The record stays for 7 years. | Employee terminated successfully. |
 | Expiry (`FR-9.2`) | Priya's Emirates ID expires in 30 days (14 Sep). She's been told too. | ⚠️ Document expiring soon! |
 | Lockout (`FR-1.7`) | Too many attempts. Try again at 14:19, or reset your password now. | Account locked. Please try again later. |
-| Unknown tenant (`FR-2.3`) | There's no Cadrely workspace at flurb.cadrely.app. Check the address, or ask whoever invited you for the link. | Unknown tenant. |
+| Unknown tenant (`FR-2.3`) | There's no Caderly workspace at flurb.caderly.app. Check the address, or ask whoever invited you for the link. | Unknown tenant. |
 
 ### 3.2 Always
 
@@ -190,12 +190,12 @@ bullet in body copy · animate it as a perpetual spinner · set it on a photogra
 
 | File | Use |
 |---|---|
-| `cadrely-mark.svg` | Primary mark, Petrol, with occupant. 20 px and up. |
-| `cadrely-mark-mono.svg` | Same geometry, `currentColor`. Inline in HTML, set `color:`. |
-| `cadrely-mark-small.svg` | Occupant removed. Below 20 px. |
-| `cadrely-favicon.svg` | Switches to `#6FBDD1` under `prefers-color-scheme: dark`. |
-| `cadrely-appicon.svg` | 512 px tile, white mark on Petrol. Export PNG at 512/192/180. |
-| `cadrely-lockup.svg` | Horizontal lockup. **Outline the text before distributing.** |
+| `caderly-mark.svg` | Primary mark, Petrol, with occupant. 20 px and up. |
+| `caderly-mark-mono.svg` | Same geometry, `currentColor`. Inline in HTML, set `color:`. |
+| `caderly-mark-small.svg` | Occupant removed. Below 20 px. |
+| `caderly-favicon.svg` | Switches to `#6FBDD1` under `prefers-color-scheme: dark`. |
+| `caderly-appicon.svg` | 512 px tile, white mark on Petrol. Export PNG at 512/192/180. |
+| `caderly-lockup.svg` | Horizontal lockup. **Outline the text before distributing.** |
 
 Prefer the CSS lockup on the web (inline mono SVG + a `<span>`) over the SVG lockup,
 so the wordmark stays live text.
@@ -213,7 +213,7 @@ stepping into it. Nowhere else, and never on a route change — an app promising
 
 ### 5.1 The constraint that decided it
 
-Cadrely is a status app. Approved, pending, rejected, expiring and cancelled appear
+Caderly is a status app. Approved, pending, rejected, expiring and cancelled appear
 on nearly every screen and must mean the same thing everywhere. **Green, amber and
 red are therefore already spoken for and cannot be the brand colour** — a
 green-branded HRIS puts brand green next to approval green in every table row and
@@ -338,7 +338,7 @@ monolith instead of six services.
 
 Most brand guidelines specify motion at 250–400 ms because it reads as "premium."
 At that duration a 180 ms htmx swap arrives and then waits for its own animation —
-spending the performance budget on decoration. Cadrely goes the other way, and the
+spending the performance budget on decoration. Caderly goes the other way, and the
 restraint **is** the personality.
 
 | Duration | Easing | Use |
@@ -373,13 +373,13 @@ would assume.
 
 The hardest surface: it lands in an inbox with no context.
 
-- Subject line names the **tenant**, not Cadrely: `"Priya Nair requested Vacation — 3 days"`.
+- Subject line names the **tenant**, not Caderly: `"Priya Nair requested Vacation — 3 days"`.
 - Single column, 600 px, **system-font stack**. Never web-font an email.
 - Body in the plain-arithmetic voice: the request, the dates, the working-day count,
   one button.
 - Every send needs a `text/plain` part in the same voice. Arithmetic-first copy
   degrades to plain text perfectly — another argument for §3.
-- Footer: "Sent by {tenant} via Cadrely." The only Cadrely branding, and it doubles
+- Footer: "Sent by {tenant} via Caderly." The only Caderly branding, and it doubles
   as the distribution channel.
 
 ### 8.3 Super Admin console
@@ -394,7 +394,7 @@ The hardest surface: it lands in an inbox with no context.
 ### 8.4 Login, site, deck
 
 - The login page and the unknown-tenant 404 are the two in-app moments that are purely
-  Cadrely. Mark, wordmark, Petrol, the trace animation.
+  Caderly. Mark, wordmark, Petrol, the trace animation.
 - The login page names the company (`FR-2.2` resolves the tenant before render) and
   shows the subdomain beneath it. Proves the user is where they meant to be and
   quietly kills a class of phishing.
@@ -475,7 +475,7 @@ The hardest surface: it lands in an inbox with no context.
 | 2 | **Return the duration *breakdown*, not just the number.** `computeDuration` (`§12.3`) already walks every day and decides to skip it, then discards that. Have it return the skipped days with their reasons. | A few lines, and it is what makes *"5 working days · skips Sat–Sun and Eid al-Adha (Fri 7 Aug)"* possible. That sentence is the entire differentiator. |
 | 3 | **Rewrite `messages.properties` in the §3 voice** while it is still short. | Highest-leverage brand artefact in the repo. One file. It is what employees actually experience. |
 | 4 | **Add a computed on-colour helper** if tenant colour ever returns. | Not needed today; noted so nobody reintroduces coloured buttons without an accessible pairing. |
-| 5 | **Order Class 9 + 42 trademark clearance for "Cadrely"** before `cadrely.app` appears in a production email link. | `slug` is immutable by design (`BR-13`) and the domain is baked into invite links and bookmarks. A domain change later is a migration, not a rebrand. |
+| 5 | **Order Class 9 + 42 trademark clearance for "Caderly"** before `caderly.app` appears in a production email link. | `slug` is immutable by design (`BR-13`) and the domain is baked into invite links and bookmarks. A domain change later is a migration, not a rebrand. |
 
 ### 9.4 Build order
 
@@ -519,7 +519,7 @@ Kept so nobody relitigates these in six months.
 released enterprise product with an open-source GUI on GitHub, and there is also a
 UK geospatial consultancy trading as Helyx. Both sit in or adjacent to **Nice Class 9
 and 42** — the same classes an HRIS registers in. Real market confusion was unlikely,
-but an examiner looks at class before market. Retired in favour of Cadrely, which
+but an examiner looks at class before market. Retired in favour of Caderly, which
 surfaced no software company using the name; the nearest marks are bare *Cadre*
 (warehouse management, unrelated classes).
 

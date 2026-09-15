@@ -1,15 +1,15 @@
-# Cadrely logo kit
+# Caderly logo kit
 
 Brand colour: **Petrol** `#0F5568` (light) / `#6FBDD1` (dark)
 
 | File | Use |
 |---|---|
-| `cadrely-mark.svg` | Primary mark, Petrol, with occupant. Anything 20 px and up. |
-| `cadrely-mark-mono.svg` | Same geometry, `currentColor`. Inline it in HTML and set `color:`. |
-| `cadrely-mark-small.svg` | Occupant removed. Use below 20 px — the square fuses with the arms. |
-| `cadrely-favicon.svg` | Favicon. Switches to `#6FBDD1` under `prefers-color-scheme: dark`. |
-| `cadrely-appicon.svg` | 512 px tile, white mark on Petrol. Export PNG at 512/192/180. |
-| `cadrely-lockup.svg` | Horizontal lockup. Outline the text before distributing. |
+| `caderly-mark.svg` | Primary mark, Petrol, with occupant. Anything 20 px and up. |
+| `caderly-mark-mono.svg` | Same geometry, `currentColor`. Inline it in HTML and set `color:`. |
+| `caderly-mark-small.svg` | Occupant removed. Use below 20 px — the square fuses with the arms. |
+| `caderly-favicon.svg` | Favicon. Switches to `#6FBDD1` under `prefers-color-scheme: dark`. |
+| `caderly-appicon.svg` | 512 px tile, white mark on Petrol. Export PNG at 512/192/180. |
+| `caderly-lockup.svg` | Horizontal lockup. Outline the text before distributing. |
 
 ## Geometry — do not redraw by eye
 
@@ -36,7 +36,7 @@ use it as a bullet in body copy · animate it as a perpetual spinner.
           stroke-linecap="butt" stroke-linejoin="round"/>
     <rect x="41" y="26" width="12" height="12" rx="2" fill="currentColor"/>
   </svg>
-  <span>Cadrely</span>
+  <span>Caderly</span>
 </a>
 ```
 
