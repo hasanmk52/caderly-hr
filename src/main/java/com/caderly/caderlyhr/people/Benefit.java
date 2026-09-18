@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.people;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -12,6 +14,7 @@ import org.jspecify.annotations.Nullable;
 
 /** One benefit assignment (PRD §6.3 FR-3.2) — multiple rows per employee, Admin-managed. */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(name = "benefit")
 public class Benefit extends TenantAwareEntity {
 

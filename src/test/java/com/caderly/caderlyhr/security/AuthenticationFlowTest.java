@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.caderly.caderlyhr.TestcontainersConfiguration;
+import com.caderly.caderlyhr.audit.LoginAuditRepository;
+import com.caderly.caderlyhr.audit.system.LoginAudit;
 import com.caderly.caderlyhr.identity.AppUser;
 import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
@@ -17,6 +19,7 @@ import com.caderly.caderlyhr.tenant.TenantContext;
 import com.caderly.caderlyhr.tenant.TenantRepository;
 import java.net.URI;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +56,7 @@ class AuthenticationFlowTest {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private TransactionTemplate transactions;
     @Autowired private RateLimitFilter rateLimitFilter;
+    @Autowired private LoginAuditRepository loginAudits;
 
     private String slugA;
     private String slugB;
@@ -160,9 +164,74 @@ class AuthenticationFlowTest {
                 .andExpect(status().isServiceUnavailable());
     }
 
+    // --- login_audit content (PRD §18.1, FR-11.2, ADR 0017) ---
+
     @Test
-    void login_afterFiveFailuresInTheWindow_locksTheAccountEvenForTheCorrectPassword()
+    void login_whenSuccessful_writesALoginAuditRowWithTheUserId() throws Exception {
+        mockMvc.perform(loginRequest(slugA, emailInA, PASSWORD));
+
+        LoginAudit row = onlyLoginAuditRowFor(emailInA);
+        assertThat(row.success()).isTrue();
+        assertThat(row.failureReason()).isNull();
+        UUID userId = asTenant(tenantIdOf(slugA), () -> users.findByEmail(emailInA)).orElseThrow().requireId();
+        assertThat(row.userId()).isEqualTo(userId);
+    }
+
+    @Test
+    void login_withAnUnknownEmail_writesALoginAuditRowWithNoUserId() throws Exception {
+        String unknown = "nobody-" + shortId() + "@example.test";
+
+        mockMvc.perform(loginRequest(slugA, unknown, PASSWORD));
+
+        LoginAudit row = onlyLoginAuditRowFor(unknown);
+        assertThat(row.success()).isFalse();
+        assertThat(row.userId()).isNull();
+        assertThat(row.failureReason()).isEqualTo(LoginAudit.FailureReason.UNKNOWN_EMAIL.name());
+    }
+
+    @Test
+    void login_withWrongPassword_writesALoginAuditRowWithBadCredentialsReason() throws Exception {
+        mockMvc.perform(loginRequest(slugA, emailInA, "WrongPassword123"));
+
+        LoginAudit row = onlyLoginAuditRowFor(emailInA);
+        assertThat(row.success()).isFalse();
+        assertThat(row.userId()).isNotNull();
+        assertThat(row.failureReason()).isEqualTo(LoginAudit.FailureReason.BAD_CREDENTIALS.name());
+    }
+
+    @Test
+    void login_whenAccountIsDisabled_writesALoginAuditRowWithThatReason() throws Exception {
+        UUID tenantId = tenantIdOf(slugA);
+        String disabled = "disabled-audit-" + shortId() + "@example.test";
+        seedUser(
+                tenantId,
+                disabled,
+                user -> {
+                    user.grant(Role.EMPLOYEE);
+                    user.disable();
+                });
+
+        mockMvc.perform(loginRequest(slugA, disabled, PASSWORD));
+
+        LoginAudit row = onlyLoginAuditRowFor(disabled);
+        assertThat(row.success()).isFalse();
+        assertThat(row.failureReason()).isEqualTo(LoginAudit.FailureReason.ACCOUNT_DISABLED_OR_INVITED.name());
+    }
+
+    private LoginAudit onlyLoginAuditRowFor(String email) {
+        List<LoginAudit> rows =
+                TenantContext.runAsSystem(
+                        "test: read login_audit",
+                        () -> loginAudits.findAll().stream().filter(r -> email.equals(r.emailAttempted())).toList());
+        assertThat(rows).hasSize(1);
+        return rows.get(0);
+    }
+
+    @Test
+    void login_afterFiveFailuresFromOneIpInTheWindow_locksTheAccountEvenForTheCorrectPassword()
             throws Exception {
+        // Every request in this test comes from the same simulated client address, so this is
+        // exactly the (email + IP) lockout re-key (ADR 0017): 5 failures from one IP.
         for (int attempt = 0; attempt < 5; attempt++) {
             mockMvc
                     .perform(loginRequest(slugA, emailInA, "WrongPassword" + attempt))
@@ -180,7 +249,28 @@ class AuthenticationFlowTest {
     }
 
     @Test
-    void login_afterFourFailuresThenSuccess_resetsTheCounter() throws Exception {
+    void login_fourFailuresFromOneIpAndFourFromAnother_doesNotLock() throws Exception {
+        // The whole point of the (email + IP) re-key (ADR 0017): eight total failures against one
+        // account, but never five from the same IP, must not lock it. The old per-user counter
+        // would have locked at the fifth failure regardless of origin.
+        for (int attempt = 0; attempt < 4; attempt++) {
+            mockMvc.perform(loginRequest(slugA, emailInA, "WrongPasswordA" + attempt, "203.0.113.10"));
+        }
+        for (int attempt = 0; attempt < 4; attempt++) {
+            mockMvc.perform(loginRequest(slugA, emailInA, "WrongPasswordB" + attempt, "203.0.113.20"));
+        }
+
+        mockMvc
+                .perform(loginRequest(slugA, emailInA, PASSWORD, "203.0.113.10"))
+                .andExpect(redirectedUrl("/"));
+
+        AppUser user = asTenant(tenantIdOf(slugA), () -> users.findByEmail(emailInA)).orElseThrow();
+        assertThat(user.status()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(user.isLocked(Instant.now())).isFalse();
+    }
+
+    @Test
+    void login_afterFourFailuresThenSuccess_updatesLastLoginAndStaysUnlocked() throws Exception {
         for (int attempt = 0; attempt < 4; attempt++) {
             mockMvc.perform(loginRequest(slugA, emailInA, "WrongPassword" + attempt));
         }
@@ -188,7 +278,7 @@ class AuthenticationFlowTest {
         mockMvc.perform(loginRequest(slugA, emailInA, PASSWORD)).andExpect(redirectedUrl("/"));
 
         AppUser user = asTenant(tenantIdOf(slugA), () -> users.findByEmail(emailInA)).orElseThrow();
-        assertThat(user.failedLoginCount()).isZero();
+        assertThat(user.isLocked(Instant.now())).isFalse();
         assertThat(user.lastLoginAt()).isNotNull();
     }
 
@@ -259,6 +349,11 @@ class AuthenticationFlowTest {
                 .param("email", email)
                 .param("password", password)
                 .with(csrf());
+    }
+
+    /** Simulates a request from a different client address via the header {@code RateLimitFilter}/{@code ClientIpResolver} trust. */
+    private MockHttpServletRequestBuilder loginRequest(String slug, String email, String password, String ip) {
+        return loginRequest(slug, email, password).header("X-Forwarded-For", ip);
     }
 
     private static String shortId() {

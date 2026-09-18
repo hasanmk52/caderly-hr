@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.identity;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -24,6 +26,7 @@ import jakarta.persistence.UniqueConstraint;
  * construct one directly.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(
         name = "user_role",
         uniqueConstraints =

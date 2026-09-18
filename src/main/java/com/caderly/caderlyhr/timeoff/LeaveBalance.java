@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.timeoff;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -22,6 +24,7 @@ import java.util.UUID;
  * leaveType} stays a real {@code @ManyToOne} because both entities live in this package.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(
         name = "leave_balance",
         uniqueConstraints =

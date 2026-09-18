@@ -1,5 +1,6 @@
 package com.caderly.caderlyhr.security;
 
+import com.caderly.caderlyhr.common.ClientIpResolver;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
@@ -21,9 +22,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * Throttles the two endpoints an attacker would hammer (PRD §19.7): login at 10/min per IP, and
  * password-reset requests at 3/hour per email address.
  *
- * <p>The login limit is also what keeps the per-user lockout honest. Lockout is keyed on the user
- * alone in this phase (ADR 0006 decision B), so this filter is the only thing bounding a single
- * IP spraying one password across many accounts.
+ * <p>The login limit is also what keeps a distributed attack bounded: lockout is keyed on (email +
+ * IP) as of ADR 0017 (superseding ADR 0006 decision B), so one IP spraying many different accounts
+ * never trips any single account's lock — this filter is what bounds that case instead.
  *
  * <p>In-JVM buckets, matching the in-JVM session store. Both become shared state at the same
  * moment — when the deployment goes multi-instance — and PRD §19.7 already names Redis for then.
@@ -76,7 +77,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /** Consumes a token for whichever limit covers this request; {@code true} if one was free. */
     private boolean allowed(HttpServletRequest request, String path) {
         if (loginPath.equals(path)) {
-            return consume("login:" + clientIp(request), LOGIN_LIMIT);
+            return consume("login:" + ClientIpResolver.resolve(request), LOGIN_LIMIT);
         }
         if (forgotPasswordPath.equals(path)) {
             String email = request.getParameter("email");
@@ -101,20 +102,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static Bandwidth perWindow(long capacity, Duration window) {
         return Bandwidth.builder().capacity(capacity).refillGreedy(capacity, window).build();
-    }
-
-    /**
-     * Trusts {@code X-Forwarded-For} only for its first hop, and only because Caderly always runs
-     * behind a reverse proxy that sets it (PRD §27: Caddy). A direct-to-app deployment would make
-     * this header attacker-controlled and the limit trivially bypassable.
-     */
-    private static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded == null || forwarded.isBlank()) {
-            return request.getRemoteAddr();
-        }
-        int comma = forwarded.indexOf(',');
-        return (comma < 0 ? forwarded : forwarded.substring(0, comma)).trim();
     }
 
     /**

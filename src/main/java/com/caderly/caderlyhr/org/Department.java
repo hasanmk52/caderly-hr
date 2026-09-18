@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.org;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -18,6 +20,7 @@ import org.jspecify.annotations.Nullable;
  * <p>No public setters (CLAUDE.md §10): every mutation is a named transition.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(
         name = "department",
         uniqueConstraints =

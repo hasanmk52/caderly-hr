@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.timeoff;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
@@ -13,6 +15,7 @@ import java.time.LocalDate;
  * data, not a document" simplicity CURRENT_PHASE.md calls for.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(
         name = "public_holiday",
         uniqueConstraints =

@@ -67,6 +67,10 @@ public abstract class PlaywrightE2ETestBase {
     void newPage() {
         context = browser.newContext(contextOptions());
         page = context.newPage();
+        // Playwright's 30s default is tight when the full suite runs every Testcontainers DB and
+        // Chromium concurrently; doubling it avoids flaky timeouts under that load without masking
+        // a genuinely broken selector (a broken one still fails, just slower).
+        page.setDefaultTimeout(60_000);
     }
 
     @AfterEach

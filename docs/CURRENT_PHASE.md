@@ -1,113 +1,70 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.11 — Audit Log (write audit + login audit + Admin viewer)
-**Branch:** `phase-1.11-audit-log` (not yet created — create it before writing any code)
-**Goal:** Every write operation and every login attempt is recorded durably with before/after
-state, and Admin can trace who changed what and when from a filterable viewer.
+**Working on:** Phase 1.12 — Reports MVP (Balance, Utilization, Headcount + CSV export)
+**Branch:** `phase-1.12-reports` (not yet created — create it before writing any code)
+**Goal:** Admin can generate each of the three MVP reports, preview it on screen, and download it
+as a CSV that opens cleanly in Excel.
 
 ## Read these before doing anything
 
-1. `docs/Caderly_Implementation_Plan.md` — the "1.11 Audit Log" section under Phase 1 — MVP
-2. `docs/Caderly_PRD.md` — §6.11 (Audit Log FR-11.x), §18 (Audit Logs — Detailed: `audit_entry` and
-   `login_audit` schemas §18.1, implementation approach §18.2, Admin UI §18.3, retention §18.4 —
-   retention/archival is explicitly Phase 2, don't build it early)
-3. `CLAUDE.md` — §6 A09 (Security Logging and Monitoring Failures: every write through
-   `AuditListener`, every login attempt to `login_audit`, structured JSON logs with request
-   ID/tenant ID/actor ID in MDC, no secrets/tokens/PII in logs — there is already a CI grep test
-   guarding this, check what it covers before assuming a gap), §7 (package structure names an
-   `audit` module: `AuditEntry`, `LoginAudit`, `AuditListener`)
+1. `docs/Caderly_Implementation_Plan.md` — the "1.12 Reports MVP" section under Phase 1 — MVP.
+2. `docs/Caderly_PRD.md` — the Reports section (balance/utilization/headcount definitions) and
+   §23.2's `GET /api/v1/reports/*.csv` endpoints, if this phase ends up exposing them.
+3. `CLAUDE.md` — §7 (coding standards: DTOs are records, dependency versions in `<properties>` —
+   `com.opencsv` needs a new `<opencsv.version>` property, which is a new Maven dependency and
+   therefore on the §12 ask-first list before adding it), §10 recipe "Adding a new REST endpoint"
+   if the CSV download goes through `/api/v1` rather than a plain web-layer download.
 
 ## Already in place — do not redo
 
-- **Structured JSON logs to stdout** already exist per CLAUDE.md §6 A09 — confirm MDC already
-  carries request ID/tenant ID/actor ID before assuming this phase adds it; it may already be
-  wired from an earlier phase's logging setup.
-- **`TenantContext`/`TenantSessionVariableListener`** (Phase 1.1): every write already runs inside a
-  resolved tenant context, so `AuditListener` can read `tenant_id` and the acting user from there
-  rather than threading them through every call site.
-- **`identity.AppUserDetailsService`/Spring Security's authentication pipeline** (Phase 1.1): login
-  success/failure already flows through Spring Security's `AuthenticationEventPublisher` machinery
-  — this phase wires a listener onto it, not the authentication flow itself.
-- **`notifications` module's outbox pattern** (Phase 1.2, extended 1.10): if audit writes ever need
-  to trigger anything external (they shouldn't for MVP — audit is app-internal), the durable-outbox
-  contract in CLAUDE.md §6a still applies. Expect audit writes to be synchronous, in-transaction
-  JPA persists, not outbox rows.
+- **`timeoff.LeaveBalance`/`LeaveRequest`/`LeaveType`** (Phase 1.6) and **`people.Employee`**
+  (Phase 1.3) carry everything the three MVP reports aggregate over — no new tables expected
+  (Implementation Plan's own "DB changes: none" for this phase).
+- **`people.PeopleFacade`/`timeoff.TimeoffFacade`** — cross-module reads for a `ReportService` in
+  a new `reports` module should go through these facades, not direct repository access (CLAUDE.md
+  §4).
+- **Admin pagination/filter-form conventions** (`notifications.NotificationAdminService`,
+  `audit.AuditAdminService`, sub-phases 1.10/1.11) — the report *preview* table is a good candidate
+  to reuse the same prev/next-only pagination shape if a report can return many rows; the report
+  *download* is a single CSV response, not paginated.
 
-## Remaining Phase 1.11 work
+## Remaining Phase 1.12 work
 
 ### Backend
-
-- **DB:** `audit_entry` and `login_audit` tables per PRD §18.1's exact column lists. Confirm both
-  tables' tenancy shape before writing the migration: `login_audit.user_id` is nullable ("if
-  unknown" — an unrecognized email attempt has no `AppUser` to reference), and check whether either
-  table follows the `email_outbox`/`audit`-as-infrastructure pattern (ADR 0005 decision B: no
-  `@TenantId`, no RLS, `tenant_id` as a plain filterable reference) or is genuinely tenant-scoped
-  with RLS like ordinary business data — PRD §18.1 lists `tenant_id` on both, but that alone doesn't
-  settle whether Super Admin's cross-tenant view (PRD §26: "View audit log ... ✅ cross-tenant" for
-  Super Admin) is easier to build one way or the other. Decide and record the reasoning as an ADR
-  the way ADR 0005 did for `email_outbox`.
-- `audit.AuditEntry`, `audit.LoginAudit` entities + repositories.
-- `audit.AuditListener` — Hibernate `@EntityListeners` (`@PostPersist`, `@PostUpdate`, `@PreRemove`)
-  capturing before/after JSON via Jackson, wired onto every entity that needs it. Decide whether
-  "every entity" truly means every `@Entity` in the codebase or a named subset — PRD §11.1 says
-  "every write operation," but `email_outbox`'s own status transitions (PENDING→SENT/FAILED) firing
-  audit rows on every dispatcher poll is probably noise, not signal. Write this decision down.
-- Spring Security `AuthenticationEventPublisher` → writes `login_audit` on success/failure.
-- Admin viewer service: filter by date range/actor/entity type/action, paginated (the app's second
-  paginated list — `notifications.NotificationAdminService`/`/admin/notifications`, sub-phase 1.10,
-  is the first; reuse its `Page`/`Pageable` + prev/next-only pattern rather than inventing a new one
-  — see `docs/UI_Guidelines.md` §6 Pagination).
+- New `reports` module: `ReportService` (or one service per report) returning DTOs — balance,
+  utilization, headcount, each per the PRD's exact field definitions.
+- CSV export via `com.opencsv` — new Maven dependency, ask before adding per CLAUDE.md §12, with
+  its version declared in `<properties>` per §7's convention.
+- Decide the download route shape: a `web` controller endpoint returning `text/csv`, or the
+  `/api/v1/reports/*.csv` REST endpoints PRD §23.2 names — confirm which before building both.
 
 ### Frontend
-
-- `templates/admin/audit-log.html` — filter form + table + "view diff" modal (JSON pretty-print;
-  PRD §18.3 floats `react-json-view` or a plain `<pre>` — no React in this stack, CLAUDE.md §3, so
-  it's a plain `<pre>` with syntax highlighting at most, or nothing fancier).
-  `templates/admin/login-audit.html` — separate page per PRD §24.9's sub-nav ("Audit Log" is one
-  entry, but §18.3 describes one table with `entity`/`action` columns that write-audit rows have
-  and login-audit rows don't — confirm one page with a tab/toggle vs. two separate pages before
-  building).
-- Sidebar entry — `/admin/audit-log` (or whatever path is chosen), Admin-only, following
-  `/admin/notifications`'s `sec:authorize="hasRole('ADMIN')"` pattern in
-  `fragments/sidebar.html`.
+- Admin → Reports page (sidebar's "Reports" link is currently a disabled placeholder in
+  `fragments/sidebar.html` — this phase is what enables it) with 3 report cards.
+- Each card opens a form (filter, date range) + preview table + "Download CSV" button.
 
 ### Tests
+- Report totals correct against seeded data (unit or integration, per report).
+- RBAC: Admin-only, matching the existing `Admin*AccessControlTest` shape.
 
-- `AuditListener` integration test: a compensation update (or any tracked write) produces an
-  `audit_entry` row with correct before/after JSON, actor, and tenant.
-- Login audit test: successful and failed login attempts both produce a `login_audit` row; an
-  unknown email produces one with `user_id = null`.
-- RBAC: one 200 test (Admin) + one 403 test (Employee, Manager) per new endpoint, matching
-  `AdminNotificationsAccessControlTest`'s shape (sub-phase 1.10).
-- Tenant isolation: `TenantIsolationTestBase`-based test proving tenant A cannot see tenant B's
-  audit rows (or, if this phase decides Super Admin needs cross-tenant visibility, that only Super
-  Admin's own separate security realm can).
-- CI grep test for "no secrets/tokens/PII in logs" (CLAUDE.md §6 A09) — confirm whether one already
-  exists before adding a duplicate.
+## Definition of Done for Phase 1.12
 
-## Definition of Done for Phase 1.11
-
-- Every write operation this phase scopes in produces an `audit_entry` row with correct
-  before/after JSON, actor, tenant, and timestamp.
-- Every login attempt (success and failure, known and unknown email) produces a `login_audit` row.
-- Admin can filter and view both logs, including a before/after diff view for a write.
+- Admin generates each of the three reports, previews it, downloads the CSV, and it opens cleanly
+  in Excel (correct headers, no encoding/delimiter issues).
 - `./mvnw verify` green, ArchUnit green, no new exemptions.
 
-## Not in scope for Phase 1.11 — do not start any of this
+## Not in scope for Phase 1.12 — do not start any of this
 
-- Retention/archival to cold storage (PRD §18.4) — explicitly Phase 2.
-- CSV export of the audit log (PRD §18.3) — explicitly Phase 2.
-- Super Admin's own audit trail of impersonation actions (PRD §26 "Impersonate Admin
-  (audit-logged)") — that's Phase 1.13 (Super Admin console) wiring into this phase's
-  `AuditListener`/`audit_entry`, not something to build ahead of the console that triggers it.
+- Any report beyond Balance/Utilization/Headcount (Implementation Plan lists exactly these three
+  for MVP).
+- Scheduled/emailed report delivery — on-demand generation only.
 
 ## Carried forward — open items
 
 These were accepted deviations, not oversights. Do not silently "fix" them; they have owners.
 
-- **Lockout is keyed on the user, not (email + IP)** — blocked on `login_audit`, this phase. Now
-  unblocked: check ADR 0006 decision B before implementing, since `login_audit` landing this phase
-  is exactly what that decision was waiting on.
+- **Lockout re-keying to (email + IP) is now done** (Phase 1.11, ADR 0017) — closes the item that
+  was carried forward from Phase 1.2/ADR 0006 decision B. No longer an open item.
 - **Password-reset enumeration safety is response-shape only**, not constant-time. ADR 0006 decision E.
 - **No common-password blocklist.** ADR 0006 decision F.
 - **Peer-to-peer profile viewing (PRD §26 "View peer profile 🔒 basic") is not implemented.**
@@ -155,10 +112,24 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
 - **No plain-text `multipart/alternative` part on outbound email** — `EmailDelivery`'s
   `MimeMessageHelper` is built non-multipart, HTML-only. Every current mail client target renders
   HTML fine; revisit only if a real plain-text-only recipient surfaces (sub-phase 1.10).
+- **`AppUser.failed_login_count`/`failed_login_window_start` DB columns are dead**, left in place
+  rather than risking a destructive drop-column migration (Phase 1.11, ADR 0017) — the lockout
+  decision now lives entirely in `identity.LoginAttemptService`, backed by `login_audit`. Drop them
+  in a future migration only if a real need to reclaim the columns surfaces.
+- **The write-audit Admin viewer shows the actor's raw user id, not their email** (Phase 1.11, ADR
+  0017) — resolving it would require the `audit` module to depend on `identity`, which already
+  depends on `audit` the other way (the lockout re-key), and that would be a package cycle. Revisit
+  only if a real usability complaint surfaces; the fix would be a small `IdentityFacade` read method.
+- **Audit diffs do not capture relationship-field changes** (e.g. an employee's manager/department
+  reassignment via FK) — only scalar columns are diffed (Phase 1.11, ADR 0017). The one relation
+  most likely to matter (manager) already has its own audited history table
+  (`people.EmployeeManagerHistory`). Revisit only if a real need for relation-level diffs surfaces.
+- **Super Admin's cross-tenant audit view and impersonation audit trail are not built** (PRD §26) —
+  no Super Admin console exists yet. Phase 1.13's job, wiring into this phase's `audit` module.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to whatever sub-phase comes next (this file's 1.10 → 1.11 update is the template).
-3. Commit `phase-1.11-audit-log` and open a PR against `main`.
+2. Update this file to whatever sub-phase comes next (this file's 1.11 → 1.12 update is the template).
+3. Commit `phase-1.12-reports` and open a PR against `main`.
 4. Do not start the next phase in the same session.

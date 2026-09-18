@@ -123,6 +123,9 @@ logging:
   level:
     root: info
     com.caderly.caderlyhr: info
-  #structured:
-  #  format:
-  #    console: logstash
+  # CLAUDE.md §6 A09 / ADR 0017: Spring Boot's built-in structured logging (no extra dependency),
+  # which folds MDC entries (requestId/tenantId/actorId — tenant.TenantResolutionFilter and
+  # security.ActorMdcFilter) into every emitted JSON line automatically.
+  structured:
+    format:
+      console: logstash

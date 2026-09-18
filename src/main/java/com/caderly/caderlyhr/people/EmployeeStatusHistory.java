@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.people;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -18,6 +20,7 @@ import org.jspecify.annotations.Nullable;
  * #close} whenever a new row opens.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(name = "employee_status_history")
 public class EmployeeStatusHistory extends TenantAwareEntity {
 

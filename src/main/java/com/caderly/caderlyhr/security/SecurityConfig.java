@@ -136,6 +136,21 @@ class SecurityConfig {
     }
 
     @Bean
+    ActorMdcFilter actorMdcFilter() {
+        return new ActorMdcFilter();
+    }
+
+    /**
+     * Order 0 (Boot's plain-servlet-filter default) is comfortably after Spring Security's own
+     * chain, which Boot registers at order -100 — so {@code SecurityContextHolder} already holds
+     * the authenticated principal, if any, by the time this filter runs (ADR 0017).
+     */
+    @Bean
+    FilterRegistrationBean<ActorMdcFilter> actorMdcFilterRegistration(ActorMdcFilter filter) {
+        return new FilterRegistrationBean<>(filter);
+    }
+
+    @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, SessionRegistry sessionRegistry)
             throws Exception {
         http.authorizeHttpRequests(

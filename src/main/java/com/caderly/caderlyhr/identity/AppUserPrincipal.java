@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.identity;
 
+import com.caderly.caderlyhr.common.AuditActor;
 import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -13,8 +15,11 @@ import org.springframework.security.core.userdetails.UserDetails;
  *
  * <p>A detached snapshot, not the entity: it lives in the HTTP session, and holding a JPA entity
  * there would keep a detached instance alive across requests.
+ *
+ * <p>Implements {@link AuditActor} so {@code audit.EntityAuditListener} can attribute a write without
+ * {@code audit} depending on {@code identity} (ADR 0017) — see that interface's Javadoc.
  */
-public final class AppUserPrincipal implements UserDetails {
+public final class AppUserPrincipal implements UserDetails, AuditActor {
 
     private final UUID userId;
     private final String email;
@@ -44,6 +49,16 @@ public final class AppUserPrincipal implements UserDetails {
 
     public Set<Role> roles() {
         return roles;
+    }
+
+    @Override
+    public UUID actorId() {
+        return userId;
+    }
+
+    @Override
+    public Set<String> roleNames() {
+        return roles.stream().map(Role::name).collect(Collectors.toUnmodifiableSet());
     }
 
     @Override

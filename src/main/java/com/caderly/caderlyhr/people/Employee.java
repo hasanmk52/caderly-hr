@@ -1,11 +1,13 @@
 package com.caderly.caderlyhr.people;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.CryptoConverter;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import com.caderly.caderlyhr.org.Department;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -32,6 +34,7 @@ import org.jspecify.annotations.Nullable;
  * without relying on a caller to remember to do so.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(
         name = "employee",
         uniqueConstraints =

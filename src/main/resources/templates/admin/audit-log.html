@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:replace="~{layout :: layout(#{admin.audit-log.title}, ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+      <h1 th:text="#{admin.audit-log.heading}">Audit Log</h1>
+    </div>
+
+    <!--/* One URL, two tabs (PRD §24.9 vs §18.3 — see AdminAuditController's Javadoc). Same
+           htmx-tab-swap convention as people/profile.html: the nav lives inside the swapped
+           fragment so every click refreshes which link is .active along with the content. */-->
+    <div id="audit-content">
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <a class="nav-link" th:classappend="${activeTab == 'writes'} ? 'active'"
+             th:text="#{admin.audit-log.tab.writes}"
+             th:href="@{/admin/audit-log(tab='writes')}"
+             th:hx-get="@{/admin/audit-log(tab='writes')}"
+             hx-select="#audit-content" hx-target="#audit-content" hx-push-url="true">Writes</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" th:classappend="${activeTab == 'logins'} ? 'active'"
+             th:text="#{admin.audit-log.tab.logins}"
+             th:href="@{/admin/audit-log(tab='logins')}"
+             th:hx-get="@{/admin/audit-log(tab='logins')}"
+             hx-select="#audit-content" hx-target="#audit-content" hx-push-url="true">Login attempts</a>
+        </li>
+      </ul>
+
+      <div th:switch="${activeTab}">
+
+        <!--/* Write audit: filter form + table + "view diff" (PRD §18.3). */-->
+        <div th:case="'writes'">
+          <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/audit-log}">
+            <input type="hidden" name="tab" value="writes" />
+            <div class="col-auto">
+              <label class="form-label" for="filter-entity-type" th:text="#{admin.audit-log.filter.entity-type}">Entity type</label>
+              <input class="form-control" type="text" id="filter-entity-type" name="entityType"
+                     th:value="${selectedEntityType}" placeholder="Employee" data-auto-submit />
+            </div>
+            <div class="col-auto">
+              <label class="form-label" for="filter-action" th:text="#{admin.audit-log.filter.action}">Action</label>
+              <select class="form-select" id="filter-action" name="action" data-auto-submit>
+                <option value="" th:text="#{admin.audit-log.filter.all-actions}">All actions</option>
+                <option th:each="option : ${actionOptions}" th:value="${option}"
+                        th:selected="${option == selectedAction}"
+                        th:text="#{|admin.audit-log.action.${#strings.toLowerCase(option)}|}">Update</option>
+              </select>
+            </div>
+            <div class="col-auto">
+              <label class="form-label" for="filter-actor" th:text="#{admin.audit-log.filter.actor}">Actor user ID</label>
+              <input class="form-control" type="text" id="filter-actor" name="actorUserId"
+                     th:value="${selectedActorUserId}" data-auto-submit />
+            </div>
+            <div class="col-auto">
+              <label class="form-label" for="filter-from" th:text="#{admin.audit-log.filter.from}">From</label>
+              <input class="form-control" type="date" id="filter-from" name="from"
+                     th:value="${selectedFrom}" data-auto-submit />
+            </div>
+            <div class="col-auto">
+              <label class="form-label" for="filter-to" th:text="#{admin.audit-log.filter.to}">To</label>
+              <input class="form-control" type="date" id="filter-to" name="to"
+                     th:value="${selectedTo}" data-auto-submit />
+            </div>
+          </form>
+
+          <div th:if="${#lists.isEmpty(rows)}" class="text-center text-muted py-5">
+            <i class="bi bi-journal-text fs-1 d-block mb-2" aria-hidden="true"></i>
+            <p class="mb-0" th:text="#{admin.audit-log.empty}">No matching write has been recorded for this tenant yet.</p>
+          </div>
+
+          <div th:unless="${#lists.isEmpty(rows)}" class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr>
+                  <th scope="col" th:text="#{admin.audit-log.table.occurred}">When</th>
+                  <th scope="col" th:text="#{admin.audit-log.table.actor}">Actor</th>
+                  <th scope="col" th:text="#{admin.audit-log.table.entity}">Entity</th>
+                  <th scope="col" th:text="#{admin.audit-log.table.action}">Action</th>
+                  <th scope="col" class="text-end text-nowrap" th:text="#{common.table.actions}">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr th:each="row : ${rows}">
+                  <td class="text-nowrap" th:text="${#temporals.format(row.occurredAt(), 'MMM dd, yyyy HH:mm')}">Sep 15, 2026 09:12</td>
+                  <td>
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis" th:text="${row.actorRole()}">ADMIN</span>
+                    <span class="text-muted small text-nowrap" th:if="${row.actorUserId() != null}" th:text="${row.actorUserId()}">…</span>
+                  </td>
+                  <td>
+                    <span th:text="${row.entityType()}">Employee</span>
+                    <span class="text-muted small" th:if="${row.entityId() != null}" th:text="'#' + ${row.entityId()}">#…</span>
+                  </td>
+                  <td th:text="#{|admin.audit-log.action.${#strings.toLowerCase(row.action())}|}">Update</td>
+                  <td class="text-end">
+                    <button th:if="${row.hasDiff()}" type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-toggle="modal" data-bs-target="#auditDiffModal"
+                            th:aria-label="#{admin.audit-log.view-diff}" th:title="#{admin.audit-log.view-diff}"
+                            th:hx-get="@{/admin/audit-log/{id}/diff(id=${row.id()})}"
+                            hx-target="#auditDiffModalBody" hx-swap="innerHTML">
+                      <i class="bi bi-file-diff" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <nav th:if="${totalPages > 1}" class="d-flex align-items-center gap-3 mt-3"
+               th:aria-label="#{admin.audit-log.tab.writes}">
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item" th:classappend="${hasPrevious} ? '' : 'disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/audit-log(tab='writes', entityType=${selectedEntityType}, action=${selectedAction}, actorUserId=${selectedActorUserId}, from=${selectedFrom}, to=${selectedTo}, page=${pageNumber - 1})}"
+                   th:text="#{common.pagination.previous}">Previous</a>
+              </li>
+              <li class="page-item" th:classappend="${hasNext} ? '' : 'disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/audit-log(tab='writes', entityType=${selectedEntityType}, action=${selectedAction}, actorUserId=${selectedActorUserId}, from=${selectedFrom}, to=${selectedTo}, page=${pageNumber + 1})}"
+                   th:text="#{common.pagination.next}">Next</a>
+              </li>
+            </ul>
+            <span class="text-muted small" th:text="#{common.pagination.page-of(${pageNumber + 1}, ${totalPages})}">Page 1 of 3</span>
+          </nav>
+        </div>
+
+        <!--/* Login audit: no diff — a login attempt has no before/after. */-->
+        <div th:case="'logins'">
+          <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/audit-log}">
+            <input type="hidden" name="tab" value="logins" />
+            <div class="col-auto">
+              <label class="form-label" for="filter-success" th:text="#{admin.audit-log.filter.outcome}">Outcome</label>
+              <select class="form-select" id="filter-success" name="success" data-auto-submit>
+                <option value="" th:text="#{admin.audit-log.filter.all-outcomes}">All outcomes</option>
+                <option value="true" th:selected="${selectedSuccess == true}" th:text="#{admin.audit-log.login.outcome.success}">Success</option>
+                <option value="false" th:selected="${selectedSuccess == false}" th:text="#{admin.audit-log.login.outcome.failure}">Failed</option>
+              </select>
+            </div>
+            <div class="col-auto">
+              <label class="form-label" for="filter-login-from" th:text="#{admin.audit-log.filter.from}">From</label>
+              <input class="form-control" type="date" id="filter-login-from" name="from"
+                     th:value="${selectedLoginFrom}" data-auto-submit />
+            </div>
+            <div class="col-auto">
+              <label class="form-label" for="filter-login-to" th:text="#{admin.audit-log.filter.to}">To</label>
+              <input class="form-control" type="date" id="filter-login-to" name="to"
+                     th:value="${selectedLoginTo}" data-auto-submit />
+            </div>
+          </form>
+
+          <div th:if="${#lists.isEmpty(loginRows)}" class="text-center text-muted py-5">
+            <i class="bi bi-shield-lock fs-1 d-block mb-2" aria-hidden="true"></i>
+            <p class="mb-0" th:text="#{admin.audit-log.login.empty}">No login attempt matches these filters.</p>
+          </div>
+
+          <div th:unless="${#lists.isEmpty(loginRows)}" class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr>
+                  <th scope="col" th:text="#{admin.audit-log.login.table.occurred}">When</th>
+                  <th scope="col" th:text="#{admin.audit-log.login.table.email}">Email attempted</th>
+                  <th scope="col" th:text="#{admin.audit-log.login.table.outcome}">Outcome</th>
+                  <th scope="col" th:text="#{admin.audit-log.login.table.reason}">Reason</th>
+                  <th scope="col" th:text="#{admin.audit-log.login.table.ip}">IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr th:each="row : ${loginRows}">
+                  <td class="text-nowrap" th:text="${#temporals.format(row.occurredAt(), 'MMM dd, yyyy HH:mm')}">Sep 15, 2026 09:12</td>
+                  <td th:text="${row.emailAttempted()}">priya@acme.test</td>
+                  <td>
+                    <span class="badge"
+                          th:classappend="${row.success()} ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'"
+                          th:text="${row.success()} ? #{admin.audit-log.login.outcome.success} : #{admin.audit-log.login.outcome.failure}">Success</span>
+                  </td>
+                  <td th:text="${row.failureReason() == null} ? '—' : #{|admin.audit-log.login.failure.${#strings.toLowerCase(#strings.replace(row.failureReason(),'_','-'))}|}">Wrong password</td>
+                  <td th:text="${row.ip()} ?: '—'">203.0.113.4</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <nav th:if="${loginTotalPages > 1}" class="d-flex align-items-center gap-3 mt-3"
+               th:aria-label="#{admin.audit-log.tab.logins}">
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item" th:classappend="${loginHasPrevious} ? '' : 'disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/audit-log(tab='logins', success=${selectedSuccess}, from=${selectedLoginFrom}, to=${selectedLoginTo}, page=${loginPageNumber - 1})}"
+                   th:text="#{common.pagination.previous}">Previous</a>
+              </li>
+              <li class="page-item" th:classappend="${loginHasNext} ? '' : 'disabled'">
+                <a class="page-link"
+                   th:href="@{/admin/audit-log(tab='logins', success=${selectedSuccess}, from=${selectedLoginFrom}, to=${selectedLoginTo}, page=${loginPageNumber + 1})}"
+                   th:text="#{common.pagination.next}">Next</a>
+              </li>
+            </ul>
+            <span class="text-muted small" th:text="#{common.pagination.page-of(${loginPageNumber + 1}, ${loginTotalPages})}">Page 1 of 3</span>
+          </nav>
+        </div>
+
+      </div>
+    </div>
+
+    <!--/* View-diff modal (UI Guidelines §6 Modals — first use of a modal for read-only JSON
+           rather than a form; no existing pattern to copy for that half). Static shell, lazily
+           loaded body — same convention as for-action.html's reject modal. */-->
+    <div class="modal fade" id="auditDiffModal" tabindex="-1" aria-hidden="true" aria-labelledby="auditDiffModalLabel">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="auditDiffModalBody"></div>
+      </div>
+    </div>
+
+  </div>
+</th:block>
+
+<!--/* th:fragment marks this for selection (GET /admin/audit-log/{id}/diff returns
+       "admin/audit-log :: diff"); it does not stop the block from also being walked
+       during the main page's own full-document render (view name "admin/audit-log",
+       no selector) — the th:if guard is what makes that render safely produce an
+       empty modal shell instead of failing on a ${diff} the main page never sets. */-->
+<th:block th:fragment="diff" th:if="${diff != null}">
+  <div class="modal-header">
+    <h5 class="modal-title" id="auditDiffModalLabel" th:text="#{admin.audit-log.diff.title}">What changed</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
+  </div>
+  <div class="modal-body">
+    <p class="text-muted small mb-3">
+      <span th:text="${diff.entityType()}">Employee</span> —
+      <span th:text="#{|admin.audit-log.action.${#strings.toLowerCase(diff.action())}|}">Update</span>
+    </p>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <h6 th:text="#{admin.audit-log.diff.before}">Before</h6>
+        <pre class="bg-body-tertiary p-2 rounded small" style="max-height: 24rem; overflow: auto;" th:text="${diff.beforeJson()} ?: '—'"></pre>
+      </div>
+      <div class="col-md-6">
+        <h6 th:text="#{admin.audit-log.diff.after}">After</h6>
+        <pre class="bg-body-tertiary p-2 rounded small" style="max-height: 24rem; overflow: auto;" th:text="${diff.afterJson()} ?: '—'"></pre>
+      </div>
+    </div>
+  </div>
+</th:block>
+</body>
+</html>

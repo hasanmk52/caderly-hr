@@ -28,10 +28,10 @@ ALTER TABLE tenant
   ADD COLUMN notify_birthday         boolean NOT NULL DEFAULT false,
   ADD COLUMN notify_work_anniversary boolean NOT NULL DEFAULT false;
 
--- 3. Branding is one Caderly brand, not a per-tenant colour (ADR 0016). Deliberately NOT
--- additive, which CLAUDE.md §12 requires be called out: the column was dead — nothing read it
--- in Java, CSS or Thymeleaf — and every row held the stale Tailwind indigo default rather than
--- the actual brand petrol, so dropping it destroys no information anyone was using.
+-- 3. Branding is one Caderly brand, not a per-tenant colour (ADR 0016) — see this project's
+-- V202607241000, which never defines tenant.primary_color: the column was dead on arrival
+-- (nothing read it in Java, CSS or Thymeleaf, every row held the stale Tailwind indigo default
+-- rather than the actual brand petrol), so it was removed at its origin rather than added here
+-- only to be dropped a few migrations later.
 -- docs/design-system/guidelines/BRAND.source.md §9.3 change #1 asks for exactly this.
 -- tenant.logo_url stays: a tenant logo is still a guest on our chrome (BRAND.source.md §8.1).
-ALTER TABLE tenant DROP COLUMN primary_color;

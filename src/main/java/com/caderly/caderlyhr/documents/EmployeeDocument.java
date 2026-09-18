@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.documents;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
@@ -21,6 +23,7 @@ import org.jspecify.annotations.Nullable;
  * {@link #uploadOnBehalf} (Admin-only, enforced by the caller) accepts a caller-chosen visibility.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(name = "employee_document")
 public class EmployeeDocument extends TenantAwareEntity {
 
