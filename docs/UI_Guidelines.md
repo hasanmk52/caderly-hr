@@ -34,12 +34,14 @@ Inactive: default text color, hover raises background to `--bs-tertiary-bg`. Eve
 
 ## 2. Color palette
 
-Two layers: **system colors** (Bootstrap 5 semantic) and **tenant brand color** (per-tenant primary).
+One layer: **system colors** (Bootstrap 5 semantic), all fixed application constants. There is no
+per-tenant brand color (ADR 0016) — every tenant gets the same Caderly Petrol primary, in the app UI
+and in transactional email alike. A tenant's only visual customization is its logo (§12).
 
 ### System (defaults)
 | Token | Value | Use |
 |---|---|---|
-| `--bs-primary` | tenant.primary_color, default `#0F5568` | Primary buttons, links, active nav, focus rings |
+| `--bs-primary` | `#0F5568` | Primary buttons, links, active nav, focus rings |
 | `--bs-primary-rgb` | `15, 85, 104` | rgba() derivatives of primary |
 | `--bs-primary-text-emphasis` | `color-mix(in oklab, var(--bs-primary) 75%, black)` | Text on primary-subtle backgrounds (Admin badge, sidebar active) |
 | `--bs-primary-bg-subtle` | `#E3EFF2` | Tinted backgrounds (Admin badge, sidebar active) |
@@ -74,15 +76,22 @@ Sidebar is **not** a solid dark color — it's `bg-white` with a `border-end`, p
 | `--bs-box-shadow` | `0 4px 12px rgba(16,24,40,.08), 0 2px 4px rgba(16,24,40,.06)` | Dropdowns, modals |
 | `--bs-box-shadow-lg` | `0 12px 32px rgba(16,24,40,.12), 0 4px 8px rgba(16,24,40,.06)` | Offcanvas (targeted override — Bootstrap ships no shadow var for it by default) |
 
-### Tenant primary color
-`tenant.primary_color` (hex, per PRD §5) is injected into `--bs-primary` at layout render via a `<style>` tag in `head.html`. **Not yet implemented** (Phase 1.10 owns this, per `docs/CURRENT_PHASE.md`'s carried-forward items). When it is: per the gotcha above, the tenant `<style>` block must set the *whole* primary token family (rgb / text-emphasis / bg-subtle / border-subtle / focus-ring / link colors), computed from the tenant's hex the same way `theme-overrides.css` derives it from `#0F5568` — not just `--bs-primary` — or a custom tenant color will look inconsistent against the Admin badge and sidebar active state.
-
-**Resolved:** the `tenant.primary_color` column's DB default originally shipped as `#2563EB` (`V202607241000__create_tenant_and_super_admin.sql`) — the color this document specified before this pass, not the `#4f46e5` it specifies now, and MHZ's own row still held it since nothing sets `primary_color` explicitly at seed time. The migration's default and MHZ's row were both updated to `#4f46e5`, and the PRD's schema snippet (Caderly_PRD.md §5) was updated to match. Phase 1.10 can now wire up the `<style>` injection without inheriting a stale default.
+### Tenant color (removed)
+`tenant.primary_color` existed from sub-phase 1.1 but was never wired to anything and never held a
+value other than a stale Tailwind-indigo default — no Java, CSS, or Thymeleaf code read it. Sub-phase
+1.10 dropped the column outright rather than finally building the injection (ADR 0016): one brand
+color for every tenant is simpler, was already true in practice everywhere except this dead column,
+and matches `docs/design-system/guidelines/BRAND.source.md` §9.3's explicit recommendation.
 
 ### Do not
-- Hardcode hex values in templates. Use `var(--bs-primary)` or Bootstrap utility classes.
+- Hardcode hex values in templates. Use `var(--bs-primary)` or Bootstrap utility classes. The one
+  sanctioned exception is `templates/email/*.html`: mail clients do not support CSS custom
+  properties, so `_layout.html` and `_components.html` hardcode the brand hex values as literal
+  inline styles, sourced from the same `docs/design-system/tokens/colors.css` values
+  `theme-overrides.css` reads for the app UI.
 - Add more accent colors beyond what's in this table without discussion.
 - Introduce dark mode in MVP — one theme, done well.
+- Reintroduce a per-tenant color column or setting without a new ADR superseding ADR 0016.
 
 ---
 
@@ -149,6 +158,21 @@ Both `.btn-link` (sortable column headers, "Forgot password?") and plain in-cont
 - Empty table: render empty-state block, not an empty `<tbody>`.
 - Row actions in a right-aligned column with `text-end`, use `btn-outline-secondary btn-sm` icon buttons.
 - Sortable columns: header is a `btn-link` with an up/down chevron icon.
+
+### Pagination
+For a table too large to render in full (first shipped: `admin/notifications.html`'s delivery log,
+sub-phase 1.10, ADR 0016).
+- **Prev/next only** — `pagination pagination-sm`, no numbered page links and no jump-to-page. A
+  delivery log (or any similarly time-ordered list) is read in order; there is nothing to jump to
+  by page number.
+- Page size 25, server-side (`Pageable`/`Page` from Spring Data). Filters and pagination are both
+  plain `GET` query parameters (`?status=&from=&to=&page=`) so a filtered page is bookmarkable.
+- Pair the control with a plain-text `Page N of M` beside it (`common.pagination.page-of`), not
+  inside the `<nav>` itself.
+- `.pagination` needs the same component-local CSS override every other Bootstrap 5.3 component in
+  this app needs (§2's gotcha): Bootstrap compiles `$primary` into `--bs-pagination-color`/
+  `--bs-pagination-active-bg`/etc. at build time, so untouched pagination renders stock Bootstrap
+  blue. See `static/css/theme-overrides.css`'s `.pagination` block.
 
 ### Forms
 - Every input has `<label>` linked by `for`/`id`. No placeholder-as-label.
@@ -340,17 +364,14 @@ Design mobile-first for Employee-facing pages (profile, book time off, calendar)
 
 ## 12. Tenant branding hooks
 
-Two things vary per tenant, injected in `layout.html`:
+One thing varies per tenant: the **logo** — `<img src="{{tenant.logoUrl}}">` in the top-bar, height
+32 px, falling back to text ("Caderly" + tenant name) when unset (the fallback is designed, not
+tolerated — it is what most tenants show for a long time). The same logo-or-wordmark rule applies
+inside `templates/email/_layout.html`'s header.
 
-1. **Logo** — `<img src="{{tenant.logoUrl}}">` in the top-bar, height 32 px. Falls back to text ("Caderly" + tenant name) if missing.
-2. **Primary color** — CSS variable override in a `<style>` block:
-   ```html
-   <style th:if="${tenant.primaryColor != null}">
-     :root { --bs-primary: [[${tenant.primaryColor}]]; }
-   </style>
-   ```
-
-Nothing else per-tenant. No per-tenant font, layout, or icon swap.
+There is no per-tenant primary color (ADR 0016, sub-phase 1.10) — one Caderly brand color for every
+tenant, in the app and in email. Nothing else varies per tenant: no per-tenant font, layout, or icon
+swap.
 
 ---
 
