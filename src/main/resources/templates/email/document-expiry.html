@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body th:replace="~{email/_layout :: page(~{::content})}">
+<!--/* PRD §17.2's "Document expiring" event, sourced from government_id.expiry_date (FR-3.7,
+       "Expiry monitored for reminders"). The model deliberately carries the ID type and country
+       but never the number: government_id.id_number is encrypted at rest (ADR 0008) and an
+       inbox is not a place to decrypt it into. */-->
+<td th:fragment="content" style="padding:28px;">
+  <h1 th:replace="~{email/_components :: heading(#{email.document-expiry.body.heading})}"></h1>
+  <p style="margin:0 0 4px;"
+     th:text="#{email.document-expiry.body.message(${employeeName}, ${documentName}, ${daysRemaining})}">
+    Priya Nair's Passport expires in 30 days.
+  </p>
+  <table th:replace="~{email/_components :: facts(${facts})}"></table>
+  <p style="margin:0;font-size:14px;color:#4A5160;" th:text="#{email.document-expiry.body.action}">
+    Update the expiry date on the employee's profile once the document is renewed.
+  </p>
+</td>
+</body>
+</html>

@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.tenant;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Cross-module read access to tenants. This is the project's general rule for all modules: don't
@@ -28,4 +30,28 @@ public interface TenantFacade {
      * needed the way {@link #bySlug} and {@link #listActiveTenantIds()} require.
      */
     int currentWeekendDays();
+
+    /**
+     * The current tenant's name and (optional) logo, for the transactional-email chrome (PRD
+     * §17.1). There is no primary colour here on purpose: one Caderly brand serves every tenant
+     * and a tenant logo is a guest on it, not a replacement for it (ADR 0016).
+     */
+    TenantBranding currentBranding();
+
+    /**
+     * The current tenant's configured zone. UI_Guidelines §11: stored UTC, displayed in the
+     * tenant's timezone — a rule the JVM default zone cannot satisfy for a multi-tenant app.
+     */
+    ZoneId currentTimezone();
+
+    /** PRD FR-9.3's category switches for the current tenant. */
+    NotificationSettings currentNotificationSettings();
+
+    /** Admin save from {@code /admin/notifications}. */
+    void updateNotificationSettings(NotificationSettings settings);
+
+    record TenantBranding(String name, @Nullable String logoUrl) {}
+
+    record NotificationSettings(
+            boolean holidayReminder, boolean documentExpiry, boolean birthday, boolean workAnniversary) {}
 }

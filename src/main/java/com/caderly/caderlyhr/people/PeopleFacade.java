@@ -84,6 +84,18 @@ public interface PeopleFacade {
      */
     List<EmployeePeerInfo> listPeers(UUID employeeId);
 
+    /**
+     * Every not-terminated employee's name and work address — the recipient list for a
+     * tenant-wide announcement, currently {@code timeoff.HolidayReminderJob} (PRD §17.2, "Public
+     * holiday tomorrow → all active users").
+     *
+     * <p>Sourced from {@code employee}, not {@code app_user}: an employee with no login still
+     * needs to know the office is closed, and their work address is on their employee record.
+     */
+    List<EmployeeContact> listActiveEmployeeContacts();
+
+    record EmployeeContact(UUID employeeId, String fullName, String email) {}
+
     record EmployeeHireInfo(UUID employeeId, @Nullable LocalDate hireDate) {}
 
     record EmployeeApprovalInfo(

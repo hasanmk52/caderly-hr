@@ -23,12 +23,24 @@
  *      reading the browser console, not assumed — so the input-assignment logic lives here
  *      instead. Delegated on `document.body`, matching every other handler in this file, so it
  *      keeps working on a dropzone htmx swaps in later without any rebinding.
- *   5. Team calendar leave-bar hover tooltips (UI Guidelines §8.4). Bootstrap does not
- *      auto-initialize popovers; the calendar page is a plain full-page GET (no htmx fragment
- *      swap), so DOMContentLoaded is the only initialization point it needs.
+ *   5. Hover tooltips/popovers (Team Calendar leave bars, UI Guidelines §8.4; Admin
+ *      Notifications' Retry button). Bootstrap does not auto-initialize either widget.
+ *      initDisclosureWidgets() runs once on DOMContentLoaded for the page's initial markup and
+ *      again after every htmx swap, scoped to just the swapped subtree — the calendar page never
+ *      swaps so only the first call ever does anything there, but a delivery-log row (Retry) is
+ *      replaced by its own htmx response and would otherwise render its next tooltip un-wired.
  *   6. Copy-to-clipboard (Settings -> Calendar integration). Plain `navigator.clipboard` call
  *      delegated on `document.body`, same reasoning as responsibility 4 — not an Alpine
  *      expression, so there is no first-mover risk on the CSP-safe Alpine build's constraints.
+ *   7. Auto-submitting filter controls (People, Team Calendar, Admin Notifications delivery
+ *      log) marked `data-auto-submit`. These used to carry `onchange="this.form.submit()"`
+ *      directly on the element — inline JS, which this file's own opening line already forbids,
+ *      and which SecurityConfig's CSP (`script-src 'self'`, no `unsafe-inline`) silently refuses
+ *      to compile into a callable handler: the browser accepts the markup, `getAttribute` still
+ *      returns the string, but `element.onchange` reads back `null` and the attribute never
+ *      runs. No console error, no thrown exception — the control just does nothing on change.
+ *      Confirmed live (`element.onchange === null` despite the attribute being present) before
+ *      writing this fix, not assumed from reading the CSP line.
  */
 (function () {
   "use strict";
@@ -174,10 +186,27 @@
     toast.show();
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
+  function initDisclosureWidgets(root) {
+    root.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
       bootstrap.Popover.getOrCreateInstance(el, { trigger: "hover focus", html: false });
     });
+    root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+      bootstrap.Tooltip.getOrCreateInstance(el);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    initDisclosureWidgets(document);
+  });
+
+  document.body.addEventListener("htmx:afterSwap", function (event) {
+    initDisclosureWidgets(event.detail.target);
+  });
+
+  document.body.addEventListener("change", function (event) {
+    if (event.target.matches("[data-auto-submit]") && event.target.form) {
+      event.target.form.submit();
+    }
   });
 
   document.body.addEventListener("click", function (event) {

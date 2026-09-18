@@ -42,6 +42,15 @@ public class EmailOutbox extends BaseEntity {
     @Column(name = "tenant_id")
     private @Nullable UUID tenantId;
 
+    /**
+     * Which {@code notifications.EmailEvent} produced this row, as its enum name. A plain String
+     * rather than an enum mapping so that a row written by a version that knew an event this one
+     * doesn't still reads back — the Admin viewer shows an unknown value verbatim instead of
+     * throwing. Nullable: rows predating sub-phase 1.10's catalogue belong to no event.
+     */
+    @Column(name = "event_type", length = 40)
+    private @Nullable String eventType;
+
     @Column(name = "to_email", nullable = false)
     private String toEmail;
 
@@ -76,8 +85,14 @@ public class EmailOutbox extends BaseEntity {
      * row through its lifecycle.
      */
     public EmailOutbox(
-            @Nullable UUID tenantId, String toEmail, String subject, String bodyHtml, Instant now) {
+            @Nullable UUID tenantId,
+            @Nullable String eventType,
+            String toEmail,
+            String subject,
+            String bodyHtml,
+            Instant now) {
         this.tenantId = tenantId;
+        this.eventType = eventType;
         this.toEmail = toEmail;
         this.subject = subject;
         this.bodyHtml = bodyHtml;
@@ -112,6 +127,28 @@ public class EmailOutbox extends BaseEntity {
         return true;
     }
 
+    /**
+     * The Admin retry action (PRD FR-9.2's outbox viewer). Public, unlike {@link #markSent} and
+     * {@link #markAttemptFailed}, because a human decision to retry is not part of the dispatcher's
+     * automatic lifecycle — but it is still the entity that decides what "retry" means.
+     *
+     * <p>{@code attempts} resets to zero so the row gets a fresh three-attempt budget with the full
+     * backoff curve; retrying into a spent budget would fail once and go straight back to FAILED.
+     * {@code lastError} is deliberately kept: until the retry succeeds it is still the best
+     * explanation of what is wrong, and {@link #markSent} clears it when it does.
+     *
+     * @throws IllegalStateException if the row is not FAILED — PENDING rows are already queued and
+     *     re-queueing a SENT row would send it twice.
+     */
+    public void requeue(Instant now) {
+        if (status != EmailStatus.FAILED) {
+            throw new IllegalStateException("Only a FAILED email can be requeued; this one is " + status);
+        }
+        this.status = EmailStatus.PENDING;
+        this.attempts = 0;
+        this.nextAttemptAt = now;
+    }
+
     private static @Nullable String truncate(@Nullable String error) {
         if (error == null) {
             return null;
@@ -121,6 +158,10 @@ public class EmailOutbox extends BaseEntity {
 
     public @Nullable UUID tenantId() {
         return tenantId;
+    }
+
+    public @Nullable String eventType() {
+        return eventType;
     }
 
     public String toEmail() {

@@ -11,7 +11,7 @@
  */
 
 :root {
-  /* Primary — Cadrely Petrol (docs/design-system/tokens/colors.css --brand).
+  /* Primary — Caderly Petrol (docs/design-system/tokens/colors.css --brand).
      Petrol has no published tint/shade scale the way the old indigo borrowed
      Tailwind's, so -bg-subtle/-border-subtle come straight from the design
      system's --brand-fill/--brand-line, and derived shades below use
@@ -27,10 +27,10 @@
   --bs-link-hover-color-rgb: 13, 68, 92;
   --bs-focus-ring-color: rgba(15, 85, 104, 0.25);
 
-  /* Status — Cadrely's verify/notice/halt triad (docs/design-system/tokens/colors.css).
-     Cadrely's own AA contrast table already validates each base hex for direct
+  /* Status — Caderly's verify/notice/halt triad (docs/design-system/tokens/colors.css).
+     Caderly's own AA contrast table already validates each base hex for direct
      text use, so -text-emphasis is the base value, not a further-darkened one.
-     Cadrely defines no info-equivalent (the triad is closed and independent of
+     Caderly defines no info-equivalent (the triad is closed and independent of
      brand), so info is aliased straight to primary instead of keeping
      Bootstrap's unrelated stock sky-blue. */
   --bs-success: #1F6B45;
@@ -97,8 +97,8 @@
  * pattern Bootstrap uses internally — override each component's local vars, not
  * the property directly. Scoped to what's actually used in these templates
  * (.btn-primary/.btn-danger, their .btn-outline-* counterparts, form focus rings,
- * checkboxes) — no pagination or dropdown-active styling exists in the templates
- * today.
+ * checkboxes, and since sub-phase 1.10 .pagination) — no dropdown-active styling
+ * exists in the templates today.
  */
 .btn-primary {
   --bs-btn-color: #fff;
@@ -190,6 +190,21 @@
    default regardless, so the sidebar's distinct soft-tint look is unaffected. */
 .nav-pills {
   --bs-nav-pills-link-active-bg: var(--bs-primary);
+}
+
+/* Same gotcha again, for the app's first paginated list (admin/notifications.html).
+   Bootstrap compiles $primary into --bs-pagination-color/-active-bg, so untouched
+   pagination renders stock blue against an otherwise petrol page. */
+.pagination {
+  --bs-pagination-color: var(--bs-primary);
+  --bs-pagination-hover-color: color-mix(in oklab, var(--bs-primary) 85%, black);
+  --bs-pagination-hover-bg: var(--bs-primary-bg-subtle);
+  --bs-pagination-hover-border-color: var(--bs-primary-border-subtle);
+  --bs-pagination-focus-color: color-mix(in oklab, var(--bs-primary) 85%, black);
+  --bs-pagination-focus-bg: var(--bs-primary-bg-subtle);
+  --bs-pagination-focus-box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color);
+  --bs-pagination-active-bg: var(--bs-primary);
+  --bs-pagination-active-border-color: var(--bs-primary);
 }
 
 .form-control:focus,

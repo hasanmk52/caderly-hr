@@ -118,7 +118,7 @@ Grouped by module. Detailed acceptance criteria in §10.
 - FR-2.2 Tenant resolved from subdomain (`{tenant_slug}.caderly.app`) at request entry.
 - FR-2.3 All persistence auto-filtered by current tenant.
 - FR-2.4 Cross-tenant reads/writes are impossible from tenant-scoped endpoints (enforced by test suite).
-- FR-2.5 Tenant has slug, name, logo, primary color, timezone, locale, weekend definition (which days of week), fiscal year (fixed to Jan-Dec for MVP).
+- FR-2.5 Tenant has slug, name, logo, timezone, locale, weekend definition (which days of week), fiscal year (fixed to Jan-Dec for MVP). No per-tenant primary color — one shared Caderly brand color for every tenant (ADR 0016, sub-phase 1.10).
 
 ### 6.3 Employee Management (Employee Profile)
 - FR-3.1 Employee record fields: first name*, last name*, email* (unique per tenant), phone, employee code, birth date, gender, marital status, nationality, citizenship, address, city, country, postal code, profile photo, hire date, employment type (Full-Time / Part-Time / Contract / Intern), termination date (nullable), status (Active / On Leave / Terminated / Invited).
@@ -173,7 +173,7 @@ Grouped by module. Detailed acceptance criteria in §10.
 - FR-8.4 Tasks in MVP are limited to system-generated (e.g., "Complete your profile") and manually assigned by Admin. Full checklist templates in Phase 2.
 
 ### 6.9 Notifications (Email)
-- FR-9.1 Templated transactional emails, per-tenant branded (logo + primary color).
+- FR-9.1 Templated transactional emails, per-tenant branded (logo; one shared Caderly primary color for every tenant — ADR 0016).
 - FR-9.2 Events: invite user, password reset, leave requested (to approver), leave approved/rejected (to employee), leave cancelled (to approver), holiday reminder (day-before to whole tenant), birthday & work-anniversary (to team, per config), document expiry (30/14/7 days before, to employee + Admin).
 - FR-9.3 Admin can disable specific notification categories per tenant.
 - FR-9.4 Per-user "digest vs. immediate" preference (Phase 2).
@@ -194,7 +194,7 @@ Grouped by module. Detailed acceptance criteria in §10.
 
 ### 6.12 Tenant Administration (Super Admin)
 - FR-12.1 Super Admin console at `admin.caderly.app` (or `/superadmin` path guarded by IP allowlist).
-- FR-12.2 Create tenant: slug (URL-safe, unique), display name, primary color, logo, timezone, weekend days, first Admin email.
+- FR-12.2 Create tenant: slug (URL-safe, unique), display name, logo, timezone, weekend days, first Admin email. No primary color field — ADR 0016 made brand color a fixed application constant, not a per-tenant setting.
 - FR-12.3 Suspend tenant (soft): all users blocked from login until unsuspended.
 - FR-12.4 Delete tenant (hard, with 30-day grace period).
 - FR-12.5 Impersonate as Admin (with explicit audit log entry) for support.
@@ -571,7 +571,8 @@ Covered in §13. Additional detail:
 
 ### 17.1 Channels (MVP)
 - **Email** only, via SMTP.
-- Templates in Thymeleaf, per-tenant branding (logo + primary color merged into HTML).
+- Templates in Thymeleaf, per-tenant branding (logo merged into HTML; primary color is a fixed
+  application constant shared by every tenant, not per-tenant — ADR 0016, sub-phase 1.10).
 - SendGrid / Postmark / SES / any SMTP provider — configured per deployment.
 
 ### 17.2 Events
@@ -733,11 +734,20 @@ CREATE TABLE tenant (
   slug varchar(50) NOT NULL UNIQUE,
   name varchar(200) NOT NULL,
   logo_url varchar(500),
-  primary_color varchar(7) DEFAULT '#4f46e5', -- was #2563EB; matches UI_Guidelines.md §2
+  -- No primary_color: one Caderly brand color for every tenant, in the app UI and in
+  -- transactional email alike (ADR 0016, sub-phase 1.10). A tenant's only visual
+  -- customization is its logo, shown as a guest beside the wordmark, not in place of it.
   timezone varchar(50) NOT NULL DEFAULT 'UTC',
   locale varchar(10) NOT NULL DEFAULT 'en',
   weekend_days int NOT NULL DEFAULT 96, -- bitmask: Sat=64, Sun=32 -> 96
   suspended boolean NOT NULL DEFAULT false,
+  -- FR-9.3 per-tenant notification categories (sub-phase 1.10, ADR 0016). Birthday and
+  -- work anniversary default false ("opt-in per tenant" per §17.2); the leave lifecycle,
+  -- invite, and password reset have no switch — they are the product working, not a category.
+  notify_holiday_reminder boolean NOT NULL DEFAULT true,
+  notify_document_expiry boolean NOT NULL DEFAULT true,
+  notify_birthday boolean NOT NULL DEFAULT false,
+  notify_work_anniversary boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   deleted_at timestamptz
 );

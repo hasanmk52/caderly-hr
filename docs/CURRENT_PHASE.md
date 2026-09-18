@@ -1,105 +1,122 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.10 — Notifications: templates, event wiring, admin view
-**Branch:** `phase-1.10-notifications` (not yet created — create it before writing any code)
-**Goal:** Turn the plain inline-string emails Phase 1.2/1.6 already send (invite, password reset,
-leave requested/approved/rejected/cancelled) into a real Thymeleaf-templated, per-tenant-branded
-catalog, wire up every remaining event PRD §17.2 names (holiday reminder, birthday, work
-anniversary, document expiry), and give Admin a way to see and retry failed sends.
+**Working on:** Phase 1.11 — Audit Log (write audit + login audit + Admin viewer)
+**Branch:** `phase-1.11-audit-log` (not yet created — create it before writing any code)
+**Goal:** Every write operation and every login attempt is recorded durably with before/after
+state, and Admin can trace who changed what and when from a filterable viewer.
 
 ## Read these before doing anything
 
-1. `docs/Caderly_Implementation_Plan.md` — the "1.10 Notifications" section under Phase 1 — MVP
-2. `docs/Caderly_PRD.md` — §6.9 (Tasks & Notifications FR-9.1–9.4), §17 (Notifications — channels,
-   the full event list in §17.2, delivery in §17.3, per-user digest preference explicitly deferred
-   to Phase 2 in §17.4 — don't build it early)
-3. `CLAUDE.md` — §6a (durable outbox contract — every event below goes through `email_outbox`,
-   never `mailSender.send()` inline), §7 (Thymeleaf email templates live in
-   `src/main/resources/templates/email/*.html`; user-facing text still goes through
-   `messages.properties` per ADR 0013 — templates are not an exception)
+1. `docs/Caderly_Implementation_Plan.md` — the "1.11 Audit Log" section under Phase 1 — MVP
+2. `docs/Caderly_PRD.md` — §6.11 (Audit Log FR-11.x), §18 (Audit Logs — Detailed: `audit_entry` and
+   `login_audit` schemas §18.1, implementation approach §18.2, Admin UI §18.3, retention §18.4 —
+   retention/archival is explicitly Phase 2, don't build it early)
+3. `CLAUDE.md` — §6 A09 (Security Logging and Monitoring Failures: every write through
+   `AuditListener`, every login attempt to `login_audit`, structured JSON logs with request
+   ID/tenant ID/actor ID in MDC, no secrets/tokens/PII in logs — there is already a CI grep test
+   guarding this, check what it covers before assuming a gap), §7 (package structure names an
+   `audit` module: `AuditEntry`, `LoginAudit`, `AuditListener`)
 
 ## Already in place — do not redo
 
-- **`notifications.system.EmailOutbox`/`EmailOutboxRepository`/`EmailDispatcher`/`EmailDelivery`**
-  (Phase 1.2): the durable outbox itself — write intent row, `@Scheduled` dispatcher, retry with
-  backoff, `FAILED` terminal state. This phase extends what gets enqueued, not the dispatch
-  mechanism.
-- **Invite + password reset emails** (`identity.IdentityEmails`, `identity.InviteService`,
-  `identity.PasswordResetService`): already wired, but as inline-built subject/body strings, not
-  Thymeleaf templates — check whether migrating them to the new template mechanism is in this
-  phase's scope or a nice-to-have; PRD §17.2 lists them as already-satisfied, so don't treat them
-  as blocking.
-- **Leave lifecycle emails** (`timeoff.TimeoffEmails`, called from `timeoff.LeaveRequestService`):
-  requested (to approver), approved/rejected (to employee) already fire on the real business
-  actions. Same inline-string caveat as above — confirm cancelled is actually wired (§17.2 lists it;
-  a quick grep of `TimeoffEmails`/`LeaveRequestService.cancel` will confirm either way).
-- **`EmployeeTerminationJob`/`AnnualGrantJob`** (Phase 1.4/1.5): the two existing `@Scheduled` jobs
-  this phase's new ones (holiday reminder, birthday/anniversary, document expiry) should match in
-  shape — one call per tenant, `TenantContext.runAsSystem`.
+- **Structured JSON logs to stdout** already exist per CLAUDE.md §6 A09 — confirm MDC already
+  carries request ID/tenant ID/actor ID before assuming this phase adds it; it may already be
+  wired from an earlier phase's logging setup.
+- **`TenantContext`/`TenantSessionVariableListener`** (Phase 1.1): every write already runs inside a
+  resolved tenant context, so `AuditListener` can read `tenant_id` and the acting user from there
+  rather than threading them through every call site.
+- **`identity.AppUserDetailsService`/Spring Security's authentication pipeline** (Phase 1.1): login
+  success/failure already flows through Spring Security's `AuthenticationEventPublisher` machinery
+  — this phase wires a listener onto it, not the authentication flow itself.
+- **`notifications` module's outbox pattern** (Phase 1.2, extended 1.10): if audit writes ever need
+  to trigger anything external (they shouldn't for MVP — audit is app-internal), the durable-outbox
+  contract in CLAUDE.md §6a still applies. Expect audit writes to be synchronous, in-transaction
+  JPA persists, not outbox rows.
 
-## Remaining Phase 1.10 work
+## Remaining Phase 1.11 work
 
 ### Backend
 
-- Thymeleaf templates in `src/main/resources/templates/email/*.html`, one per event.
-- `EmailTemplateService.render(templateKey, model)` merging per-tenant branding (logo URL, primary
-  color, tenant name) — check `tenant.Tenant` for what branding fields already exist before adding
-  new ones.
-- Wire the events PRD §17.2 names that aren't firing yet: holiday reminder (day-before, whole
-  tenant), birthday & work anniversary (to team, per config), document expiry (30/14/7 days
-  before, to employee + Admin). Each needs its own `@Scheduled` job or a daily sweep, per
-  CLAUDE.md §6a — no `@Async`.
-- Admin outbox viewer: `/admin/notifications`, paginated table (date, to, subject, status,
-  attempts, last error), filter by status/date, "retry" action for `FAILED` rows.
-- Per-tenant notification toggles (disable birthday/anniversary/etc.) — one settings page per the
-  Implementation Plan; confirm against PRD FR-9.3 whether this is Admin-only and per-category.
+- **DB:** `audit_entry` and `login_audit` tables per PRD §18.1's exact column lists. Confirm both
+  tables' tenancy shape before writing the migration: `login_audit.user_id` is nullable ("if
+  unknown" — an unrecognized email attempt has no `AppUser` to reference), and check whether either
+  table follows the `email_outbox`/`audit`-as-infrastructure pattern (ADR 0005 decision B: no
+  `@TenantId`, no RLS, `tenant_id` as a plain filterable reference) or is genuinely tenant-scoped
+  with RLS like ordinary business data — PRD §18.1 lists `tenant_id` on both, but that alone doesn't
+  settle whether Super Admin's cross-tenant view (PRD §26: "View audit log ... ✅ cross-tenant" for
+  Super Admin) is easier to build one way or the other. Decide and record the reasoning as an ADR
+  the way ADR 0005 did for `email_outbox`.
+- `audit.AuditEntry`, `audit.LoginAudit` entities + repositories.
+- `audit.AuditListener` — Hibernate `@EntityListeners` (`@PostPersist`, `@PostUpdate`, `@PreRemove`)
+  capturing before/after JSON via Jackson, wired onto every entity that needs it. Decide whether
+  "every entity" truly means every `@Entity` in the codebase or a named subset — PRD §11.1 says
+  "every write operation," but `email_outbox`'s own status transitions (PENDING→SENT/FAILED) firing
+  audit rows on every dispatcher poll is probably noise, not signal. Write this decision down.
+- Spring Security `AuthenticationEventPublisher` → writes `login_audit` on success/failure.
+- Admin viewer service: filter by date range/actor/entity type/action, paginated (the app's second
+  paginated list — `notifications.NotificationAdminService`/`/admin/notifications`, sub-phase 1.10,
+  is the first; reuse its `Page`/`Pageable` + prev/next-only pattern rather than inventing a new one
+  — see `docs/UI_Guidelines.md` §6 Pagination).
 
 ### Frontend
 
-- `templates/admin/notifications.html` (new) — table + filter + retry, matching
-  `admin/holidays.html`'s CRUD-grid shape (ADR 0007) as closely as the read-mostly nature of this
-  page allows.
-- Notification toggle settings page — decide whether this lives under `/admin` (tenant-wide
-  config) or `/settings` (the DoD is about tenant-wide categories, so `/admin` is the likely fit;
-  confirm before building).
+- `templates/admin/audit-log.html` — filter form + table + "view diff" modal (JSON pretty-print;
+  PRD §18.3 floats `react-json-view` or a plain `<pre>` — no React in this stack, CLAUDE.md §3, so
+  it's a plain `<pre>` with syntax highlighting at most, or nothing fancier).
+  `templates/admin/login-audit.html` — separate page per PRD §24.9's sub-nav ("Audit Log" is one
+  entry, but §18.3 describes one table with `entity`/`action` columns that write-audit rows have
+  and login-audit rows don't — confirm one page with a tab/toggle vs. two separate pages before
+  building).
+- Sidebar entry — `/admin/audit-log` (or whatever path is chosen), Admin-only, following
+  `/admin/notifications`'s `sec:authorize="hasRole('ADMIN')"` pattern in
+  `fragments/sidebar.html`.
 
 ### Tests
 
-- Snapshot/rendering test per template: branding merge correct, no missing tokens/keys.
-- Integration test per event: perform the business action (or advance the clock past a
-  scheduled-job boundary via `MutableClock`), assert the correct `email_outbox` row exists with
-  the correct recipient(s).
-- E2E: Admin sees a `FAILED` row after a simulated SMTP outage, clicks retry, row transitions to
-  `SENT`.
+- `AuditListener` integration test: a compensation update (or any tracked write) produces an
+  `audit_entry` row with correct before/after JSON, actor, and tenant.
+- Login audit test: successful and failed login attempts both produce a `login_audit` row; an
+  unknown email produces one with `user_id = null`.
+- RBAC: one 200 test (Admin) + one 403 test (Employee, Manager) per new endpoint, matching
+  `AdminNotificationsAccessControlTest`'s shape (sub-phase 1.10).
+- Tenant isolation: `TenantIsolationTestBase`-based test proving tenant A cannot see tenant B's
+  audit rows (or, if this phase decides Super Admin needs cross-tenant visibility, that only Super
+  Admin's own separate security realm can).
+- CI grep test for "no secrets/tokens/PII in logs" (CLAUDE.md §6 A09) — confirm whether one already
+  exists before adding a duplicate.
 
-## Definition of Done for Phase 1.10
+## Definition of Done for Phase 1.11
 
-- Every event in PRD §17.2 produces a correctly-branded email (verified in MailHog or the outbox
-  table, not just "the code compiles").
-- Admin can inspect failed sends and retry them from `/admin/notifications`.
-- Per-tenant category toggles work: disabling a category stops that event from enqueuing.
-- `./mvnw verify` green, ArchUnit green (no `mailSender.send()`/inline HTTP call outside the
-  outbox pattern — CLAUDE.md §6a), no new exemptions.
+- Every write operation this phase scopes in produces an `audit_entry` row with correct
+  before/after JSON, actor, tenant, and timestamp.
+- Every login attempt (success and failure, known and unknown email) produces a `login_audit` row.
+- Admin can filter and view both logs, including a before/after diff view for a write.
+- `./mvnw verify` green, ArchUnit green, no new exemptions.
 
-## Not in scope for Phase 1.10 — do not start any of this
+## Not in scope for Phase 1.11 — do not start any of this
 
-- Per-user digest-vs-immediate preference (PRD §17.4) — explicitly Phase 2.
-- Slack/MS Teams webhook notifications — Phase 2, needs its own `webhook_outbox` (CLAUDE.md §6a
-  already names this as planned, not built).
+- Retention/archival to cold storage (PRD §18.4) — explicitly Phase 2.
+- CSV export of the audit log (PRD §18.3) — explicitly Phase 2.
+- Super Admin's own audit trail of impersonation actions (PRD §26 "Impersonate Admin
+  (audit-logged)") — that's Phase 1.13 (Super Admin console) wiring into this phase's
+  `AuditListener`/`audit_entry`, not something to build ahead of the console that triggers it.
 
 ## Carried forward — open items
 
 These were accepted deviations, not oversights. Do not silently "fix" them; they have owners.
 
-- **Lockout is keyed on the user, not (email + IP)** — blocked on `login_audit`, Phase 1.11. ADR 0006 decision B.
+- **Lockout is keyed on the user, not (email + IP)** — blocked on `login_audit`, this phase. Now
+  unblocked: check ADR 0006 decision B before implementing, since `login_audit` landing this phase
+  is exactly what that decision was waiting on.
 - **Password-reset enumeration safety is response-shape only**, not constant-time. ADR 0006 decision E.
 - **No common-password blocklist.** ADR 0006 decision F.
-- **Tenant primary colour not yet injected into `--bs-primary`.** This phase's branding-merge work
-  is the natural trigger to finally close this out — check before deferring it again.
 - **Peer-to-peer profile viewing (PRD §26 "View peer profile 🔒 basic") is not implemented.**
   Deferred since Phase 1.4. Home's "My Peers" widget (Phase 1.9) deliberately shows names/avatars
   only, with no profile link for a plain Employee viewer, for exactly this reason (ADR 0015).
-- **`EmployeeTerminationJob`/`AnnualGrantJob` process tenants serially, not in parallel.** Still fine at current scale (CLAUDE.md §11) — revisit only with a benchmark showing a problem.
+- **`EmployeeTerminationJob`/`AnnualGrantJob` process tenants serially, not in parallel.** Still fine
+  at current scale (CLAUDE.md §11) — revisit only with a benchmark showing a problem. Sub-phase
+  1.10's `HolidayReminderJob`/`DailyReminderJob` copy the same serial-fan-out shape for the same
+  reason.
 - **Manual leave-balance adjustment (`BalanceService.adjustManually`) has no dedicated admin screen**, by design — backend capability, RBAC-tested only. Revisit if a real need surfaces.
 - **`AdminEmployeeController`'s write-then-separate-read transaction shape has an open correctness question** (ADR 0009's Context/Consequences) — not investigated.
 - **A booking whose computed duration is exactly zero working days is not rejected** (Phase 1.6, ADR 0010's Consequences) — no PRD requirement for a minimum-duration guard.
@@ -118,10 +135,30 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
   table.** Admin-assigned tasks (the other half of FR-8.4) need a `Task` entity/migration/RLS/
   assignment UI that Phase 1.9's "DB changes: none new" scope explicitly ruled out (ADR 0015). The
   next phase that can afford a new table is the natural owner.
+- **`tenant.primary_color` was removed, not implemented.** Sub-phase 1.10 was the trigger to finally
+  wire the carried-forward `--bs-primary` injection, but the column had never been used by any code,
+  every row held a stale non-brand default, and no Admin editor existed to set it to anything else —
+  so it was dropped rather than built (ADR 0016). One Caderly brand color now serves every tenant,
+  in the app UI and in email. Do not reintroduce a per-tenant color without a new ADR.
+- **An Admin cancelling *someone else's* leave notifies nobody.** `LeaveRequestService.cancel` only
+  calls `notifyCancellation` when the acting employee is the requester themselves — PRD §17.2 lists
+  only "Leave cancelled *by employee* → Approver," so this is a documented scope boundary, not a
+  bug, but the employee whose leave an Admin cancelled is never told. Revisit if a real complaint
+  surfaces (sub-phase 1.10).
+- **`EmailOutbox.RETRY_BACKOFF`'s third entry (10 minutes) is dead code** given `MAX_ATTEMPTS = 3` —
+  the third failure goes straight to `FAILED` before that backoff is ever consulted. Harmless, but
+  worth knowing before "fixing" the retry schedule (sub-phase 1.10).
+- **`documents.EmployeeDocument` still has no expiry-date column.** Sub-phase 1.10's "Document
+  expiring" event (PRD §17.2) reads `government_id.expiry_date` instead — that column already
+  existed and FR-3.7 already promised it. If a future requirement needs expiry tracking on
+  *uploaded files* specifically, that is new scope (ADR 0016).
+- **No plain-text `multipart/alternative` part on outbound email** — `EmailDelivery`'s
+  `MimeMessageHelper` is built non-multipart, HTML-only. Every current mail client target renders
+  HTML fine; revisit only if a real plain-text-only recipient surfaces (sub-phase 1.10).
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to whatever sub-phase comes next (this file's 1.9 → 1.10 update is the template).
-3. Commit `phase-1.10-notifications` and open a PR against `main`.
+2. Update this file to whatever sub-phase comes next (this file's 1.10 → 1.11 update is the template).
+3. Commit `phase-1.11-audit-log` and open a PR against `main`.
 4. Do not start the next phase in the same session.

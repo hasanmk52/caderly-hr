@@ -2,17 +2,19 @@ package com.caderly.caderlyhr.timeoff;
 
 import com.caderly.caderlyhr.common.NotFoundException;
 import com.caderly.caderlyhr.common.ValidationException;
+import com.caderly.caderlyhr.notifications.EmailEvent;
 import com.caderly.caderlyhr.notifications.EmailOutboxService;
 import com.caderly.caderlyhr.people.PeopleFacade;
-import com.caderly.caderlyhr.tenant.TenantContext;
 import com.caderly.caderlyhr.tenant.TenantFacade;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -406,43 +408,32 @@ public class LeaveRequestService {
             throw new ValidationException(
                     "LEAVE_NO_APPROVER_AVAILABLE", "No manager or Admin is available to approve this request");
         }
-        String reviewUrl = appBaseUrl + "/for-action";
-        String subject = TimeoffEmails.requestedSubject(messages, Locale.ENGLISH, requester.fullName());
-        String body =
-                TimeoffEmails.requestedBody(
-                        messages,
-                        Locale.ENGLISH,
-                        requester.fullName(),
-                        request.leaveType().name(),
-                        dateRange(request),
-                        request.durationDays(),
-                        reviewUrl);
-        UUID tenantId = TenantContext.get().orElse(null);
+        Map<String, Object> model =
+                Map.of(
+                        "requesterName", requester.fullName(),
+                        "reviewUrl", appBaseUrl + "/for-action",
+                        "facts", leaveFacts(request));
         for (PeopleFacade.EmployeeApprovalInfo approver : approvers) {
-            emailOutbox.enqueue(tenantId, approver.email(), subject, body);
+            emailOutbox.enqueue(EmailEvent.LEAVE_REQUESTED, approver.email(), model, requester.fullName());
         }
     }
 
     private void notifyDecision(LeaveRequest request, String approverName, boolean approved, @Nullable String decisionNote) {
         PeopleFacade.EmployeeApprovalInfo requester = people.requireEmployeeApprovalInfo(request.employeeId());
-        UUID tenantId = TenantContext.get().orElse(null);
         String leaveTypeName = request.leaveType().name();
         String dateRange = dateRange(request);
-        String subject =
-                approved
-                        ? TimeoffEmails.approvedSubject(messages, Locale.ENGLISH, leaveTypeName)
-                        : TimeoffEmails.rejectedSubject(messages, Locale.ENGLISH, leaveTypeName);
-        String body =
-                approved
-                        ? TimeoffEmails.approvedBody(messages, Locale.ENGLISH, leaveTypeName, dateRange, approverName)
-                        : TimeoffEmails.rejectedBody(
-                                messages,
-                                Locale.ENGLISH,
-                                leaveTypeName,
-                                dateRange,
-                                approverName,
-                                decisionNote == null ? "" : decisionNote);
-        emailOutbox.enqueue(tenantId, requester.email(), subject, body);
+        Map<String, Object> model =
+                Map.of(
+                        "leaveTypeName", leaveTypeName,
+                        "dateRange", dateRange,
+                        "approverName", approverName,
+                        "decisionNote", decisionNote == null ? "" : decisionNote,
+                        "facts", leaveFacts(request));
+        emailOutbox.enqueue(
+                approved ? EmailEvent.LEAVE_APPROVED : EmailEvent.LEAVE_REJECTED,
+                requester.email(),
+                model,
+                leaveTypeName);
     }
 
     /**
@@ -463,14 +454,34 @@ public class LeaveRequestService {
             }
             approver = admins.getFirst();
         }
-        UUID tenantId = TenantContext.get().orElse(null);
-        String subject =
-                TimeoffEmails.cancelledSubject(
-                        messages, Locale.ENGLISH, requester.fullName(), request.leaveType().name());
-        String body =
-                TimeoffEmails.cancelledBody(
-                        messages, Locale.ENGLISH, requester.fullName(), request.leaveType().name(), dateRange(request));
-        emailOutbox.enqueue(tenantId, approver.email(), subject, body);
+        Map<String, Object> model =
+                Map.of(
+                        "requesterName", requester.fullName(),
+                        "leaveTypeName", request.leaveType().name(),
+                        "facts", leaveFacts(request));
+        emailOutbox.enqueue(
+                EmailEvent.LEAVE_CANCELLED,
+                approver.email(),
+                model,
+                requester.fullName(),
+                request.leaveType().name());
+    }
+
+    /**
+     * The arithmetic panel every leave email carries: the type, the dates and the working-day
+     * count, stated once so the reader never has to open the app to know what happened
+     * (BRAND.source.md §8.2). A LinkedHashMap because the rendering order is the reading order.
+     */
+    private Map<String, String> leaveFacts(LeaveRequest request) {
+        Map<String, String> facts = new LinkedHashMap<>();
+        facts.put(message("email.field.leave-type"), request.leaveType().name());
+        facts.put(message("email.field.dates"), dateRange(request));
+        facts.put(message("email.field.days"), request.durationDays().stripTrailingZeros().toPlainString());
+        return facts;
+    }
+
+    private String message(String key) {
+        return messages.getMessage(key, null, key, Locale.ENGLISH);
     }
 
     private Set<java.time.DayOfWeek> currentWeekend() {

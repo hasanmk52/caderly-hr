@@ -12,4 +12,7 @@ public interface PublicHolidayRepository extends TenantAwareRepository<PublicHol
     List<PublicHoliday> findAllByOrderByDateAsc();
 
     boolean existsByDateAndNameIgnoreCase(LocalDate date, String name);
+
+    /** One day's holidays — {@code HolidayReminderJob} asking "is tomorrow a holiday?". */
+    List<PublicHoliday> findAllByDate(LocalDate date);
 }

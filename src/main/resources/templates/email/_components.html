@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<!--/*
+  The three bits of chrome that repeat across event templates. Kept out of _layout.html because
+  that file's root element IS the page fragment — a second fragment inside it would render as
+  part of every email.
+
+  Same hex-literal rule as _layout.html: inline styles only, no CSS custom properties.
+*/-->
+<body>
+
+<h1 th:fragment="heading(text)"
+    style="margin:0 0 14px;font-size:20px;line-height:1.3;font-weight:600;color:#15171C;"
+    th:text="${text}">Heading</h1>
+
+<!--/* A link styled as a button: mail clients that ignore the styling still show a working link,
+       which is the whole point of not using a <button>. */-->
+<table th:fragment="cta(url, label)" role="presentation" cellpadding="0" cellspacing="0" border="0"
+       style="margin:20px 0 4px;">
+  <tr>
+    <td style="background:#0F5568;border-radius:8px;">
+      <a th:href="${url}" th:text="${label}"
+         style="display:inline-block;padding:11px 20px;color:#FFFFFF;text-decoration:none;
+                font-size:15px;font-weight:600;">Open</a>
+    </td>
+  </tr>
+</table>
+
+<!--/* The arithmetic panel (BRAND.source.md §8.2): the dates and the number, stated plainly,
+       so the reader never has to open the app to know what happened.
+
+       Background/border/radius live on each <td>, not on the <table> itself. A rounded,
+       filled <table> renders correctly in a standards-compliant engine (confirmed in
+       Mailpit's own Chromium-based preview) but many real mail clients don't reliably clip a
+       table's own background to its own border-radius, so the fill and the rounded outline
+       drift apart at the corners — exactly the "doesn't look neat" report this fixed. Per-cell
+       radius, applied only on the first/last row via th:each's iteration status, is the
+       standard bulletproof pattern for a rounded box in HTML email. */-->
+<!--/* Deliberately no width="100%": a fixed-width box stretched across the full 600px card left
+       a wide dead strip of tinted background after every short value ("4", "Vacation") — the
+       exact "doesn't look neat" report. A table with no width sizes to its own content instead,
+       so the panel is only ever as wide as its longest row ("Sep 22, 2026 - Sep 25, 2026")
+       needs. The label column drops its old width:40% for the same reason — HTML tables already
+       size each column to its widest cell across all rows, which is what makes "Working days"
+       and "Dates" line up in one column without asking for it. */-->
+<table th:fragment="facts(rows)" role="presentation" cellpadding="0" cellspacing="0" border="0"
+       style="margin:18px 0;">
+  <tr th:each="row, iter : ${rows}">
+    <td th:style="|padding:10px 32px 10px 14px;font-size:14px;color:#4A5160;background:#E3EFF2;white-space:nowrap;
+                    border-left:1px solid #AFCFD7;
+                    ${iter.first ? 'border-top:1px solid #AFCFD7;border-top-left-radius:8px;' : ''}
+                    ${iter.last ? 'border-bottom:1px solid #AFCFD7;border-bottom-left-radius:8px;' : ''}|"
+        th:text="${row.key}">Dates</td>
+    <td th:style="|padding:10px 14px;font-size:14px;color:#15171C;font-weight:600;background:#E3EFF2;white-space:nowrap;
+                    border-right:1px solid #AFCFD7;
+                    ${iter.first ? 'border-top:1px solid #AFCFD7;border-top-right-radius:8px;' : ''}
+                    ${iter.last ? 'border-bottom:1px solid #AFCFD7;border-bottom-right-radius:8px;' : ''}|"
+        th:text="${row.value}">Aug 3 – Aug 10</td>
+  </tr>
+</table>
+
+</body>
+</html>
