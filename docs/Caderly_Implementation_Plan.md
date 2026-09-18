@@ -508,6 +508,10 @@ Add the high-value features that TalentHR free lists but MVP skipped, plus quali
 12. Per-user notification preferences.
 13. Delegation ("I'm out until X, approve to Y").
 14. Audit log CSV export.
+15. In-app bell notification center. Design together with the Admin-assigned task table ADR 0015
+    deferred here (`docs/adr/0015-home-dashboard-widgets-and-derived-tasks.md`) — both are the same
+    underlying "thing for a user to act on" concept; don't build the notification store and the
+    task store as two separate, unreconciled tables.
 
 ### DB changes
 - `checklist_template`, `checklist_task`, `checklist_instance`, `checklist_task_instance`.
@@ -517,6 +521,8 @@ Add the high-value features that TalentHR free lists but MVP skipped, plus quali
 - `user_notification_preference`.
 - `delegation`.
 - `webhook_endpoint`, `webhook_delivery`.
+- `in_app_notification` and the Admin-assigned task table (ADR 0015 carryover) — normal
+  `TenantAwareEntity` + RLS, not modeled on `email_outbox`'s system-scoped exception.
 
 ### Backend tasks
 - OAuth2 client for Google + Microsoft (Spring Security OAuth2 Client).
