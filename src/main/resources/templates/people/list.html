@@ -15,7 +15,7 @@
       <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/employees}">
         <div class="col-auto">
           <label class="form-label" for="filter-department" th:text="#{common.field.department}">Department</label>
-          <select class="form-select" id="filter-department" name="departmentId" onchange="this.form.submit()">
+          <select class="form-select" id="filter-department" name="departmentId" data-auto-submit>
             <option value="" th:text="#{admin.employees.filter.all-departments}">All departments</option>
             <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}"
                     th:selected="${option.id == selectedDepartmentId}">Engineering</option>
@@ -23,7 +23,7 @@
         </div>
         <div class="col-auto">
           <label class="form-label" for="filter-status" th:text="#{common.field.status}">Status</label>
-          <select class="form-select" id="filter-status" name="status" onchange="this.form.submit()">
+          <select class="form-select" id="filter-status" name="status" data-auto-submit>
             <option value="" th:text="#{admin.employees.filter.all-statuses}">All statuses</option>
             <option th:each="option : ${statusOptions}" th:value="${option}" th:text="${option.label}"
                     th:selected="${option == selectedStatus}">Active</option>

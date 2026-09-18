@@ -90,7 +90,8 @@ class NotificationsE2ETest extends PlaywrightE2ETestBase {
         assertThat(page.content()).contains(inviteeEmail).contains("Failed");
 
         smtpIsBack();
-        page.click("tr:has-text('" + inviteeEmail + "') button:has-text('Retry')");
+        // Retry is icon-only now (aria-label, no visible text) — see admin/notifications.html.
+        page.click("tr:has-text('" + inviteeEmail + "') button[aria-label='Retry this email']");
         page.waitForSelector("tr:has-text('" + inviteeEmail + "'):has-text('Pending')");
 
         dispatcher.dispatchPending();

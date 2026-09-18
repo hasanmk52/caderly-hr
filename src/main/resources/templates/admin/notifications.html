@@ -72,7 +72,7 @@
       <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/notifications}">
         <div class="col-auto">
           <label class="form-label" for="filter-status" th:text="#{common.field.status}">Status</label>
-          <select class="form-select" id="filter-status" name="status" onchange="this.form.submit()">
+          <select class="form-select" id="filter-status" name="status" data-auto-submit>
             <option value="" th:text="#{admin.notifications.filter.all-statuses}">All statuses</option>
             <option th:each="option : ${statusOptions}" th:value="${option}"
                     th:selected="${option == selectedStatus}"
@@ -82,12 +82,12 @@
         <div class="col-auto">
           <label class="form-label" for="filter-from" th:text="#{admin.notifications.filter.from}">From</label>
           <input class="form-control" type="date" id="filter-from" name="from"
-                 th:value="${selectedFrom}" onchange="this.form.submit()" />
+                 th:value="${selectedFrom}" data-auto-submit />
         </div>
         <div class="col-auto">
           <label class="form-label" for="filter-to" th:text="#{admin.notifications.filter.to}">To</label>
           <input class="form-control" type="date" id="filter-to" name="to"
-                 th:value="${selectedTo}" onchange="this.form.submit()" />
+                 th:value="${selectedTo}" data-auto-submit />
         </div>
       </form>
 
@@ -107,9 +107,9 @@
               <th scope="col" th:text="#{admin.notifications.table.subject}">Subject</th>
               <th scope="col" th:text="#{admin.notifications.table.event}">Event</th>
               <th scope="col" th:text="#{common.field.status}">Status</th>
-              <th scope="col" th:text="#{admin.notifications.table.attempts}">Attempts</th>
-              <th scope="col" th:text="#{admin.notifications.table.last-error}">Last error</th>
-              <th scope="col" class="text-end" th:text="#{common.table.actions}">Actions</th>
+              <th scope="col" class="text-nowrap" th:text="#{admin.notifications.table.attempts}">Attempts</th>
+              <th scope="col" class="text-nowrap" th:text="#{admin.notifications.table.last-error}">Last error</th>
+              <th scope="col" class="text-end text-nowrap" th:text="#{common.table.actions}">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -130,12 +130,19 @@
               <td class="text-truncate" style="max-width: 18rem;"
                   th:title="${row.lastError()}" th:text="${row.lastError()} ?: ''">MailSendException: connection refused</td>
               <td class="text-end">
+                <!--/* Icon-only, matching every other row action in the app (UI Guidelines §6:
+                       "Row actions ... use btn-outline-secondary btn-sm icon buttons"). A full
+                       text+icon button read as oversized next to Attempts' bare "1"/"3". The
+                       tooltip is Bootstrap's, not the bare title attribute the Last-error cell
+                       uses — initialized in caderly.js on load and again after every htmx swap,
+                       since a retry replaces this whole row. */-->
                 <button th:if="${row.retryable()}" type="button" class="btn btn-outline-secondary btn-sm"
+                        data-bs-toggle="tooltip" data-bs-placement="top"
+                        th:title="#{admin.notifications.aria.retry}"
                         th:aria-label="#{admin.notifications.aria.retry}"
                         th:hx-post="@{/admin/notifications/{id}/retry(id=${row.id()}, status=${selectedStatus}, from=${selectedFrom}, to=${selectedTo}, page=${pageNumber})}"
                         hx-target="#notifications-content" hx-swap="outerHTML">
                   <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-                  <span th:text="#{admin.notifications.retry}">Retry</span>
                 </button>
               </td>
             </tr>

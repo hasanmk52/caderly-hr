@@ -34,7 +34,7 @@
 
       <div class="col-auto ms-auto">
         <label class="form-label" for="filter-department" th:text="#{common.field.department}">Department</label>
-        <select class="form-select form-select-sm" id="filter-department" name="departmentId" onchange="this.form.submit()">
+        <select class="form-select form-select-sm" id="filter-department" name="departmentId" data-auto-submit>
           <option value="" th:text="#{calendar.filter.all-departments}">All departments</option>
           <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}"
                   th:selected="${option.id == selectedDepartmentId}">Engineering</option>
@@ -42,7 +42,7 @@
       </div>
       <div class="col-auto">
         <label class="form-label" for="filter-division" th:text="#{common.field.division}">Division</label>
-        <select class="form-select form-select-sm" id="filter-division" name="divisionId" onchange="this.form.submit()">
+        <select class="form-select form-select-sm" id="filter-division" name="divisionId" data-auto-submit>
           <option value="" th:text="#{calendar.filter.all-divisions}">All divisions</option>
           <option th:each="option : ${divisionOptions}" th:value="${option.id}" th:text="${option.name}"
                   th:selected="${option.id == selectedDivisionId}">Operations</option>
@@ -50,7 +50,7 @@
       </div>
       <div class="col-auto">
         <label class="form-label" for="filter-leave-type" th:text="#{calendar.filter.leave-type}">Leave type</label>
-        <select class="form-select form-select-sm" id="filter-leave-type" name="leaveTypeId" onchange="this.form.submit()">
+        <select class="form-select form-select-sm" id="filter-leave-type" name="leaveTypeId" data-auto-submit>
           <option value="" th:text="#{calendar.filter.all-leave-types}">All leave types</option>
           <option th:each="option : ${leaveTypeOptions}" th:value="${option.id}" th:text="${option.name()}"
                   th:selected="${option.id == selectedLeaveTypeId}">Vacation</option>

@@ -27,12 +27,28 @@
 </table>
 
 <!--/* The arithmetic panel (BRAND.source.md §8.2): the dates and the number, stated plainly,
-       so the reader never has to open the app to know what happened. */-->
+       so the reader never has to open the app to know what happened.
+
+       Background/border/radius live on each <td>, not on the <table> itself. A rounded,
+       filled <table> renders correctly in a standards-compliant engine (confirmed in
+       Mailpit's own Chromium-based preview) but many real mail clients don't reliably clip a
+       table's own background to its own border-radius, so the fill and the rounded outline
+       drift apart at the corners — exactly the "doesn't look neat" report this fixed. Per-cell
+       radius, applied only on the first/last row via th:each's iteration status, is the
+       standard bulletproof pattern for a rounded box in HTML email. */-->
 <table th:fragment="facts(rows)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-       style="margin:18px 0;background:#E3EFF2;border:1px solid #AFCFD7;border-radius:8px;">
-  <tr th:each="row : ${rows}">
-    <td style="padding:8px 14px;font-size:14px;color:#4A5160;width:40%;" th:text="${row.key}">Dates</td>
-    <td style="padding:8px 14px;font-size:14px;color:#15171C;font-weight:600;" th:text="${row.value}">Aug 3 – Aug 10</td>
+       style="margin:18px 0;">
+  <tr th:each="row, iter : ${rows}">
+    <td th:style="|padding:10px 14px;font-size:14px;color:#4A5160;width:40%;background:#E3EFF2;
+                    border-left:1px solid #AFCFD7;
+                    ${iter.first ? 'border-top:1px solid #AFCFD7;border-top-left-radius:8px;' : ''}
+                    ${iter.last ? 'border-bottom:1px solid #AFCFD7;border-bottom-left-radius:8px;' : ''}|"
+        th:text="${row.key}">Dates</td>
+    <td th:style="|padding:10px 14px;font-size:14px;color:#15171C;font-weight:600;background:#E3EFF2;
+                    border-right:1px solid #AFCFD7;
+                    ${iter.first ? 'border-top:1px solid #AFCFD7;border-top-right-radius:8px;' : ''}
+                    ${iter.last ? 'border-bottom:1px solid #AFCFD7;border-bottom-right-radius:8px;' : ''}|"
+        th:text="${row.value}">Aug 3 – Aug 10</td>
   </tr>
 </table>
 
