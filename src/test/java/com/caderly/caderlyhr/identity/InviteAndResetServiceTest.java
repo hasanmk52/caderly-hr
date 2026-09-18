@@ -241,9 +241,7 @@ class InviteAndResetServiceTest extends TenantIsolationTestBase {
                 tenantA,
                 () -> {
                     AppUser user = users.findByEmail(email).orElseThrow();
-                    for (int i = 0; i < 5; i++) {
-                        user.recordFailedLogin(clock.instant());
-                    }
+                    user.lock(clock.instant().plusSeconds(900));
                     return users.save(user);
                 });
         assertThat(asTenant(tenantA, () -> users.findByEmail(email).orElseThrow().isLocked(clock.instant())))

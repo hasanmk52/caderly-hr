@@ -1,15 +1,16 @@
 package com.caderly.caderlyhr.identity;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -25,14 +26,9 @@ import org.jspecify.annotations.Nullable;
  * read as intent and the invariants below stay in one place.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(name = "app_user")
 public class AppUser extends TenantAwareEntity {
-
-    /** PRD §19.1: 5 failures inside this window trip the lock. */
-    static final int MAX_FAILED_LOGINS = 5;
-
-    static final Duration FAILED_LOGIN_WINDOW = Duration.ofMinutes(15);
-    static final Duration LOCKOUT_DURATION = Duration.ofMinutes(15);
 
     @Column(name = "email", nullable = false)
     private String email;
@@ -55,11 +51,11 @@ public class AppUser extends TenantAwareEntity {
     @Column(name = "last_login_at")
     private @Nullable Instant lastLoginAt;
 
-    @Column(name = "failed_login_count", nullable = false)
-    private int failedLoginCount;
-
-    @Column(name = "failed_login_window_start")
-    private @Nullable Instant failedLoginWindowStart;
+    // failed_login_count / failed_login_window_start columns still exist in the DB (ADR 0017
+    // left them in place rather than risk a destructive drop-column migration for this phase)
+    // but are no longer read or written anywhere: the (email + IP) lockout re-key computes the
+    // failure count from audit.LoginAuditRepository instead (identity.LoginAttemptService),
+    // superseding ADR 0006 decision B's per-user counter. Nothing in this class maps them.
 
     @Column(name = "locked_until")
     private @Nullable Instant lockedUntil;
@@ -149,26 +145,12 @@ public class AppUser extends TenantAwareEntity {
     }
 
     /**
-     * Counts a failed attempt and locks the account once {@link #MAX_FAILED_LOGINS} land inside
-     * {@link #FAILED_LOGIN_WINDOW}.
-     *
-     * <p>The window restarts whenever the previous one has elapsed, so five typos spread over a
-     * month never trip the lock — only a burst does. That distinction is why the entity carries
-     * {@code failed_login_window_start} in addition to PRD §21's counter (ADR 0006 decision B).
+     * Locks the account until {@code until}. The trigger decision (how many failures, in what
+     * window, from which IP) lives in {@code identity.LoginAttemptService} — it queries {@code
+     * audit.LoginAuditRepository} for the (email + IP) count (ADR 0017) and calls this once that
+     * count crosses the threshold. The entity's only job is to hold the resulting lock state.
      */
-    public void recordFailedLogin(Instant now) {
-        if (failedLoginWindowStart == null
-                || now.isAfter(failedLoginWindowStart.plus(FAILED_LOGIN_WINDOW))) {
-            failedLoginWindowStart = now;
-            failedLoginCount = 0;
-        }
-        failedLoginCount++;
-        if (failedLoginCount >= MAX_FAILED_LOGINS) {
-            lockUntil(now.plus(LOCKOUT_DURATION));
-        }
-    }
-
-    private void lockUntil(Instant until) {
+    public void lock(Instant until) {
         this.lockedUntil = until;
         this.status = UserStatus.LOCKED;
     }
@@ -182,17 +164,13 @@ public class AppUser extends TenantAwareEntity {
     }
 
     /**
-     * Clears a lock and the attempt counter behind it. Called on the next successful
-     * authentication, not by a scheduled job.
-     *
-     * <p>The timestamp, the status and the counter are cleared together on purpose. An earlier
-     * split — where resetting the counter also dropped {@code lockedUntil} but left {@code status}
-     * — produced an account that authenticated fine while reading LOCKED forever.
+     * Clears a lock. Called on the next successful authentication, not by a scheduled job — {@link
+     * #isLocked} already lets a lapsed lock through on the timestamp alone, but {@code status}
+     * needs an explicit clear or it would read LOCKED forever on an account that is demonstrably
+     * usable again.
      */
     public void unlock() {
         this.lockedUntil = null;
-        this.failedLoginCount = 0;
-        this.failedLoginWindowStart = null;
         if (this.status == UserStatus.LOCKED) {
             this.status = UserStatus.ACTIVE;
         }
@@ -244,10 +222,6 @@ public class AppUser extends TenantAwareEntity {
 
     public @Nullable Instant lastLoginAt() {
         return lastLoginAt;
-    }
-
-    public int failedLoginCount() {
-        return failedLoginCount;
     }
 
     public @Nullable Instant lockedUntil() {

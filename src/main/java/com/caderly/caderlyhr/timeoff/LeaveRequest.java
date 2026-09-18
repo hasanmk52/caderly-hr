@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.timeoff;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -28,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  * the one multiple concurrent actions actually race on.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(name = "leave_request")
 public class LeaveRequest extends TenantAwareEntity {
 

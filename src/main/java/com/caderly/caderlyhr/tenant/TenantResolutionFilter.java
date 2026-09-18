@@ -1,23 +1,34 @@
 package com.caderly.caderlyhr.tenant;
 
+import com.caderly.caderlyhr.common.MdcKeys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.MDC;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * First filter in the chain (PRD §20.3): resolves the tenant from the Host subdomain, populates
  * {@link TenantContext}, and clears it in a finally block so no tenant ever leaks between pooled
  * request threads. Unknown tenant → 404, suspended → 503.
+ *
+ * <p>Also the request-id/tenant-id half of CLAUDE.md §6 A09's MDC correlation (ADR 0017) — it is
+ * already the first filter in the chain, so a request id generated here covers everything
+ * downstream, including the 404/503 denials below that never reach a resolved tenant at all.
+ * {@code web.ActorMdcFilter} adds the third key, {@code actorId}, once authentication has run.
  */
 public class TenantResolutionFilter extends OncePerRequestFilter {
 
     /** Request attribute carrying the resolved {@link TenantSummary} for the web layer. */
     public static final String TENANT_ATTRIBUTE = TenantResolutionFilter.class.getName() + ".TENANT";
+
+    /** Echoed back so a client (or an operator reading a bug report) can correlate their own logs. */
+    private static final String REQUEST_ID_HEADER = "X-Request-Id";
 
     private final TenantFacade tenants;
     private final String baseDomain;
@@ -43,27 +54,39 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        String slug = extractSlug(request.getServerName());
-        if (slug == null) {
-            deny(response, HttpServletResponse.SC_NOT_FOUND, "Unknown tenant");
-            return;
-        }
-        Optional<TenantSummary> tenant = tenants.bySlug(slug);
-        if (tenant.isEmpty()) {
-            deny(response, HttpServletResponse.SC_NOT_FOUND, "Unknown tenant");
-            return;
-        }
-        if (tenant.get().suspended()) {
-            deny(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Tenant suspended");
-            return;
-        }
-        TenantContext.set(tenant.get().id());
-        request.setAttribute(TENANT_ATTRIBUTE, tenant.get());
+        String requestId = resolveRequestId(request);
+        MDC.put(MdcKeys.REQUEST_ID, requestId);
+        response.setHeader(REQUEST_ID_HEADER, requestId);
         try {
+            String slug = extractSlug(request.getServerName());
+            if (slug == null) {
+                deny(response, HttpServletResponse.SC_NOT_FOUND, "Unknown tenant");
+                return;
+            }
+            Optional<TenantSummary> tenant = tenants.bySlug(slug);
+            if (tenant.isEmpty()) {
+                deny(response, HttpServletResponse.SC_NOT_FOUND, "Unknown tenant");
+                return;
+            }
+            if (tenant.get().suspended()) {
+                deny(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Tenant suspended");
+                return;
+            }
+            TenantContext.set(tenant.get().id());
+            MDC.put(MdcKeys.TENANT_ID, tenant.get().id().toString());
+            request.setAttribute(TENANT_ATTRIBUTE, tenant.get());
             filterChain.doFilter(request, response);
         } finally {
             TenantContext.clear();
+            MDC.remove(MdcKeys.REQUEST_ID);
+            MDC.remove(MdcKeys.TENANT_ID);
         }
+    }
+
+    /** A caller-supplied id is trusted only as a correlation label, never as anything security-relevant. */
+    private static String resolveRequestId(HttpServletRequest request) {
+        String supplied = request.getHeader(REQUEST_ID_HEADER);
+        return supplied == null || supplied.isBlank() ? UUID.randomUUID().toString() : supplied;
     }
 
     // Writes the generic denial page directly (PRD §20.3) instead of sendError: an

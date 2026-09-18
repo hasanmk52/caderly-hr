@@ -6,7 +6,14 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 
-/** Pure logic: the lockout window and invite/reset state transitions. No Spring, no database. */
+/**
+ * Pure logic: the lock/unlock state transitions and invite/reset state transitions. No Spring, no
+ * database.
+ *
+ * <p>The failure-counting/window logic this class used to cover moved to {@code
+ * LoginAttemptServiceTest} (ADR 0017): {@link AppUser}'s only remaining job around lockout is
+ * holding the resulting {@code lockedUntil}/{@code status} state, not deciding when to set it.
+ */
 class AppUserTest {
 
     private static final Instant T0 = Instant.parse("2026-08-02T10:00:00Z");
@@ -16,82 +23,53 @@ class AppUserTest {
     }
 
     @Test
-    void recordFailedLogin_whenFourFailuresInWindow_doesNotLock() {
+    void lock_setsLockedUntilAndStatus() {
         AppUser user = activeUser();
 
-        for (int i = 0; i < 4; i++) {
-            user.recordFailedLogin(T0.plusSeconds(i));
-        }
+        user.lock(T0.plus(15, ChronoUnit.MINUTES));
 
-        assertThat(user.failedLoginCount()).isEqualTo(4);
-        assertThat(user.isLocked(T0.plusSeconds(5))).isFalse();
-        assertThat(user.status()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(user.status()).isEqualTo(UserStatus.LOCKED);
+        assertThat(user.lockedUntil()).isEqualTo(T0.plus(15, ChronoUnit.MINUTES));
     }
 
     @Test
-    void recordFailedLogin_whenFifthFailureInWindow_locksForFifteenMinutes() {
+    void isLocked_beforeLockExpiry_returnsTrue() {
         AppUser user = activeUser();
+        user.lock(T0.plus(15, ChronoUnit.MINUTES));
 
-        for (int i = 0; i < 5; i++) {
-            user.recordFailedLogin(T0.plusSeconds(i));
-        }
-
-        assertThat(user.status()).isEqualTo(UserStatus.LOCKED);
-        assertThat(user.lockedUntil()).isEqualTo(T0.plusSeconds(4).plus(15, ChronoUnit.MINUTES));
         assertThat(user.isLocked(T0.plus(14, ChronoUnit.MINUTES))).isTrue();
     }
 
     @Test
-    void isLocked_whenLockHasElapsed_returnsFalse() {
+    void isLocked_afterLockHasElapsed_returnsFalse() {
         AppUser user = activeUser();
-        for (int i = 0; i < 5; i++) {
-            user.recordFailedLogin(T0);
-        }
+        user.lock(T0.plus(15, ChronoUnit.MINUTES));
 
         // Driven by the timestamp, not the status flag: no scheduled job clears a lapsed lock.
         assertThat(user.isLocked(T0.plus(16, ChronoUnit.MINUTES))).isFalse();
     }
 
     @Test
-    void recordFailedLogin_whenFailuresSpanMoreThanWindow_startsFreshWindowAndDoesNotLock() {
-        // The reason failed_login_window_start exists (ADR 0006 decision B): five typos spread
-        // over hours are not an attack, and PRD §19.1 says "5 failures / 15 min", not "5 ever".
+    void unlock_whenLocked_returnsUserToActiveAndClearsLockedUntil() {
         AppUser user = activeUser();
-
-        for (int i = 0; i < 4; i++) {
-            user.recordFailedLogin(T0.plus(i * 20L, ChronoUnit.MINUTES));
-        }
-        user.recordFailedLogin(T0.plus(80, ChronoUnit.MINUTES));
-
-        assertThat(user.failedLoginCount()).isEqualTo(1);
-        assertThat(user.isLocked(T0.plus(80, ChronoUnit.MINUTES))).isFalse();
-    }
-
-    @Test
-    void recordSuccessfulLogin_afterSomeFailures_resetsCounterAndStampsLastLogin() {
-        AppUser user = activeUser();
-        user.recordFailedLogin(T0);
-        user.recordFailedLogin(T0.plusSeconds(1));
-
-        user.recordSuccessfulLogin(T0.plusSeconds(2));
-
-        assertThat(user.failedLoginCount()).isZero();
-        assertThat(user.lastLoginAt()).isEqualTo(T0.plusSeconds(2));
-        assertThat(user.isLocked(T0.plusSeconds(2))).isFalse();
-    }
-
-    @Test
-    void unlock_whenLocked_returnsUserToActive() {
-        AppUser user = activeUser();
-        for (int i = 0; i < 5; i++) {
-            user.recordFailedLogin(T0);
-        }
+        user.lock(T0.plus(15, ChronoUnit.MINUTES));
 
         user.unlock();
 
         assertThat(user.status()).isEqualTo(UserStatus.ACTIVE);
         assertThat(user.lockedUntil()).isNull();
-        assertThat(user.failedLoginCount()).isZero();
+    }
+
+    @Test
+    void recordSuccessfulLogin_afterALock_clearsTheLockAndStampsLastLogin() {
+        AppUser user = activeUser();
+        user.lock(T0);
+
+        user.recordSuccessfulLogin(T0.plusSeconds(2));
+
+        assertThat(user.lastLoginAt()).isEqualTo(T0.plusSeconds(2));
+        assertThat(user.isLocked(T0.plusSeconds(2))).isFalse();
+        assertThat(user.status()).isEqualTo(UserStatus.ACTIVE);
     }
 
     @Test
@@ -173,14 +151,11 @@ class AppUserTest {
         // A successful reset is proof of mailbox control, so it should not leave the user
         // locked out by the failures that prompted the reset in the first place.
         AppUser user = activeUser();
-        for (int i = 0; i < 5; i++) {
-            user.recordFailedLogin(T0);
-        }
+        user.lock(T0.plus(15, ChronoUnit.MINUTES));
 
         user.changePassword("new-hash");
 
         assertThat(user.isLocked(T0)).isFalse();
-        assertThat(user.failedLoginCount()).isZero();
         // The status column must follow the timestamp. Clearing one without the other left
         // accounts reading LOCKED forever while being perfectly usable.
         assertThat(user.status()).isEqualTo(UserStatus.ACTIVE);

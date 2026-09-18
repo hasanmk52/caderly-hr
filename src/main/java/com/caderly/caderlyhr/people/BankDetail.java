@@ -1,10 +1,12 @@
 package com.caderly.caderlyhr.people;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.CryptoConverter;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
@@ -18,6 +20,7 @@ import org.jspecify.annotations.Nullable;
  * Admin + the owning employee (enforced in {@code EmployeeService}, not here).
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(
         name = "bank_detail",
         uniqueConstraints =

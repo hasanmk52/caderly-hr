@@ -1,3 +1,11 @@
+logging:
+  structured:
+    format:
+      # Plain text for local dev: JSON console output (application.yml's default, added for
+      # CLAUDE.md §6 A09's prod log-aggregation requirement) is hard to eyeball while developing.
+      # requestId/tenantId/actorId are still in MDC either way; only the console rendering changes.
+      console:
+
 server:
   servlet:
     session:

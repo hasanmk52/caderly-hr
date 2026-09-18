@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.timeoff;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
@@ -18,6 +20,7 @@ import org.jspecify.annotations.Nullable;
  * referencing a deactivated type regardless.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(
         name = "leave_type",
         uniqueConstraints =

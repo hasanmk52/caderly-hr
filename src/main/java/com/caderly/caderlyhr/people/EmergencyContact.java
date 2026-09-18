@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.people;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -11,6 +13,7 @@ import org.jspecify.annotations.Nullable;
 
 /** One emergency contact (PRD §6.3 FR-3.6) — multiple rows per employee, self-editable. */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(name = "emergency_contact")
 public class EmergencyContact extends TenantAwareEntity {
 

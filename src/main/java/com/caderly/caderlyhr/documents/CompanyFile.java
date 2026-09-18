@@ -1,8 +1,10 @@
 package com.caderly.caderlyhr.documents;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
 import com.caderly.caderlyhr.common.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
@@ -19,6 +21,7 @@ import org.jspecify.annotations.Nullable;
  * storage.FileStorage} was given to persist the actual content.
  */
 @Entity
+@EntityListeners(EntityAuditListener.class)
 @Table(name = "company_file")
 public class CompanyFile extends TenantAwareEntity {
 

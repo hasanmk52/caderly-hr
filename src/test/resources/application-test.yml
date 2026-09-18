@@ -1,5 +1,12 @@
 # Test profile. The datasource comes from TestcontainersConfiguration's @ServiceConnection,
 # so nothing here configures one.
+logging:
+  structured:
+    format:
+      # Plain text during test runs: JSON console output has no benefit for a human reading a
+      # failing test's log, and MDC population is asserted directly, not parsed from log text.
+      console:
+
 spring:
   mail:
     # Overridden per-test by GreenMail's random port where the SMTP path is under test;
