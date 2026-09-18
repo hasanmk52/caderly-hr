@@ -5,7 +5,7 @@
        "Expiry monitored for reminders"). The model deliberately carries the ID type and country
        but never the number: government_id.id_number is encrypted at rest (ADR 0008) and an
        inbox is not a place to decrypt it into. */-->
-<td th:fragment="content">
+<td th:fragment="content" style="padding:28px;">
   <h1 th:replace="~{email/_components :: heading(#{email.document-expiry.body.heading})}"></h1>
   <p style="margin:0 0 4px;"
      th:text="#{email.document-expiry.body.message(${employeeName}, ${documentName}, ${daysRemaining})}">

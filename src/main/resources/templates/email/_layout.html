@@ -38,7 +38,7 @@
           <td style="padding:20px 28px;border-bottom:1px solid #E3E4E9;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="font-size:17px;font-weight:600;letter-spacing:-0.01em;color:#0F5568;"
+                <td style="font-size:17px;font-weight:600;letter-spacing:-0.01em;color:#0F5568;padding-right:6px;"
                     th:text="#{common.app-name}">Caderly</td>
                 <!--/* Hairline divider then the tenant's own mark, when they have uploaded one.
                        The text fallback below it is what most tenants will show for a long time,
@@ -56,7 +56,11 @@
         </tr>
 
         <tr>
-          <td style="padding:28px;" th:replace="${content}"></td>
+          <!--/* th:replace swaps this whole <td> — attributes included — for each event
+                 template's own <td th:fragment="content">, so a style here never survives to
+                 render. The 28px padding lives on that fragment root in every event template
+                 instead; this cell carries none of its own on purpose, not by oversight. */-->
+          <td th:replace="${content}"></td>
         </tr>
 
         <tr>

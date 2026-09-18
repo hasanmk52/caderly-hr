@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body th:replace="~{email/_layout :: page(~{::content})}">
-<td th:fragment="content">
+<td th:fragment="content" style="padding:28px;">
   <h1 th:replace="~{email/_components :: heading(#{email.leave-cancelled.body.heading})}"></h1>
   <p style="margin:0 0 4px;">
     <strong th:text="${requesterName}">Priya Nair</strong>

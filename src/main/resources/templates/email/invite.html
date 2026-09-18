@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body th:replace="~{email/_layout :: page(~{::content})}">
-<td th:fragment="content">
+<td th:fragment="content" style="padding:28px;">
   <h1 th:replace="~{email/_components :: heading(#{email.invite.body.heading(${tenantName})})}"></h1>
   <p style="margin:0 0 4px;" th:text="#{email.invite.body.message}">
     An administrator has invited you to Caderly. Choose a password to activate your account.

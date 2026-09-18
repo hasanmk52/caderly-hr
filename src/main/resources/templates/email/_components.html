@@ -36,15 +36,22 @@
        drift apart at the corners — exactly the "doesn't look neat" report this fixed. Per-cell
        radius, applied only on the first/last row via th:each's iteration status, is the
        standard bulletproof pattern for a rounded box in HTML email. */-->
-<table th:fragment="facts(rows)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+<!--/* Deliberately no width="100%": a fixed-width box stretched across the full 600px card left
+       a wide dead strip of tinted background after every short value ("4", "Vacation") — the
+       exact "doesn't look neat" report. A table with no width sizes to its own content instead,
+       so the panel is only ever as wide as its longest row ("Sep 22, 2026 - Sep 25, 2026")
+       needs. The label column drops its old width:40% for the same reason — HTML tables already
+       size each column to its widest cell across all rows, which is what makes "Working days"
+       and "Dates" line up in one column without asking for it. */-->
+<table th:fragment="facts(rows)" role="presentation" cellpadding="0" cellspacing="0" border="0"
        style="margin:18px 0;">
   <tr th:each="row, iter : ${rows}">
-    <td th:style="|padding:10px 14px;font-size:14px;color:#4A5160;width:40%;background:#E3EFF2;
+    <td th:style="|padding:10px 32px 10px 14px;font-size:14px;color:#4A5160;background:#E3EFF2;white-space:nowrap;
                     border-left:1px solid #AFCFD7;
                     ${iter.first ? 'border-top:1px solid #AFCFD7;border-top-left-radius:8px;' : ''}
                     ${iter.last ? 'border-bottom:1px solid #AFCFD7;border-bottom-left-radius:8px;' : ''}|"
         th:text="${row.key}">Dates</td>
-    <td th:style="|padding:10px 14px;font-size:14px;color:#15171C;font-weight:600;background:#E3EFF2;
+    <td th:style="|padding:10px 14px;font-size:14px;color:#15171C;font-weight:600;background:#E3EFF2;white-space:nowrap;
                     border-right:1px solid #AFCFD7;
                     ${iter.first ? 'border-top:1px solid #AFCFD7;border-top-right-radius:8px;' : ''}
                     ${iter.last ? 'border-bottom:1px solid #AFCFD7;border-bottom-right-radius:8px;' : ''}|"
