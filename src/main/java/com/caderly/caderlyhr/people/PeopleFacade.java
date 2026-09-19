@@ -94,7 +94,43 @@ public interface PeopleFacade {
      */
     List<EmployeeContact> listActiveEmployeeContacts();
 
+    /**
+     * Every employee (any status), with their current department/division name, for {@code
+     * reports.ReportService}'s Leave Balance report (PRD §16.1) — the report needs INVITED and
+     * TERMINATED rows too when {@code status} is left {@code null}, unlike every other consumer
+     * of this facade, which excludes terminated employees by default. All three filters are
+     * optional and independent.
+     */
+    List<EmployeeReportInfo> listEmployeesForReport(
+            @Nullable UUID departmentId, @Nullable UUID divisionId, @Nullable EmployeeStatus status);
+
+    /**
+     * One row per (month-end, department) in {@code [from, to]} with the count of employees
+     * ACTIVE as of that month-end — {@code reports.ReportService}'s Headcount report (PRD §16.1
+     * FR-10.3). Built from {@link EmployeeStatusHistory}, the only place a past-in-time status is
+     * recoverable ({@link Employee#status()} is current-state only).
+     *
+     * <p>Department grouping uses each employee's <em>current</em> department, not whatever
+     * department they were in during that historical month: no historical department tracking
+     * exists (only {@code EmployeeManagerHistory} tracks manager reassignment) — a documented
+     * simplification, not a bug (ADR 0018).
+     */
+    List<MonthlyHeadcount> countActiveEmployeesByMonth(
+            LocalDate from, LocalDate to, @Nullable UUID departmentId, @Nullable EmploymentType employmentType);
+
     record EmployeeContact(UUID employeeId, String fullName, String email) {}
+
+    record EmployeeReportInfo(
+            UUID employeeId,
+            String fullName,
+            @Nullable UUID departmentId,
+            @Nullable String departmentName,
+            @Nullable String divisionName,
+            EmployeeStatus status) {}
+
+    /** {@code month} is always the last day of its calendar month. */
+    record MonthlyHeadcount(
+            LocalDate month, @Nullable UUID departmentId, @Nullable String departmentName, long activeCount) {}
 
     record EmployeeHireInfo(UUID employeeId, @Nullable LocalDate hireDate) {}
 

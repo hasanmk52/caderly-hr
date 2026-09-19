@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:replace="~{layout :: layout(#{admin.reports.leave-balance.title}, ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+      <h1 th:text="#{admin.reports.leave-balance.heading}">Leave Balance</h1>
+      <a class="btn btn-primary btn-sm"
+         th:href="@{/admin/reports/leave-balance.csv(departmentId=${selectedDepartmentId}, divisionId=${selectedDivisionId}, status=${selectedStatus}, leaveTypeId=${selectedLeaveTypeId}, year=${selectedYear})}"
+         th:text="#{admin.reports.action.download}">Download CSV</a>
+    </div>
+
+    <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/reports/leave-balance}">
+      <div class="col-auto">
+        <label class="form-label" for="filter-department" th:text="#{common.field.department}">Department</label>
+        <select class="form-select" id="filter-department" name="departmentId" data-auto-submit>
+          <option value="" th:text="#{admin.reports.leave-balance.filter.all-departments}">All departments</option>
+          <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}"
+                  th:selected="${option.id == selectedDepartmentId}">Engineering</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-division" th:text="#{common.field.division}">Division</label>
+        <select class="form-select" id="filter-division" name="divisionId" data-auto-submit>
+          <option value="" th:text="#{admin.reports.leave-balance.filter.all-divisions}">All divisions</option>
+          <option th:each="option : ${divisionOptions}" th:value="${option.id}" th:text="${option.name}"
+                  th:selected="${option.id == selectedDivisionId}">Operations</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-status" th:text="#{common.field.status}">Status</label>
+        <select class="form-select" id="filter-status" name="status" data-auto-submit>
+          <option value="" th:text="#{admin.reports.leave-balance.filter.all-statuses}">All statuses</option>
+          <option th:each="option : ${statusOptions}" th:value="${option}" th:text="${option.label}"
+                  th:selected="${option == selectedStatus}">Active</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-leave-type" th:text="#{common.field.leave-type}">Leave type</label>
+        <select class="form-select" id="filter-leave-type" name="leaveTypeId" data-auto-submit>
+          <option value="" th:text="#{admin.reports.leave-balance.filter.all-leave-types}">All leave types</option>
+          <option th:each="option : ${leaveTypeOptions}" th:value="${option.id}" th:text="${option.name()}"
+                  th:selected="${option.id == selectedLeaveTypeId}">Vacation</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-year" th:text="#{admin.reports.leave-balance.filter.year}">Year</label>
+        <input class="form-control" type="number" id="filter-year" name="year"
+               th:value="${selectedYear}" data-auto-submit style="max-width: 8rem;" />
+      </div>
+    </form>
+
+    <div th:if="${#lists.isEmpty(rows)}" class="text-center text-muted py-5">
+      <i class="bi bi-clipboard-data fs-1 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0" th:text="#{admin.reports.leave-balance.empty}">No balances match these filters.</p>
+    </div>
+
+    <div th:unless="${#lists.isEmpty(rows)}" class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col" th:text="#{admin.reports.leave-balance.table.employee}">Employee</th>
+            <th scope="col" th:text="#{admin.reports.leave-balance.table.department}">Department</th>
+            <th scope="col" th:text="#{admin.reports.leave-balance.table.leave-type}">Leave Type</th>
+            <th scope="col" class="text-end" th:text="#{admin.reports.leave-balance.table.granted}">Granted</th>
+            <th scope="col" class="text-end" th:text="#{admin.reports.leave-balance.table.used}">Used</th>
+            <th scope="col" class="text-end" th:text="#{admin.reports.leave-balance.table.remaining}">Remaining</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="row : ${rows}">
+            <td th:text="${row.employeeName()}">Jane Doe</td>
+            <td th:text="${row.departmentName()} ?: '—'">Engineering</td>
+            <td th:text="${row.leaveTypeName()}">Vacation</td>
+            <td class="text-end" th:text="${row.granted()}">20</td>
+            <td class="text-end" th:text="${row.used()}">5</td>
+            <td class="text-end" th:text="${row.remaining()}">15</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</th:block>
+</body>
+</html>

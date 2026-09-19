@@ -109,4 +109,30 @@ public interface LeaveRequestRepository extends TenantAwareRepository<LeaveReque
     @EntityGraph(attributePaths = "leaveType")
     List<LeaveRequest> findAllByEmployeeIdAndStatusOrderByStartDateAsc(
             UUID employeeId, LeaveRequestStatus status);
+
+    /**
+     * {@code TimeoffFacade#summarizeUtilization}'s Leave Utilization report query (PRD §16.1
+     * FR-10.2): per (employee, leave type), the total days used and request count for APPROVED
+     * requests <em>starting</em> in {@code [from, to]} — same "started in the calendar range"
+     * convention as {@link #sumPendingDuration}'s {@code startDate BETWEEN}, not the overlap test
+     * {@link #findApprovedInRangeForEmployees} uses for the calendar grid, since a utilization
+     * report counts a booking against the period it was requested for, not every period it spans.
+     *
+     * <p>The codebase's first GROUP BY query (ADR 0018) — confined to this {@code *Repository}
+     * class per {@code ArchitectureTest.nativeQueriesAndJdbc_areConfinedToRepositories}'s
+     * aggregation-query rule.
+     */
+    @Query(
+            """
+            SELECT r.employeeId, r.leaveType.id, r.leaveType.name, SUM(r.durationDays), COUNT(r)
+            FROM LeaveRequest r
+            WHERE r.status = com.caderly.caderlyhr.timeoff.LeaveRequestStatus.APPROVED
+              AND r.startDate BETWEEN :from AND :to
+              AND (:leaveTypeId IS NULL OR r.leaveType.id = :leaveTypeId)
+            GROUP BY r.employeeId, r.leaveType.id, r.leaveType.name
+            """)
+    List<Object[]> summarizeUtilization(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("leaveTypeId") @Nullable UUID leaveTypeId);
 }

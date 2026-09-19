@@ -41,4 +41,14 @@ public interface LeaveBalanceRepository extends TenantAwareRepository<LeaveBalan
      */
     @EntityGraph(attributePaths = "leaveType")
     List<LeaveBalance> findAllByEmployeeIdAndYear(UUID employeeId, int year);
+
+    /**
+     * Every employee's balance for {@code year} — {@code TimeoffFacade#listBalancesForYear}'s
+     * Leave Balance report query (PRD §16.1); the optional leave-type filter is applied by the
+     * facade in Java rather than a second derived-query method, since it is a single-field
+     * post-filter, not a different query shape. Same {@code @EntityGraph} fix as {@link
+     * #findAllByEmployeeIdAndYear}, for the same open-in-view: false reason.
+     */
+    @EntityGraph(attributePaths = "leaveType")
+    List<LeaveBalance> findAllByYear(int year);
 }

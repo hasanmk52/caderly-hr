@@ -87,6 +87,27 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
             @Param("divisionId") @Nullable UUID divisionId);
 
     /**
+     * {@code reports.ReportService}'s Leave Balance report (PRD §16.1): every employee regardless
+     * of status by default, unlike {@link #findActiveForCalendar}'s always-exclude-terminated
+     * convention — the report explicitly filters by status itself when the Admin asks for one.
+     * All three filters are optional and independent, same convention as {@link
+     * #findActiveForCalendar}.
+     */
+    @EntityGraph(attributePaths = {"department", "department.division"})
+    @Query(
+            """
+            SELECT e FROM Employee e
+            WHERE (:departmentId IS NULL OR e.department.id = :departmentId)
+              AND (:divisionId IS NULL OR e.department.division.id = :divisionId)
+              AND (:status IS NULL OR e.status = :status)
+            ORDER BY e.lastName ASC, e.firstName ASC
+            """)
+    List<Employee> findForReport(
+            @Param("departmentId") @Nullable UUID departmentId,
+            @Param("divisionId") @Nullable UUID divisionId,
+            @Param("status") @Nullable EmployeeStatus status);
+
+    /**
      * Whether {@code managerId} is a direct or indirect manager of {@code employeeId}, walking the
      * self-referencing {@code manager_id} chain. Backs the "manager may view a report's profile,
      * direct or indirect" rule (PRD §26) — {@code EmployeeService} is the only caller.

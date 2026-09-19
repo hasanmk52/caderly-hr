@@ -10,6 +10,7 @@ import com.caderly.caderlyhr.org.Division;
 import com.caderly.caderlyhr.org.DivisionRepository;
 import com.caderly.caderlyhr.tenantisolation.TenantIsolationTestBase;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
  * {@code calendar}'s two entry points into {@code people} (sub-phase 1.8): resolving the iCal
  * token owner's employee id, and the team calendar grid's employee list filtered by
  * department/division. Also covers {@code listPeers}, Home's "My Peers" widget's query
- * (sub-phase 1.9 / ADR 0015).
+ * (sub-phase 1.9 / ADR 0015), and {@code reports.ReportService}'s Leave Balance and Headcount
+ * report queries (Phase 1.12 / ADR 0018).
  */
 class PeopleFacadeImplTest extends TenantIsolationTestBase {
 
@@ -28,6 +30,7 @@ class PeopleFacadeImplTest extends TenantIsolationTestBase {
     @Autowired private AppUserRepository appUsers;
     @Autowired private DivisionRepository divisionRepository;
     @Autowired private DepartmentRepository departmentRepository;
+    @Autowired private EmployeeStatusHistoryRepository statusHistoryRepository;
 
     @Test
     void findEmployeeIdByUserId_whenLinked_returnsTheEmployeeId() {
@@ -188,6 +191,175 @@ class PeopleFacadeImplTest extends TenantIsolationTestBase {
         List<PeopleFacade.EmployeePeerInfo> result = asTenant(tenantA, () -> peopleFacade.listPeers(self.requireId()));
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void listEmployeesForReport_withNoFilters_includesEveryStatus() {
+        // saveEmployee leaves status at its Employee.create() default, INVITED — unlike every
+        // other PeopleFacade method's implicit exclude-terminated convention, the report's
+        // default (no status filter) must return every status, INVITED and TERMINATED alike.
+        Employee invited = asTenant(tenantA, () -> saveEmployee("Still", "Invited", null));
+        Employee terminated =
+                asTenant(
+                        tenantA,
+                        () -> {
+                            Employee e = saveEmployee("Gone", "Fromhere", null);
+                            e.changeStatus(EmployeeStatus.TERMINATED);
+                            return employees.save(e);
+                        });
+
+        List<PeopleFacade.EmployeeReportInfo> result =
+                asTenant(tenantA, () -> peopleFacade.listEmployeesForReport(null, null, null));
+
+        assertThat(result).extracting(PeopleFacade.EmployeeReportInfo::employeeId)
+                .contains(invited.requireId(), terminated.requireId());
+    }
+
+    @Test
+    void listEmployeesForReport_filteredByStatus_excludesOtherStatuses() {
+        Employee invited = asTenant(tenantA, () -> saveEmployee("Still", "Invited", null));
+        Employee terminated =
+                asTenant(
+                        tenantA,
+                        () -> {
+                            Employee e = saveEmployee("Gone", "Fromhere", null);
+                            e.changeStatus(EmployeeStatus.TERMINATED);
+                            return employees.save(e);
+                        });
+
+        List<PeopleFacade.EmployeeReportInfo> result =
+                asTenant(
+                        tenantA,
+                        () -> peopleFacade.listEmployeesForReport(null, null, EmployeeStatus.TERMINATED));
+
+        assertThat(result).extracting(PeopleFacade.EmployeeReportInfo::employeeId)
+                .containsExactly(terminated.requireId())
+                .doesNotContain(invited.requireId());
+    }
+
+    @Test
+    void listEmployeesForReport_filteredByDepartment_carriesDepartmentAndDivisionNames() {
+        Division division = asTenant(tenantA, () -> divisionRepository.save(Division.create(uniqueName("Div"), null)));
+        Department dept =
+                asTenant(tenantA, () -> departmentRepository.save(Department.create(uniqueName("Dept"), null, division)));
+        Employee inDept = asTenant(tenantA, () -> saveEmployee("In", "Dept", dept));
+        asTenant(tenantA, () -> saveEmployee("Not", "InDept", null));
+
+        List<PeopleFacade.EmployeeReportInfo> result =
+                asTenant(tenantA, () -> peopleFacade.listEmployeesForReport(dept.requireId(), null, null));
+
+        assertThat(result).extracting(PeopleFacade.EmployeeReportInfo::employeeId)
+                .containsExactly(inDept.requireId());
+        assertThat(result.get(0).departmentName()).isEqualTo(dept.name());
+        assertThat(result.get(0).divisionName()).isEqualTo(division.name());
+    }
+
+    @Test
+    void countActiveEmployeesByMonth_stopsCountingTheMonthTerminationTakesEffect() {
+        Division division = asTenant(tenantA, () -> divisionRepository.save(Division.create(uniqueName("Div"), null)));
+        Department dept =
+                asTenant(tenantA, () -> departmentRepository.save(Department.create(uniqueName("Dept"), null, division)));
+        Employee employee = asTenant(tenantA, () -> saveEmployee("Term", "Inated", dept));
+        asTenant(
+                tenantA,
+                () -> {
+                    EmployeeStatusHistory activePeriod =
+                            EmployeeStatusHistory.open(
+                                    employee, EmployeeStatus.ACTIVE, EmploymentType.FULL_TIME, LocalDate.of(2026, 1, 1));
+                    activePeriod.close(LocalDate.of(2026, 3, 15));
+                    statusHistoryRepository.save(activePeriod);
+                    statusHistoryRepository.save(
+                            EmployeeStatusHistory.open(
+                                    employee,
+                                    EmployeeStatus.TERMINATED,
+                                    EmploymentType.FULL_TIME,
+                                    LocalDate.of(2026, 3, 15)));
+                    return null;
+                });
+
+        List<PeopleFacade.MonthlyHeadcount> result =
+                asTenant(
+                        tenantA,
+                        () ->
+                                peopleFacade.countActiveEmployeesByMonth(
+                                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 4, 30), null, null));
+
+        // March's month-end (2026-03-31) is already past the 2026-03-15 termination, so only
+        // January and February produce a row at all — a month with zero active employees in every
+        // department produces no GROUP BY row, not a zero-count one.
+        assertThat(result).extracting(PeopleFacade.MonthlyHeadcount::month)
+                .containsExactly(LocalDate.of(2026, 1, 31), LocalDate.of(2026, 2, 28));
+        assertThat(result)
+                .allSatisfy(
+                        row -> {
+                            assertThat(row.activeCount()).isEqualTo(1L);
+                            assertThat(row.departmentId()).isEqualTo(dept.requireId());
+                            assertThat(row.departmentName()).isEqualTo(dept.name());
+                        });
+    }
+
+    @Test
+    void countActiveEmployeesByMonth_filteredByDepartment_excludesOtherDepartments() {
+        Division division = asTenant(tenantA, () -> divisionRepository.save(Division.create(uniqueName("Div"), null)));
+        Department deptA =
+                asTenant(tenantA, () -> departmentRepository.save(Department.create(uniqueName("DeptA"), null, division)));
+        Department deptB =
+                asTenant(tenantA, () -> departmentRepository.save(Department.create(uniqueName("DeptB"), null, division)));
+        Employee inA = asTenant(tenantA, () -> saveEmployee("In", "A", deptA));
+        Employee inB = asTenant(tenantA, () -> saveEmployee("In", "B", deptB));
+        asTenant(
+                tenantA,
+                () -> {
+                    openActive(inA, LocalDate.of(2026, 1, 1));
+                    openActive(inB, LocalDate.of(2026, 1, 1));
+                    return null;
+                });
+
+        List<PeopleFacade.MonthlyHeadcount> result =
+                asTenant(
+                        tenantA,
+                        () ->
+                                peopleFacade.countActiveEmployeesByMonth(
+                                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), deptA.requireId(), null));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).departmentId()).isEqualTo(deptA.requireId());
+        assertThat(result.get(0).activeCount()).isEqualTo(1L);
+    }
+
+    @Test
+    void countActiveEmployeesByMonth_filteredByEmploymentType_excludesOtherTypes() {
+        Employee fullTime = asTenant(tenantA, () -> saveEmployee("Full", "Time", null));
+        Employee partTime = asTenant(tenantA, () -> saveEmployee("Part", "Time", null));
+        asTenant(
+                tenantA,
+                () -> {
+                    statusHistoryRepository.save(
+                            EmployeeStatusHistory.open(
+                                    fullTime, EmployeeStatus.ACTIVE, EmploymentType.FULL_TIME, LocalDate.of(2026, 1, 1)));
+                    statusHistoryRepository.save(
+                            EmployeeStatusHistory.open(
+                                    partTime, EmployeeStatus.ACTIVE, EmploymentType.PART_TIME, LocalDate.of(2026, 1, 1)));
+                    return null;
+                });
+
+        List<PeopleFacade.MonthlyHeadcount> result =
+                asTenant(
+                        tenantA,
+                        () ->
+                                peopleFacade.countActiveEmployeesByMonth(
+                                        LocalDate.of(2026, 1, 1),
+                                        LocalDate.of(2026, 1, 31),
+                                        null,
+                                        EmploymentType.PART_TIME));
+
+        long total = result.stream().mapToLong(PeopleFacade.MonthlyHeadcount::activeCount).sum();
+        assertThat(total).isEqualTo(1L);
+    }
+
+    private void openActive(Employee employee, LocalDate effectiveFrom) {
+        statusHistoryRepository.save(
+                EmployeeStatusHistory.open(employee, EmployeeStatus.ACTIVE, EmploymentType.FULL_TIME, effectiveFrom));
     }
 
     private Employee saveEmployee(String firstName, String lastName, Department department) {
