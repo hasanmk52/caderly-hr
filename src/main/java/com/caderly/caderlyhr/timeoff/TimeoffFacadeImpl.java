@@ -1,6 +1,7 @@
 package com.caderly.caderlyhr.timeoff;
 
 import com.caderly.caderlyhr.tenant.TenantFacade;
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
@@ -14,12 +15,17 @@ import org.springframework.transaction.annotation.Transactional;
 class TimeoffFacadeImpl implements TimeoffFacade {
 
     private final LeaveRequestRepository leaveRequests;
+    private final LeaveBalanceRepository leaveBalances;
     private final PublicHolidayRepository holidays;
     private final TenantFacade tenants;
 
     TimeoffFacadeImpl(
-            LeaveRequestRepository leaveRequests, PublicHolidayRepository holidays, TenantFacade tenants) {
+            LeaveRequestRepository leaveRequests,
+            LeaveBalanceRepository leaveBalances,
+            PublicHolidayRepository holidays,
+            TenantFacade tenants) {
         this.leaveRequests = leaveRequests;
+        this.leaveBalances = leaveBalances;
         this.holidays = holidays;
         this.tenants = tenants;
     }
@@ -59,6 +65,39 @@ class TimeoffFacadeImpl implements TimeoffFacade {
     @Transactional(readOnly = true)
     public Set<DayOfWeek> currentWeekendDays() {
         return LeaveDurationCalculator.decodeWeekend(tenants.currentWeekendDays());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmployeeBalanceInfo> listBalancesForYear(int year, @Nullable UUID leaveTypeId) {
+        return leaveBalances.findAllByYear(year).stream()
+                .filter(balance -> leaveTypeId == null || leaveTypeId.equals(balance.leaveType().requireId()))
+                .map(
+                        balance ->
+                                new EmployeeBalanceInfo(
+                                        balance.employeeId(),
+                                        balance.leaveType().requireId(),
+                                        balance.leaveType().name(),
+                                        balance.granted(),
+                                        balance.used(),
+                                        balance.remaining()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UtilizationSummary> summarizeUtilization(
+            LocalDate from, LocalDate to, @Nullable UUID leaveTypeId) {
+        return leaveRequests.summarizeUtilization(from, to, leaveTypeId).stream()
+                .map(
+                        row ->
+                                new UtilizationSummary(
+                                        (UUID) row[0],
+                                        (UUID) row[1],
+                                        (String) row[2],
+                                        (BigDecimal) row[3],
+                                        (Long) row[4]))
+                .toList();
     }
 
     private static ApprovedLeaveEntry toEntry(LeaveRequest request) {

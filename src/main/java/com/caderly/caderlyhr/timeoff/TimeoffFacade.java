@@ -39,6 +39,34 @@ public interface TimeoffFacade {
      */
     Set<DayOfWeek> currentWeekendDays();
 
+    /**
+     * Every employee's balance for {@code year}, optionally narrowed to one leave type —
+     * {@code reports.ReportService}'s Leave Balance report (PRD §16.1). Unlike {@code
+     * LeaveBalanceRepository#findAllByEmployeeIdAndYear}, this is not scoped to one employee: the
+     * report joins the result against {@code PeopleFacade.listEmployeesForReport} by employee id.
+     */
+    List<EmployeeBalanceInfo> listBalancesForYear(int year, @Nullable UUID leaveTypeId);
+
+    /**
+     * Per (employee, leave type) totals for APPROVED requests starting in {@code [from, to]} —
+     * {@code reports.ReportService}'s Leave Utilization report (PRD §16.1 FR-10.2). The
+     * aggregation (SUM of {@code durationDays}, COUNT of requests) happens here, inside the
+     * module that owns {@code LeaveRequest}, not in {@code reports} (ADR 0018) — the codebase's
+     * first GROUP BY query.
+     */
+    List<UtilizationSummary> summarizeUtilization(LocalDate from, LocalDate to, @Nullable UUID leaveTypeId);
+
+    record EmployeeBalanceInfo(
+            UUID employeeId,
+            UUID leaveTypeId,
+            String leaveTypeName,
+            BigDecimal granted,
+            BigDecimal used,
+            BigDecimal remaining) {}
+
+    record UtilizationSummary(
+            UUID employeeId, UUID leaveTypeId, String leaveTypeName, BigDecimal daysUsed, long requestCount) {}
+
     record ApprovedLeaveEntry(
             UUID employeeId,
             UUID leaveRequestId,

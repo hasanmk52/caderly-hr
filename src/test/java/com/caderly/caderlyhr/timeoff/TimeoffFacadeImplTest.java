@@ -26,6 +26,7 @@ class TimeoffFacadeImplTest extends TenantIsolationTestBase {
     @Autowired private TimeoffFacade timeoff;
     @Autowired private LeaveTypeRepository leaveTypes;
     @Autowired private LeaveRequestRepository leaveRequests;
+    @Autowired private LeaveBalanceRepository leaveBalances;
     @Autowired private PublicHolidayRepository holidays;
     @Autowired private EmployeeRepository employees;
 
@@ -205,6 +206,89 @@ class TimeoffFacadeImplTest extends TenantIsolationTestBase {
         Set<DayOfWeek> weekend = asTenant(tenantA, () -> timeoff.currentWeekendDays());
 
         assertThat(weekend).containsExactlyInAnyOrder(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
+    }
+
+    @Test
+    void listBalancesForYear_returnsEveryEmployeesBalanceForThatYear() {
+        LeaveType vacation = asTenant(tenantA, () -> saveLeaveType("Vacation"));
+        UUID employeeA = asTenant(tenantA, this::saveEmployeeId);
+        UUID employeeB = asTenant(tenantA, this::saveEmployeeId);
+        asTenant(tenantA, () -> leaveBalances.save(LeaveBalance.grant(employeeA, vacation, 2026, new BigDecimal("20"))));
+        asTenant(tenantA, () -> leaveBalances.save(LeaveBalance.grant(employeeB, vacation, 2026, new BigDecimal("15"))));
+        asTenant(
+                tenantA,
+                () -> leaveBalances.save(LeaveBalance.grant(employeeA, vacation, 2025, new BigDecimal("20"))));
+
+        List<TimeoffFacade.EmployeeBalanceInfo> result = asTenant(tenantA, () -> timeoff.listBalancesForYear(2026, null));
+
+        assertThat(result).extracting(TimeoffFacade.EmployeeBalanceInfo::employeeId)
+                .containsExactlyInAnyOrder(employeeA, employeeB);
+    }
+
+    @Test
+    void listBalancesForYear_filteredByLeaveType_excludesOtherTypes() {
+        LeaveType vacation = asTenant(tenantA, () -> saveLeaveType("Vacation"));
+        LeaveType sick = asTenant(tenantA, () -> saveLeaveType("Sick"));
+        UUID employeeId = asTenant(tenantA, this::saveEmployeeId);
+        asTenant(tenantA, () -> leaveBalances.save(LeaveBalance.grant(employeeId, vacation, 2026, new BigDecimal("20"))));
+        asTenant(tenantA, () -> leaveBalances.save(LeaveBalance.grant(employeeId, sick, 2026, new BigDecimal("10"))));
+
+        List<TimeoffFacade.EmployeeBalanceInfo> result =
+                asTenant(tenantA, () -> timeoff.listBalancesForYear(2026, sick.requireId()));
+
+        assertThat(result).extracting(TimeoffFacade.EmployeeBalanceInfo::leaveTypeName).containsExactly("Sick");
+    }
+
+    @Test
+    void summarizeUtilization_sumsDaysAndCountsRequestsPerEmployeeAndLeaveType() {
+        LeaveType vacation = asTenant(tenantA, () -> saveLeaveType("Vacation"));
+        UUID employeeId = asTenant(tenantA, this::saveEmployeeId);
+        asTenant(
+                tenantA,
+                () -> saveApprovedRequest(employeeId, vacation, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 1)));
+        asTenant(
+                tenantA,
+                () -> saveApprovedRequest(employeeId, vacation, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 11)));
+
+        List<TimeoffFacade.UtilizationSummary> result =
+                asTenant(
+                        tenantA,
+                        () ->
+                                timeoff.summarizeUtilization(
+                                        LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null));
+
+        assertThat(result).hasSize(1);
+        TimeoffFacade.UtilizationSummary summary = result.get(0);
+        assertThat(summary.employeeId()).isEqualTo(employeeId);
+        assertThat(summary.leaveTypeName()).isEqualTo("Vacation");
+        // Each saveApprovedRequest fixture books a fixed 1.00-day duration (see submit()) —
+        // 1.00 (single-day request) + 1.00 (two-day request, fixture duration is not
+        // computed from the date span) = 2.00.
+        assertThat(summary.daysUsed()).isEqualByComparingTo("2.00");
+        assertThat(summary.requestCount()).isEqualTo(2L);
+    }
+
+    @Test
+    void summarizeUtilization_excludesPendingRequestsAndRequestsOutsideRange() {
+        LeaveType vacation = asTenant(tenantA, () -> saveLeaveType("Vacation"));
+        UUID employeeId = asTenant(tenantA, this::saveEmployeeId);
+        asTenant(
+                tenantA,
+                () -> savePendingRequest(employeeId, vacation, LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 5)));
+        asTenant(
+                tenantA,
+                () ->
+                        saveApprovedRequest(
+                                employeeId, vacation, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 1)));
+
+        List<TimeoffFacade.UtilizationSummary> result =
+                asTenant(
+                        tenantA,
+                        () ->
+                                timeoff.summarizeUtilization(
+                                        LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null));
+
+        assertThat(result).isEmpty();
     }
 
     // leave_request.employee_id carries a real FK to employee(id) (V202608171000), even though
