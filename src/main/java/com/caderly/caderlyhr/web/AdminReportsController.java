@@ -119,7 +119,7 @@ class AdminReportsController {
             @RequestParam(required = false) @Nullable UUID leaveTypeId,
             Model model) {
         LocalDate effectiveFrom = from != null ? from : defaultYearStart();
-        LocalDate effectiveTo = to != null ? to : LocalDate.now(clock);
+        LocalDate effectiveTo = to != null ? to : defaultYearEnd();
         List<UtilizationRow> rows =
                 reports.leaveUtilizationReport(effectiveFrom, effectiveTo, departmentId, leaveTypeId);
         addOrgAndLeaveTypeOptions(model);
@@ -139,7 +139,7 @@ class AdminReportsController {
             @RequestParam(required = false) @Nullable UUID departmentId,
             @RequestParam(required = false) @Nullable UUID leaveTypeId) {
         LocalDate effectiveFrom = from != null ? from : defaultYearStart();
-        LocalDate effectiveTo = to != null ? to : LocalDate.now(clock);
+        LocalDate effectiveTo = to != null ? to : defaultYearEnd();
         List<UtilizationRow> rows =
                 reports.leaveUtilizationReport(effectiveFrom, effectiveTo, departmentId, leaveTypeId);
         byte[] csv =
@@ -214,6 +214,16 @@ class AdminReportsController {
 
     private LocalDate defaultYearStart() {
         return LocalDate.now(clock).withDayOfYear(1);
+    }
+
+    /**
+     * Utilization counts a request the moment it's APPROVED, regardless of whether its dates
+     * have elapsed (it reflects bookings for a period, not attendance already taken) — so the
+     * default range should cover the whole current year, not stop at today, or an already-
+     * approved trip booked for next month would silently disappear from the default view.
+     */
+    private LocalDate defaultYearEnd() {
+        return LocalDate.now(clock).withMonth(12).withDayOfMonth(31);
     }
 
     private static ResponseEntity<byte[]> csvResponse(byte[] csv, String filename) {
