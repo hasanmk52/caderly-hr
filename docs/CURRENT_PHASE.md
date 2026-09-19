@@ -1,68 +1,113 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.12 — Reports MVP (Balance, Utilization, Headcount + CSV export)
-**Branch:** `phase-1.12-reports` (not yet created — create it before writing any code)
-**Goal:** Admin can generate each of the three MVP reports, preview it on screen, and download it
-as a CSV that opens cleanly in Excel.
+**Working on:** Phase 1.13 — Super Admin Console
+**Branch:** `phase-1.13-superadmin` (not yet created — create it before writing any code)
+**Goal:** Hasan (the one Super Admin) can provision a new tenant + first Admin in one form
+submit, suspend/delete a tenant, and impersonate a tenant's Admin for support — all from a
+separate `/superadmin` console with its own authentication realm and an IP allowlist.
 
 ## Read these before doing anything
 
-1. `docs/Caderly_Implementation_Plan.md` — the "1.12 Reports MVP" section under Phase 1 — MVP.
-2. `docs/Caderly_PRD.md` — the Reports section (balance/utilization/headcount definitions) and
-   §23.2's `GET /api/v1/reports/*.csv` endpoints, if this phase ends up exposing them.
-3. `CLAUDE.md` — §7 (coding standards: DTOs are records, dependency versions in `<properties>` —
-   `com.opencsv` needs a new `<opencsv.version>` property, which is a new Maven dependency and
-   therefore on the §12 ask-first list before adding it), §10 recipe "Adding a new REST endpoint"
-   if the CSV download goes through `/api/v1` rather than a plain web-layer download.
+1. `docs/Caderly_Implementation_Plan.md` — the "1.13 Super Admin console" section under Phase 1
+   — MVP.
+2. `docs/Caderly_PRD.md` — §6.12 (FR-12.1 through FR-12.5), §23.2's `/superadmin/**` endpoints,
+   §26's Super Admin row in the permissions matrix, and §27's architecture diagram for where the
+   Super Admin realm sits relative to the main app.
+3. `CLAUDE.md` — §12: a separate `SecurityFilterChain` for `/superadmin/**` is exactly the kind
+   of change §12 says to stop and ask before making (alongside `SecurityConfig` itself), even
+   though it's additive rather than a change to the existing tenant-facing chain. Also §5 rule 6
+   (`TenantContext.runAsSystem` for anything that bypasses tenancy — impersonation is the
+   textbook case) and §6 A07 (session revocation, MFA) since Super Admin login is a second,
+   parallel authentication realm to the tenant one.
 
 ## Already in place — do not redo
 
-- **`timeoff.LeaveBalance`/`LeaveRequest`/`LeaveType`** (Phase 1.6) and **`people.Employee`**
-  (Phase 1.3) carry everything the three MVP reports aggregate over — no new tables expected
-  (Implementation Plan's own "DB changes: none" for this phase).
-- **`people.PeopleFacade`/`timeoff.TimeoffFacade`** — cross-module reads for a `ReportService` in
-  a new `reports` module should go through these facades, not direct repository access (CLAUDE.md
-  §4).
-- **Admin pagination/filter-form conventions** (`notifications.NotificationAdminService`,
-  `audit.AuditAdminService`, sub-phases 1.10/1.11) — the report *preview* table is a good candidate
-  to reuse the same prev/next-only pagination shape if a report can return many rows; the report
-  *download* is a single CSV response, not paginated.
+- **`tenant.Tenant`/`TenantRepository`** — `suspended` (boolean) and `deleted_at` (nullable
+  timestamp) columns already exist on the `tenant` table (migration
+  `V202607241000__create_tenant_and_super_admin.sql`), unused by any code yet. Phase 1.13 is what
+  finally reads/writes them.
+- **`super_admin` table** already exists (same migration) — `id`, `email`, `password_hash`,
+  `mfa_secret`, `created_at`. No JPA entity, repository, or `UserDetailsService` wired to it yet;
+  the `com.caderly.caderlyhr.superadmin` package is currently empty. This table is intentionally
+  system-scoped: no `tenant_id`, no RLS (same category as `email_outbox`/`audit_entry`, ADR 0005
+  decision B) — a Super Admin is not a member of any tenant.
+- **`TenantContext.runAsSystem`** (used already by `EmployeeTerminationJob`, tenant provisioning
+  test fixtures, etc.) — the mechanism impersonation's tenant-switch and every cross-tenant Super
+  Admin read should reuse, not a new bespoke bypass.
+- **`audit` module** (`AuditListener`, `AuditEntry`) — already captures actor id and role on every
+  write; FR-12.5's "impersonate with explicit audit log entry" needs a new `actor_role` value
+  (`SUPERADMIN_IMPERSONATING` per the Implementation Plan) recorded on every write made while
+  impersonating, not a new audit mechanism.
+- **Admin-only page/filter patterns** (`admin/notifications.html`, `admin/audit-log.html`,
+  `admin/reports*.html` from 1.12) — the tenant list + create form is a good candidate to reuse
+  the same filter-form and table conventions, adapted for a cross-tenant (not tenant-scoped) list.
 
-## Remaining Phase 1.12 work
+## Remaining Phase 1.13 work
 
 ### Backend
-- New `reports` module: `ReportService` (or one service per report) returning DTOs — balance,
-  utilization, headcount, each per the PRD's exact field definitions.
-- CSV export via `com.opencsv` — new Maven dependency, ask before adding per CLAUDE.md §12, with
-  its version declared in `<properties>` per §7's convention.
-- Decide the download route shape: a `web` controller endpoint returning `text/csv`, or the
-  `/api/v1/reports/*.csv` REST endpoints PRD §23.2 names — confirm which before building both.
+- `SuperAdmin` entity (`BaseEntity`, not `TenantAwareEntity` — see "already in place" above) +
+  repository + `UserDetailsService` for the new realm.
+- Separate `SecurityFilterChain` for `/superadmin/**`, distinct from the tenant-facing one —
+  confirm approach before implementing (CLAUDE.md §12).
+- IP allowlist filter, configured via env var, guarding the whole `/superadmin/**` chain.
+- Tenant provisioning service: create tenant + first Admin (`AppUser` + linked `Employee`?
+  confirm whether Super Admin-created Admins need an Employee record or just an `AppUser`) in one
+  transaction, sending the same invite-email path `identity`/`people` already use elsewhere.
+- Suspend (`tenant.suspended = true`, blocks login tenant-wide — confirm exactly where this is
+  checked in the login flow) and delete (`tenant.deleted_at` set, 30-day grace period per FR-12.4
+  — confirm what "grace period" means operationally: a scheduled hard-delete job, or just a
+  soft-delete that a future job purges; no such job exists yet).
+- Impersonation endpoint: spoofs `TenantContext` + `Authentication` for one session, audit entries
+  during that session marked `actor_role=SUPERADMIN_IMPERSONATING`.
 
 ### Frontend
-- Admin → Reports page (sidebar's "Reports" link is currently a disabled placeholder in
-  `fragments/sidebar.html` — this phase is what enables it) with 3 report cards.
-- Each card opens a form (filter, date range) + preview table + "Download CSV" button.
+- Super Admin console shell (separate layout from the tenant app's `layout.html`? confirm — a
+  Super Admin is never "in" a tenant, so the tenant-scoped topbar/sidebar don't apply as-is).
+- Tenant list + create form + suspend/delete row actions.
 
 ### Tests
-- Report totals correct against seeded data (unit or integration, per report).
-- RBAC: Admin-only, matching the existing `Admin*AccessControlTest` shape.
+- Impersonation audit trail correct (`actor_role` value, tenant context during the impersonated
+  session, and that it reverts cleanly after).
+- IP allowlist enforced (allowed IP gets through, disallowed gets 403/blocked before
+  authentication).
+- RBAC: `/superadmin/**` unreachable via the tenant-facing `SecurityFilterChain`'s session, and
+  vice versa — the two realms must not cross-authenticate.
 
-## Definition of Done for Phase 1.12
+## Definition of Done for Phase 1.13
 
-- Admin generates each of the three reports, previews it, downloads the CSV, and it opens cleanly
-  in Excel (correct headers, no encoding/delimiter issues).
-- `./mvnw verify` green, ArchUnit green, no new exemptions.
+- Hasan can create a new tenant + first Admin in one form submit (PRD's own DoD wording) and log
+  in as that Admin afterward.
+- Suspending a tenant blocks login for every user in it; unsuspending restores it.
+- Deleting a tenant is soft (grace period), not an immediate hard delete.
+- Impersonating an Admin works, is clearly indicated in the UI while active, and every write made
+  during it is audited with `actor_role=SUPERADMIN_IMPERSONATING`.
+- `./mvnw verify` green, ArchUnit green, no new exemptions beyond what `superadmin`'s existing
+  ArchUnit carve-out already allows.
 
-## Not in scope for Phase 1.12 — do not start any of this
+## Not in scope for Phase 1.13 — do not start any of this
 
-- Any report beyond Balance/Utilization/Headcount (Implementation Plan lists exactly these three
-  for MVP).
-- Scheduled/emailed report delivery — on-demand generation only.
+- Any tenant self-service signup flow — Super Admin-only provisioning, per PRD §6.12.
+- Billing/subscription management — not named anywhere in PRD §6.12 or the Implementation Plan.
+- Per-tenant feature flags — no PRD requirement for this yet.
 
 ## Carried forward — open items
 
 These were accepted deviations, not oversights. Do not silently "fix" them; they have owners.
 
+- **Reports MVP CSV downloads live under `/admin/reports/*.csv`, not PRD §23.2's literal
+  `/api/v1/reports/*.csv`** (Phase 1.12, ADR 0018) — no external API consumer exists yet; revisit
+  if one surfaces.
+- **Leave Utilization/Headcount aggregation (SUM/COUNT/GROUP BY) lives in `timeoff`/`people`'s own
+  repositories, exposed through their facades** — the codebase's first GROUP BY queries (Phase
+  1.12, ADR 0018). `reports.ReportService` only joins already-aggregated facade output; it never
+  aggregates itself.
+- **Headcount report groups historical months by an employee's *current* department**, not their
+  department at that historical time — no historical department-assignment tracking exists (only
+  `EmployeeManagerHistory` covers manager reassignment). Phase 1.12, ADR 0018. Revisit only if a
+  real need for historical department tracking surfaces.
+- **Report preview tables (Balance/Utilization/Headcount) have no pagination** — row counts stay
+  small at MHZ/pilot-tenant scale (Phase 1.12, ADR 0018). Revisit if a real tenant's row count
+  makes that untrue.
 - **Lockout re-keying to (email + IP) is now done** (Phase 1.11, ADR 0017) — closes the item that
   was carried forward from Phase 1.2/ADR 0006 decision B. No longer an open item.
 - **Password-reset enumeration safety is response-shape only**, not constant-time. ADR 0006 decision E.
@@ -124,12 +169,14 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
   reassignment via FK) — only scalar columns are diffed (Phase 1.11, ADR 0017). The one relation
   most likely to matter (manager) already has its own audited history table
   (`people.EmployeeManagerHistory`). Revisit only if a real need for relation-level diffs surfaces.
-- **Super Admin's cross-tenant audit view and impersonation audit trail are not built** (PRD §26) —
-  no Super Admin console exists yet. Phase 1.13's job, wiring into this phase's `audit` module.
+- **Super Admin's cross-tenant audit view is not built** (PRD §26) — Phase 1.13 builds the console
+  itself (provisioning/suspend/delete/impersonate); a cross-tenant audit *viewer* on top of the
+  already-system-scoped `audit_entry` table is not named in the Implementation Plan's 1.13 scope
+  and should be confirmed as in/out before building it.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to whatever sub-phase comes next (this file's 1.11 → 1.12 update is the template).
-3. Commit `phase-1.12-reports` and open a PR against `main`.
+2. Update this file to whatever sub-phase comes next (this file's 1.12 → 1.13 update is the template).
+3. Commit `phase-1.13-superadmin` and open a PR against `main`.
 4. Do not start the next phase in the same session.
