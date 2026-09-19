@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:replace="~{layout :: layout(#{admin.reports.leave-utilization.title}, ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+      <h1 th:text="#{admin.reports.leave-utilization.heading}">Leave Utilization</h1>
+      <a class="btn btn-primary btn-sm"
+         th:href="@{/admin/reports/leave-utilization.csv(from=${selectedFrom}, to=${selectedTo}, departmentId=${selectedDepartmentId}, leaveTypeId=${selectedLeaveTypeId})}"
+         th:text="#{admin.reports.action.download}">Download CSV</a>
+    </div>
+
+    <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/reports/leave-utilization}">
+      <div class="col-auto">
+        <label class="form-label" for="filter-from" th:text="#{admin.reports.leave-utilization.filter.from}">From</label>
+        <input class="form-control" type="date" id="filter-from" name="from"
+               th:value="${selectedFrom}" data-auto-submit />
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-to" th:text="#{admin.reports.leave-utilization.filter.to}">To</label>
+        <input class="form-control" type="date" id="filter-to" name="to"
+               th:value="${selectedTo}" data-auto-submit />
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-department" th:text="#{common.field.department}">Department</label>
+        <select class="form-select" id="filter-department" name="departmentId" data-auto-submit>
+          <option value="" th:text="#{admin.reports.leave-utilization.filter.all-departments}">All departments</option>
+          <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}"
+                  th:selected="${option.id == selectedDepartmentId}">Engineering</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-leave-type" th:text="#{common.field.leave-type}">Leave type</label>
+        <select class="form-select" id="filter-leave-type" name="leaveTypeId" data-auto-submit>
+          <option value="" th:text="#{admin.reports.leave-utilization.filter.all-leave-types}">All leave types</option>
+          <option th:each="option : ${leaveTypeOptions}" th:value="${option.id}" th:text="${option.name()}"
+                  th:selected="${option.id == selectedLeaveTypeId}">Vacation</option>
+        </select>
+      </div>
+    </form>
+
+    <div th:if="${#lists.isEmpty(rows)}" class="text-center text-muted py-5">
+      <i class="bi bi-bar-chart-line fs-1 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0" th:text="#{admin.reports.leave-utilization.empty}">No approved leave matches these filters.</p>
+    </div>
+
+    <div th:unless="${#lists.isEmpty(rows)}" class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col" th:text="#{admin.reports.leave-utilization.table.employee}">Employee</th>
+            <th scope="col" th:text="#{admin.reports.leave-utilization.table.leave-type}">Leave Type</th>
+            <th scope="col" class="text-end" th:text="#{admin.reports.leave-utilization.table.days-used}">Days Used</th>
+            <th scope="col" class="text-end" th:text="#{admin.reports.leave-utilization.table.requests-count}">Requests Count</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="row : ${rows}">
+            <td th:text="${row.employeeName()}">Jane Doe</td>
+            <td th:text="${row.leaveTypeName()}">Vacation</td>
+            <td class="text-end" th:text="${row.daysUsed()}">3</td>
+            <td class="text-end" th:text="${row.requestCount()}">2</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</th:block>
+</body>
+</html>

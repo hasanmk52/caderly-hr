@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:replace="~{layout :: layout(#{admin.reports.headcount.title}, ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+      <h1 th:text="#{admin.reports.headcount.heading}">Headcount</h1>
+      <a class="btn btn-primary btn-sm"
+         th:href="@{/admin/reports/headcount.csv(from=${selectedFrom}, to=${selectedTo}, departmentId=${selectedDepartmentId}, employmentType=${selectedEmploymentType})}"
+         th:text="#{admin.reports.action.download}">Download CSV</a>
+    </div>
+
+    <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/reports/headcount}">
+      <div class="col-auto">
+        <label class="form-label" for="filter-from" th:text="#{admin.reports.headcount.filter.from}">From</label>
+        <input class="form-control" type="date" id="filter-from" name="from"
+               th:value="${selectedFrom}" data-auto-submit />
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-to" th:text="#{admin.reports.headcount.filter.to}">To</label>
+        <input class="form-control" type="date" id="filter-to" name="to"
+               th:value="${selectedTo}" data-auto-submit />
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-department" th:text="#{common.field.department}">Department</label>
+        <select class="form-select" id="filter-department" name="departmentId" data-auto-submit>
+          <option value="" th:text="#{admin.reports.headcount.filter.all-departments}">All departments</option>
+          <option th:each="option : ${departmentOptions}" th:value="${option.id}" th:text="${option.name}"
+                  th:selected="${option.id == selectedDepartmentId}">Engineering</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label" for="filter-employment-type" th:text="#{common.field.employment-type}">Employment type</label>
+        <select class="form-select" id="filter-employment-type" name="employmentType" data-auto-submit>
+          <option value="" th:text="#{admin.reports.headcount.filter.all-employment-types}">All employment types</option>
+          <option th:each="option : ${employmentTypeOptions}" th:value="${option}" th:text="${option.label}"
+                  th:selected="${option == selectedEmploymentType}">Full-Time</option>
+        </select>
+      </div>
+    </form>
+
+    <div th:if="${#lists.isEmpty(rows)}" class="text-center text-muted py-5">
+      <i class="bi bi-people fs-1 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0" th:text="#{admin.reports.headcount.empty}">No active employees match these filters.</p>
+    </div>
+
+    <div th:unless="${#lists.isEmpty(rows)}" class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col" th:text="#{admin.reports.headcount.table.month}">Month</th>
+            <th scope="col" th:text="#{admin.reports.headcount.table.department}">Department</th>
+            <th scope="col" class="text-end" th:text="#{admin.reports.headcount.table.active-count}">Active Count</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="row : ${rows}">
+            <td th:text="${#temporals.format(row.month(), 'MMMM yyyy')}">September 2026</td>
+            <td th:text="${row.departmentName()} ?: '—'">Engineering</td>
+            <td class="text-end" th:text="${row.activeCount()}">12</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</th:block>
+</body>
+</html>
