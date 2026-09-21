@@ -1,6 +1,7 @@
 package com.caderly.caderlyhr.superadmin;
 
 import com.caderly.caderlyhr.common.ClientIpResolver;
+import com.caderly.caderlyhr.common.RequestPathResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,10 +39,18 @@ public class SuperAdminIpAllowlistFilter extends OncePerRequestFilter {
         this.allowed = allowedCidrs.stream().map(IpAddressMatcher::new).toList();
     }
 
-    /** Only this realm is gated; every tenant URL is unaffected by the operator allowlist. */
+    /**
+     * Only this realm is gated; every tenant URL is unaffected by the operator allowlist.
+     *
+     * <p>Judged on the <em>decoded</em> path ({@link RequestPathResolver}), because the security
+     * chain's {@code securityMatcher("/superadmin/**")} is. On the raw URI this check skipped
+     * {@code /%73uperadmin/login} while the chain still processed it as a Super Admin login —
+     * which made the allowlist, the console's defense alongside the password, one percent-escape
+     * wide.
+     */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !request.getRequestURI().startsWith("/superadmin");
+        return !RequestPathResolver.decodedPath(request).startsWith("/superadmin");
     }
 
     @Override

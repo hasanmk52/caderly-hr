@@ -1,6 +1,7 @@
 package com.caderly.caderlyhr.security;
 
 import com.caderly.caderlyhr.common.ClientIpResolver;
+import com.caderly.caderlyhr.common.RequestPathResolver;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
@@ -85,7 +86,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         // Its own key prefix, so a tenant-login flood cannot exhaust the Super Admin console's
         // budget (or hide behind it) — the two realms share the rate, never the counter.
-        if (superAdminLoginPath.equals(path)) {
+        //
+        // Matched on the decoded path, unlike the two tenant branches around it. The Super Admin
+        // chain is selected by securityMatcher("/superadmin/**"), which matches decoded, so
+        // /%73uperadmin/login reaches the login filter while a raw-URI comparison here does not
+        // see it — an unlimited password oracle on the highest-privilege account in the system.
+        // The tenant branches keep comparing the raw URI: their behaviour predates this task and
+        // changing it is not this task's to make (SuperAdminIpAllowlistFilter's Javadoc has the
+        // same note).
+        if (superAdminLoginPath.equals(RequestPathResolver.decodedPath(request))) {
             return consume("superadmin-login:" + ClientIpResolver.resolve(request), LOGIN_LIMIT);
         }
         if (forgotPasswordPath.equals(path)) {

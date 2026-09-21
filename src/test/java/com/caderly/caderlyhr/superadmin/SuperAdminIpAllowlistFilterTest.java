@@ -80,6 +80,46 @@ class SuperAdminIpAllowlistFilterTest {
         assertThat(chain.getRequest()).isNull();
     }
 
+    @Test
+    void doFilter_whenTheRealmPathIsPercentEncoded_stillAppliesTheAllowlist() throws Exception {
+        // getRequestURI() is undecoded, but securityMatcher("/superadmin/**") matches decoded, so
+        // this exact URI used to skip the allowlist and still authenticate a Super Admin.
+        MockFilterChain chain = new MockFilterChain();
+
+        MockHttpServletResponse response =
+                filter(List.of("10.0.0.0/8"), request("/%73uperadmin/login", "203.0.113.5"), chain);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
+    void doFilter_whenTheRealmPathCarriesMatrixParameters_stillAppliesTheAllowlist() throws Exception {
+        // PathPattern strips matrix parameters before matching, so the chain sees /superadmin/login
+        // here too — the decoded-path check has to strip them the same way.
+        MockFilterChain chain = new MockFilterChain();
+
+        MockHttpServletResponse response =
+                filter(List.of("10.0.0.0/8"), request("/superadmin;x=y/login", "203.0.113.5"), chain);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
+    void doFilter_whenAnEncodedSlashWouldFakeTheRealm_doesNotGateTheRequest() throws Exception {
+        // The bypass in reverse: %2F decodes *within* a segment, so "/%2Fsuperadmin/login" is one
+        // segment named "/superadmin" and is not the realm — the chain agrees, and so must this.
+        // Decoding the whole URI as one string (rather than per segment) would get this wrong.
+        MockFilterChain chain = new MockFilterChain();
+
+        MockHttpServletResponse response =
+                filter(List.of("10.0.0.0/8"), request("/%2Fsuperadmin/login", "203.0.113.5"), chain);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(chain.getRequest()).isNotNull();
+    }
+
     private static MockHttpServletResponse filter(
             List<String> allowedCidrs, MockHttpServletRequest request, MockFilterChain chain)
             throws Exception {
