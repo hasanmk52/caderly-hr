@@ -16,6 +16,10 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.DelegatingSecurityContextRepository;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 
 /**
  * The Super Admin security realm (PRD FR-1.8): a second {@link SecurityFilterChain} over {@code
@@ -26,18 +30,31 @@ import org.springframework.security.web.SecurityFilterChain;
  * bounce an operator to the tenant login page.
  *
  * <p>Two realms in one application only stay separate if their authentication does. See {@link
- * #superAdminAuthenticationManager} for what that costs and why it is not a shared bean.
+ * #superAdminAuthenticationManager} for what that costs and why it is not a shared bean, and
+ * {@link #superAdminSecurityContextRepository} for the other half of the same problem — a shared
+ * {@code HttpSession}.
  */
 @Configuration(proxyBeanMethods = false)
 class SuperAdminSecurityConfig {
 
+    /**
+     * Where this realm's {@code SecurityContext} lives in the {@code HttpSession}, deliberately
+     * <em>not</em> {@code HttpSessionSecurityContextRepository}'s default {@code
+     * SPRING_SECURITY_CONTEXT}. See {@link #superAdminSecurityContextRepository}.
+     */
+    static final String SECURITY_CONTEXT_KEY = "SUPERADMIN_SECURITY_CONTEXT";
+
     @Bean
     @Order(1)
     SecurityFilterChain superAdminSecurityFilterChain(
-            HttpSecurity http, SuperAdminDetailsService superAdmins, PasswordEncoder passwordEncoder)
+            HttpSecurity http,
+            SuperAdminDetailsService superAdmins,
+            PasswordEncoder passwordEncoder)
             throws Exception {
         http.securityMatcher("/superadmin/**")
                 .authenticationManager(superAdminAuthenticationManager(superAdmins, passwordEncoder))
+                .securityContext(
+                        context -> context.securityContextRepository(superAdminSecurityContextRepository()))
                 .authorizeHttpRequests(
                         authorize ->
                                 authorize
@@ -94,6 +111,33 @@ class SuperAdminSecurityConfig {
         provider.setPasswordEncoder(passwordEncoder);
         provider.afterPropertiesSet();
         return new ProviderManager(provider);
+    }
+
+    /**
+     * This realm's own session slot, under {@link #SECURITY_CONTEXT_KEY}.
+     *
+     * <p>Separate authentication managers are only half of realm isolation. Both chains run in one
+     * application and therefore share one {@code HttpSession}, and the Spring Security default
+     * {@code HttpSessionSecurityContextRepository} reads and writes the same {@code
+     * SPRING_SECURITY_CONTEXT} attribute for every chain. Left at the default, an operator who
+     * logged in here and then opened a tenant subdomain in the same browser would arrive at the
+     * tenant chain already authenticated: {@code anyRequest().authenticated()} is satisfied by any
+     * non-anonymous principal, so every page gated only by {@code @PreAuthorize("isAuthenticated()")}
+     * — {@code web.FilesController}, {@code web.ProfileController}, {@code web.CalendarController} —
+     * would serve that tenant's data, with no impersonation record anywhere. Writing this realm's
+     * context under a different key means the tenant chain simply finds nothing, and the reverse
+     * holds too.
+     *
+     * <p>Composed exactly as {@code SecurityContextConfigurer}'s default is (session repository
+     * first, request-attribute repository second) so only the key changes; dropping the
+     * request-attribute half would silently lose the context across a {@code FORWARD}/{@code ERROR}
+     * dispatch.
+     */
+    private static SecurityContextRepository superAdminSecurityContextRepository() {
+        HttpSessionSecurityContextRepository sessionRepository = new HttpSessionSecurityContextRepository();
+        sessionRepository.setSpringSecurityContextKey(SECURITY_CONTEXT_KEY);
+        return new DelegatingSecurityContextRepository(
+                sessionRepository, new RequestAttributeSecurityContextRepository());
     }
 
     /**

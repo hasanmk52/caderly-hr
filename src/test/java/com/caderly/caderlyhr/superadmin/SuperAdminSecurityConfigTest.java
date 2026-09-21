@@ -52,6 +52,8 @@ class SuperAdminSecurityConfigTest {
 
     private static final String PASSWORD = "C0rrectHorseBattery";
     private static final String OUTSIDE_IP = "198.51.100.7";
+    private static final String SUPER_ADMIN_SECURITY_CONTEXT_KEY =
+            SuperAdminSecurityConfig.SECURITY_CONTEXT_KEY;
 
     @Autowired private MockMvc mockMvc;
     @Autowired private SuperAdminRepository superAdmins;
@@ -153,27 +155,58 @@ class SuperAdminSecurityConfigTest {
     }
 
     @Test
-    void superAdminPage_withATenantAdminSession_isForbidden() throws Exception {
+    void superAdminPage_withATenantAdminSession_isNotAuthenticated() throws Exception {
         String slug = "acme" + shortId();
         UUID tenantId = seedTenant(slug);
         String email = "admin-" + shortId() + "@example.test";
         seedAdmin(tenantId, email);
         MockHttpSession session = tenantSession(slug, email);
 
+        // Not 403: the tenant session lives under a different session key, so this chain sees an
+        // anonymous request and sends it to its own login page. A 403 here would mean the chain
+        // *did* read the tenant realm's principal and merely disliked its authorities.
         mockMvc
                 .perform(get(URI.create("http://localhost/superadmin/tenants")).session(session))
-                .andExpect(status().isForbidden());
+                .andExpect(redirectedUrl("/superadmin/login"));
     }
 
     @Test
-    void tenantAdminPage_withASuperAdminSession_isForbidden() throws Exception {
+    void tenantAdminPage_withASuperAdminSession_isNotAuthenticated() throws Exception {
         String slug = "acme" + shortId();
         seedTenant(slug);
         MockHttpSession session = superAdminSession();
 
         mockMvc
                 .perform(get(URI.create("http://" + slug + ".localhost/admin/users")).session(session))
-                .andExpect(status().isForbidden());
+                .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void tenantPageGatedOnlyByIsAuthenticated_withASuperAdminSession_isNotServed() throws Exception {
+        // The case a role-based assertion cannot catch. /files is @PreAuthorize("isAuthenticated()")
+        // with no dependency on the principal type, so if the tenant chain could read the Super
+        // Admin realm's SecurityContext out of the shared HttpSession, ROLE_SUPER_ADMIN would
+        // satisfy both anyRequest().authenticated() and the method gate — handing an operator
+        // unaudited cross-tenant reads outside the impersonation flow entirely.
+        String slug = "acme" + shortId();
+        seedTenant(slug);
+        MockHttpSession session = superAdminSession();
+
+        mockMvc
+                .perform(get(URI.create("http://" + slug + ".localhost/files")).session(session))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void superAdminLogin_writesItsContextUnderItsOwnSessionKey() throws Exception {
+        // The mechanism the two tests above rely on, asserted directly: the realms are separated
+        // by *where* the context is stored, so a regression would be a one-line config change.
+        MockHttpSession session = superAdminSession();
+
+        assertThat(session.getAttribute(SUPER_ADMIN_SECURITY_CONTEXT_KEY)).isNotNull();
+        assertThat(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY))
+                .isNull();
     }
 
     @Test
@@ -187,8 +220,7 @@ class SuperAdminSecurityConfigTest {
 
         // The correct password was supplied, so "no security context in the session" is only true
         // if the request was turned away before the login filter ever ran.
-        assertThat(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY))
-                .isNull();
+        assertThat(session.getAttribute(SUPER_ADMIN_SECURITY_CONTEXT_KEY)).isNull();
     }
 
     @Test
@@ -208,6 +240,35 @@ class SuperAdminSecurityConfigTest {
                 .perform(get(URI.create("http://" + slug + ".localhost/")).header("X-Forwarded-For", OUTSIDE_IP))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void superAdminLogin_withAPercentEncodedPath_isStillGatedByTheIpAllowlist() throws Exception {
+        // The allowlist and the rate limiter compare request.getRequestURI() — which the servlet
+        // spec leaves percent-encoded — against a literal "/superadmin" prefix, while Spring
+        // Security matches "/superadmin/**" against the *decoded* path. If those two disagree,
+        // "/%73uperadmin/login" is a request the login filter processes and neither defense sees.
+        //
+        // Deliberately sent to a tenant subdomain, not the bare base domain: on the bare domain
+        // TenantResolutionFilter (which excludes "/superadmin" by the same raw-URI prefix, so it
+        // does not exclude this) rejects the request with its own 404 and hides the question. A
+        // real tenant host resolves, and the request reaches the security chain exactly as it
+        // would in production.
+        String slug = "acme" + shortId();
+        seedTenant(slug);
+        MockHttpSession session = new MockHttpSession();
+
+        mockMvc
+                .perform(
+                        post(URI.create("http://" + slug + ".localhost/%73uperadmin/login"))
+                                .param("email", superAdminEmail)
+                                .param("password", PASSWORD)
+                                .with(csrf())
+                                .header("X-Forwarded-For", OUTSIDE_IP)
+                                .session(session))
+                .andExpect(status().isForbidden());
+
+        assertThat(session.getAttribute(SUPER_ADMIN_SECURITY_CONTEXT_KEY)).isNull();
     }
 
     @Test
