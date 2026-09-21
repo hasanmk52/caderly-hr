@@ -133,6 +133,12 @@ caderly:
     # behaviour, not a missing default: this allowlist is the console's second factor, and a
     # "0.0.0.0/0" fallback would quietly remove it. Every real deployment must set the variable
     # (e.g. "203.0.113.4/32,10.0.0.0/8").
+    #
+    # Deployment requirement, not a suggestion: the address judged here is ClientIpResolver's
+    # first X-Forwarded-For hop, so Caddy (PRD §27) must *set* that header rather than append to
+    # it, and the app's own port must not be reachable from outside the proxy. Append-or-trust
+    # leaves the header attacker-controlled, and a forged "X-Forwarded-For: <allowlisted>"
+    # reduces the console to password-only — the same posture this setting exists to prevent.
     ip-allowlist: ${CADERLY_SUPERADMIN_IP_ALLOWLIST:}
 
 logging:
