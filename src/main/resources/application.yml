@@ -118,6 +118,15 @@ caderly:
     # PRD §6.7 FR-7.3. Below the servlet's spring.servlet.multipart.max-file-size so an oversize
     # upload fails inside UploadValidator with a friendly inline message, not a raw 413 (ADR 0012).
     max-file-size: 25MB
+  superadmin:
+    # Blank defaults are deliberate here, unlike caderly.email.from or caderly.people.encryption-key
+    # above: there is no safe default Super Admin password to fall back to, but every environment
+    # that isn't bootstrapping one right now (CI, tests, a pilot tenant that already provisioned
+    # its Super Admin by hand) must still be able to start with nothing set. SuperAdminBootstrap
+    # treats blank-or-unset as "don't bootstrap" rather than failing closed (CLAUDE.md §6 A05's
+    # usual rule is inverted here on purpose — see that class's Javadoc).
+    bootstrap-email: ${CADERLY_SUPERADMIN_EMAIL:}
+    bootstrap-password: ${CADERLY_SUPERADMIN_PASSWORD:}
 
 logging:
   level:
