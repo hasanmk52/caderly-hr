@@ -1,5 +1,6 @@
 package com.caderly.caderlyhr.superadmin;
 
+import com.caderly.caderlyhr.audit.LoginAuditService;
 import com.caderly.caderlyhr.security.SecurityHeaders;
 import com.caderly.caderlyhr.security.SecurityPaths;
 import java.util.Arrays;
@@ -49,7 +50,8 @@ class SuperAdminSecurityConfig {
     SecurityFilterChain superAdminSecurityFilterChain(
             HttpSecurity http,
             SuperAdminDetailsService superAdmins,
-            PasswordEncoder passwordEncoder)
+            PasswordEncoder passwordEncoder,
+            SuperAdminLoginAuditHandler loginAudit)
             throws Exception {
         http.securityMatcher("/superadmin/**")
                 .authenticationManager(superAdminAuthenticationManager(superAdmins, passwordEncoder))
@@ -70,10 +72,12 @@ class SuperAdminSecurityConfig {
                                 form.loginPage(SecurityPaths.SUPER_ADMIN_LOGIN_PATH)
                                         .loginProcessingUrl(SecurityPaths.SUPER_ADMIN_LOGIN_PATH)
                                         .usernameParameter("email")
-                                        .defaultSuccessUrl("/superadmin/tenants", true)
-                                        // One generic failure destination, for the same reason as the tenant
-                                        // login (CLAUDE.md §6 A07).
-                                        .failureUrl(SecurityPaths.SUPER_ADMIN_LOGIN_PATH + "?error")
+                                        // Both halves of defaultSuccessUrl(url, true)/failureUrl(url), wrapped
+                                        // so every attempt reaches login_audit (CLAUDE.md §6 A09). This realm
+                                        // publishes no authentication events on purpose, so the global
+                                        // LoginAttemptListener never sees these — see the handler's Javadoc.
+                                        .successHandler(loginAudit)
+                                        .failureHandler(loginAudit)
                                         .permitAll())
                 .logout(
                         logout ->
@@ -111,6 +115,16 @@ class SuperAdminSecurityConfig {
         provider.setPasswordEncoder(passwordEncoder);
         provider.afterPropertiesSet();
         return new ProviderManager(provider);
+    }
+
+    @Bean
+    SuperAdminLoginAuditHandler superAdminLoginAuditHandler(
+            LoginAuditService loginAudit, SuperAdminRepository superAdmins) {
+        return new SuperAdminLoginAuditHandler(
+                loginAudit,
+                superAdmins,
+                "/superadmin/tenants",
+                SecurityPaths.SUPER_ADMIN_LOGIN_PATH + "?error");
     }
 
     /**

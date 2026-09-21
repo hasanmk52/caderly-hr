@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.caderly.caderlyhr.TestcontainersConfiguration;
+import com.caderly.caderlyhr.audit.LoginAuditRepository;
+import com.caderly.caderlyhr.audit.system.LoginAudit;
+import com.caderly.caderlyhr.audit.system.LoginAudit.FailureReason;
 import com.caderly.caderlyhr.identity.AppUser;
 import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
@@ -62,6 +65,7 @@ class SuperAdminSecurityConfigTest {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private TransactionTemplate transactions;
     @Autowired private RateLimitFilter rateLimitFilter;
+    @Autowired private LoginAuditRepository loginAudits;
 
     private String superAdminEmail;
 
@@ -243,6 +247,51 @@ class SuperAdminSecurityConfigTest {
     }
 
     @Test
+    void superAdminLogin_whenSuccessful_writesATenantlessLoginAuditRow() throws Exception {
+        // CLAUDE.md §6 A09 has no realm carve-out: the highest-privilege account in the system is
+        // the last one whose logins may go unrecorded.
+        mockMvc
+                .perform(superAdminLoginRequest(superAdminEmail, PASSWORD))
+                .andExpect(redirectedUrl("/superadmin/tenants"));
+
+        LoginAudit row = onlyAuditRowFor(superAdminEmail);
+        assertThat(row.success()).isTrue();
+        assertThat(row.tenantId()).isNull();
+        assertThat(row.failureReason()).isNull();
+        assertThat(row.userId()).isEqualTo(superAdminId());
+        assertThat(row.ip()).isEqualTo("127.0.0.1");
+    }
+
+    @Test
+    void superAdminLogin_withAWrongPassword_writesAFailedLoginAuditRow() throws Exception {
+        mockMvc
+                .perform(superAdminLoginRequest(superAdminEmail, "WrongPassword123"))
+                .andExpect(redirectedUrl("/superadmin/login?error"));
+
+        LoginAudit row = onlyAuditRowFor(superAdminEmail);
+        assertThat(row.success()).isFalse();
+        assertThat(row.tenantId()).isNull();
+        // The operator exists, so this is a wrong password rather than an unknown address —
+        // distinguished for the audit trail only; the response is identical either way.
+        assertThat(row.failureReason()).isEqualTo(FailureReason.BAD_CREDENTIALS.name());
+        assertThat(row.userId()).isEqualTo(superAdminId());
+    }
+
+    @Test
+    void superAdminLogin_withAnUnknownEmail_writesAnUnknownEmailAuditRow() throws Exception {
+        String unknown = "nobody-" + shortId() + "@caderly.test";
+
+        mockMvc
+                .perform(superAdminLoginRequest(unknown, PASSWORD))
+                .andExpect(redirectedUrl("/superadmin/login?error"));
+
+        LoginAudit row = onlyAuditRowFor(unknown);
+        assertThat(row.success()).isFalse();
+        assertThat(row.failureReason()).isEqualTo(FailureReason.UNKNOWN_EMAIL.name());
+        assertThat(row.userId()).isNull();
+    }
+
+    @Test
     void superAdminLogin_withAPercentEncodedPath_isStillGatedByTheIpAllowlist() throws Exception {
         // The allowlist and the rate limiter compare request.getRequestURI() — which the servlet
         // spec leaves percent-encoded — against a literal "/superadmin" prefix, while Spring
@@ -312,6 +361,30 @@ class SuperAdminSecurityConfigTest {
                         .andReturn()
                         .getRequest()
                         .getSession();
+    }
+
+    /**
+     * Each test seeds a uniquely-suffixed address, so filtering by it isolates this attempt's rows
+     * from every other test's without truncating a shared table.
+     */
+    private LoginAudit onlyAuditRowFor(String email) {
+        List<LoginAudit> rows =
+                asSystem(
+                        () ->
+                                transactions.execute(
+                                        status ->
+                                                loginAudits.findAll().stream()
+                                                        .filter(row -> email.equals(row.emailAttempted()))
+                                                        .toList()));
+        assertThat(rows).hasSize(1);
+        return rows.getFirst();
+    }
+
+    private UUID superAdminId() {
+        return asSystem(
+                () ->
+                        transactions.execute(
+                                status -> superAdmins.findByEmail(superAdminEmail).orElseThrow().requireId()));
     }
 
     private UUID seedTenant(String slug) {
