@@ -97,12 +97,38 @@ public class Tenant {
         this.notifyWorkAnniversary = false;
     }
 
+    /**
+     * A second business constructor for Super Admin tenant provisioning (Phase 1.13), which
+     * collects timezone/weekend-days/logo up front rather than leaving them at the 2-arg
+     * constructor's defaults for a later Admin edit. Mirrors that constructor's field defaults for
+     * everything not taken as a parameter here, so a tenant built either way agrees with a fresh
+     * insert (see the 2-arg constructor's own comment re: V202609151000).
+     */
+    public Tenant(String slug, String name, String timezone, int weekendDays, @Nullable String logoUrl) {
+        this.slug = slug;
+        this.name = name;
+        this.timezone = timezone;
+        this.weekendDays = weekendDays;
+        this.logoUrl = logoUrl;
+        this.locale = "en";
+        this.suspended = false;
+        this.notifyHolidayReminder = true;
+        this.notifyDocumentExpiry = true;
+        this.notifyBirthday = false;
+        this.notifyWorkAnniversary = false;
+    }
+
     public void suspend() {
         this.suspended = true;
     }
 
     public void reinstate() {
         this.suspended = false;
+    }
+
+    /** Super Admin soft-delete (Phase 1.13) — no restore method: out of scope per the design plan. */
+    public void softDelete(Instant when) {
+        this.deletedAt = when;
     }
 
     public void updateNotificationSettings(
