@@ -37,6 +37,9 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
     /** Drives the Department delete-guard's employee count (via {@link PeopleFacade}). */
     long countByDepartmentIdAndStatusNot(UUID departmentId, EmployeeStatus status);
 
+    /** Drives {@link PeopleFacade#countActiveEmployees()} — the Super Admin console's tenant row. */
+    long countByStatusNot(EmployeeStatus status);
+
     /**
      * Whether {@code managerId} has any other non-terminated report besides {@code
      * excludedEmployeeId} — the "does the old manager still manage anyone" check {@link

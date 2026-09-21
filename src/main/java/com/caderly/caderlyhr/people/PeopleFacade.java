@@ -24,6 +24,13 @@ public interface PeopleFacade {
     long countActiveEmployeesInDepartment(UUID departmentId);
 
     /**
+     * Every employee in the current tenant whose status isn't TERMINATED — the Super Admin
+     * console's per-tenant employee count (Phase 1.13). Same convention as {@link
+     * #countActiveEmployeesInDepartment}, minus the department filter.
+     */
+    long countActiveEmployees();
+
+    /**
      * Employees whose status isn't TERMINATED, for {@code timeoff.BalanceService}'s annual grant
      * job and leave-type-activation backfill (PRD §12.2). {@code hireDate} is nullable exactly as
      * it is on {@link Employee} itself — callers must decide what to do with an employee who has

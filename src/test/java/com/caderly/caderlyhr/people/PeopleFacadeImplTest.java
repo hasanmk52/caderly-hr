@@ -57,6 +57,23 @@ class PeopleFacadeImplTest extends TenantIsolationTestBase {
     }
 
     @Test
+    void countActiveEmployees_excludesTerminated() {
+        asTenant(tenantA, () -> saveEmployee("Active", "One", null));
+        asTenant(tenantA, () -> saveEmployee("Active", "Two", null));
+        asTenant(
+                tenantA,
+                () -> {
+                    Employee e = saveEmployee("Gone", "Fromhere", null);
+                    e.changeStatus(EmployeeStatus.TERMINATED);
+                    return employees.save(e);
+                });
+
+        long count = asTenant(tenantA, () -> peopleFacade.countActiveEmployees());
+
+        assertThat(count).isEqualTo(2L);
+    }
+
+    @Test
     void listEmployeesForCalendar_withNoFilter_excludesTerminatedOnly() {
         Employee active = asTenant(tenantA, () -> saveEmployee("Active", "One", null));
         Employee terminated =
