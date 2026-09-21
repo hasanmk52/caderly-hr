@@ -39,3 +39,6 @@ build/
 
 .claude/
 uploads
+
+# Subagent-driven-development scratch workspace (ledgers, task briefs, review packages)
+.superpowers/
