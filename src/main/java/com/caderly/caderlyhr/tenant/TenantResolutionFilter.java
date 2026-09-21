@@ -17,6 +17,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * {@link TenantContext}, and clears it in a finally block so no tenant ever leaks between pooled
  * request threads. Unknown tenant → 404, suspended → 503.
  *
+ * <p>{@code /superadmin/**} is excluded outright: the Super Admin console is a cross-tenant realm
+ * reached on the bare base domain, so there is no subdomain to resolve and a 404 is exactly what
+ * this filter would otherwise return for every one of its URLs. Code in that realm runs with an
+ * empty {@link TenantContext} as a result, which is why every database call reachable from {@code
+ * superadmin} has to go through {@link TenantContext#runAsSystem}.
+ *
  * <p>Also the request-id/tenant-id half of CLAUDE.md §6 A09's MDC correlation (ADR 0017) — it is
  * already the first filter in the chain, so a request id generated here covers everything
  * downstream, including the 404/503 denials below that never reach a resolved tenant at all.
@@ -41,9 +47,11 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         // Infrastructure endpoints and static assets are tenant-independent; /error must
-        // stay reachable for the 404/503 error dispatch itself.
+        // stay reachable for the 404/503 error dispatch itself; /superadmin is a realm of its
+        // own with no tenant to resolve (see this class's Javadoc).
         String path = request.getRequestURI();
         return path.startsWith("/actuator")
+                || path.startsWith("/superadmin")
                 || path.startsWith("/bootui")
                 || path.startsWith("/webjars/")
                 || path.startsWith("/css/")

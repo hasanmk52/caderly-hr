@@ -127,6 +127,13 @@ caderly:
     # usual rule is inverted here on purpose — see that class's Javadoc).
     bootstrap-email: ${CADERLY_SUPERADMIN_EMAIL:}
     bootstrap-password: ${CADERLY_SUPERADMIN_PASSWORD:}
+    # Comma-separated CIDRs allowed to reach /superadmin/** at all (SuperAdminIpAllowlistFilter).
+    # Blank here means nobody — the filter fails closed, so an unset CADERLY_SUPERADMIN_IP_ALLOWLIST
+    # makes the console permanently 403 rather than publicly reachable. That is the intended
+    # behaviour, not a missing default: this allowlist is the console's second factor, and a
+    # "0.0.0.0/0" fallback would quietly remove it. Every real deployment must set the variable
+    # (e.g. "203.0.113.4/32,10.0.0.0/8").
+    ip-allowlist: ${CADERLY_SUPERADMIN_IP_ALLOWLIST:}
 
 logging:
   level:
