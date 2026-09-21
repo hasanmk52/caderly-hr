@@ -1,5 +1,6 @@
 package com.caderly.caderlyhr.tenant;
 
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +51,46 @@ public interface TenantFacade {
     /** Admin save from {@code /admin/notifications}. */
     void updateNotificationSettings(NotificationSettings settings);
 
+    /**
+     * Provisions a new tenant (PRD FR-1.8, Phase 1.13's Super Admin console). Runs entirely under
+     * {@code TenantContext.runAsSystem} — there is no tenant to be "in" yet — and evicts the
+     * {@link #bySlug} cache before returning, so a Super Admin who immediately visits the new
+     * tenant's subdomain resolves it right away rather than waiting out the cache TTL.
+     *
+     * @throws com.caderly.caderlyhr.common.ConflictException if the slug is already taken — by any
+     *     tenant, including a soft-deleted one, since {@code tenant.slug}'s {@code UNIQUE}
+     *     constraint has no partial-index exception.
+     */
+    UUID createTenant(String slug, String name, String timezone, int weekendDays, @Nullable String logoUrl);
+
+    /**
+     * @throws com.caderly.caderlyhr.common.NotFoundException if {@code tenantId} doesn't exist.
+     */
+    void suspend(UUID tenantId);
+
+    /**
+     * @throws com.caderly.caderlyhr.common.NotFoundException if {@code tenantId} doesn't exist.
+     */
+    void reinstate(UUID tenantId);
+
+    /**
+     * Marks a tenant deleted (PRD FR-1.8). No restore method: out of scope per the design plan's
+     * soft-delete-only DoD for this phase.
+     *
+     * @throws com.caderly.caderlyhr.common.NotFoundException if {@code tenantId} doesn't exist.
+     */
+    void softDelete(UUID tenantId);
+
+    /**
+     * Every tenant, active, suspended, or soft-deleted alike — the one place in the app that must
+     * see everything (Super Admin console's tenant list).
+     */
+    List<TenantAdminView> listAllForAdmin();
+
     record TenantBranding(String name, @Nullable String logoUrl) {}
+
+    record TenantAdminView(
+            UUID id, String slug, String name, boolean suspended, @Nullable Instant deletedAt, Instant createdAt) {}
 
     record NotificationSettings(
             boolean holidayReminder, boolean documentExpiry, boolean birthday, boolean workAnniversary) {}
