@@ -15,12 +15,14 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -58,16 +60,19 @@ class ImpersonationController {
     private final ImpersonationService impersonation;
     private final EntityAuditListener auditListener;
     private final SecurityContextRepository securityContextRepository;
+    private final SessionRegistry sessionRegistry;
     private final ObjectMapper mapper;
 
     ImpersonationController(
             ImpersonationService impersonation,
             EntityAuditListener auditListener,
             SecurityContextRepository securityContextRepository,
+            SessionRegistry sessionRegistry,
             ObjectMapper mapper) {
         this.impersonation = impersonation;
         this.auditListener = auditListener;
         this.securityContextRepository = securityContextRepository;
+        this.sessionRegistry = sessionRegistry;
         this.mapper = mapper;
     }
 
@@ -81,9 +86,16 @@ class ImpersonationController {
     @GetMapping(SecurityPaths.IMPERSONATE_PATH)
     @PreAuthorize("permitAll()")
     String redeem(
-            @RequestParam("token") String token,
+            @RequestParam(name = "token", required = false) @Nullable String token,
             HttpServletRequest request,
             HttpServletResponse response) {
+
+        // Optional rather than required so that a bare GET with no token lands on the same
+        // redirect as every other rejection. A required parameter would answer a 400 instead,
+        // which is the one response that distinguishes "this endpoint exists" from "it does not".
+        if (token == null) {
+            return FAILURE_REDIRECT;
+        }
 
         Optional<ImpersonationTicket> redeemed = impersonation.redeem(token);
         if (redeemed.isEmpty()) {
@@ -115,6 +127,21 @@ class ImpersonationController {
             return FAILURE_REDIRECT;
         }
 
+        // Audit before the session exists, not after. The invariant worth holding is "an
+        // impersonated session implies a start row": a failed insert must abort the redemption
+        // rather than leave an authenticated operator behind with nothing in the trail. Writing an
+        // extra row for a redemption that then fails is the harmless direction of that trade.
+        // (The end() path below already orders itself this way for the same reason.)
+        String correlationId = UUID.randomUUID().toString();
+        auditListener.recordManualEvent(
+                ticket.tenantId(),
+                ticket.superAdminId(),
+                "SUPER_ADMIN",
+                AUDIT_ENTITY_TYPE,
+                correlationId,
+                Action.CREATE,
+                sessionJson(ticket.superAdminEmail(), principal.getUsername(), tenant.slug()));
+
         // Session fixation, the same defence formLogin applies with sessionFixation().newSession():
         // this endpoint is reachable without authentication, so a session id planted beforehand
         // must not survive into the authenticated session.
@@ -133,19 +160,19 @@ class ImpersonationController {
         // repository here instead would work only for as long as the two constructions agreed.
         securityContextRepository.saveContext(context, request, response);
 
-        String correlationId = UUID.randomUUID().toString();
+        HttpSession session = request.getSession(true);
+        // A normal form login registers its new session through the chain's
+        // SessionAuthenticationStrategy; saving the context directly skips that machinery entirely,
+        // so the registration has to happen here. Without it the session is invisible to
+        // security.SessionRevoker, and a password change or termination on the very account being
+        // impersonated would leave this session alive (CLAUDE.md §6 A07). ImpersonatedAdminPrincipal
+        // extends AppUserPrincipal, so the revoker's existing scan matches it with no change there.
+        sessionRegistry.registerNewSession(session.getId(), principal);
+
         new ImpersonationSession(
                         ticket.superAdminId(), ticket.superAdminEmail(), principal.getUsername(), correlationId)
-                .storeIn(request.getSession(true));
+                .storeIn(session);
 
-        auditListener.recordManualEvent(
-                ticket.tenantId(),
-                ticket.superAdminId(),
-                "SUPER_ADMIN",
-                AUDIT_ENTITY_TYPE,
-                correlationId,
-                Action.CREATE,
-                sessionJson(ticket.superAdminEmail(), principal.getUsername(), tenant.slug()));
         log.info(
                 "Super Admin {} started an impersonation session as {} in tenant {}",
                 ticket.superAdminId(),

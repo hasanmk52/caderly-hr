@@ -14,6 +14,7 @@ import com.caderly.caderlyhr.audit.system.AuditEntry.Action;
 import com.caderly.caderlyhr.identity.AppUser;
 import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.ImpersonationService;
+import com.caderly.caderlyhr.identity.PasswordChangedEvent;
 import com.caderly.caderlyhr.identity.Role;
 import com.caderly.caderlyhr.superadmin.SuperAdmin;
 import com.caderly.caderlyhr.superadmin.SuperAdminRepository;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -71,6 +73,7 @@ class ImpersonationControllerTest {
     @Autowired private ImpersonationService impersonation;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private TransactionTemplate transactions;
+    @Autowired private ApplicationEventPublisher events;
     @Autowired private MutableClock clock;
 
     private String slug;
@@ -157,6 +160,19 @@ class ImpersonationControllerTest {
     }
 
     @Test
+    void redeem_withNoTokenParameterAtAll_isRefusedWithTheSameRedirect() throws Exception {
+        // A required @RequestParam would answer 400 here, and a 400 is the one response that tells
+        // a prober the endpoint exists. Every rejection has to look like every other rejection.
+        MvcResult result =
+                mockMvc
+                        .perform(get(URI.create("http://" + slug + ".localhost/impersonate")))
+                        .andExpect(redirectedUrl(FAILURE_URL))
+                        .andReturn();
+
+        assertThat(authenticatedSessionOf(result)).isNull();
+    }
+
+    @Test
     void redeem_withAnUnknownToken_isRefused() throws Exception {
         MvcResult result =
                 mockMvc
@@ -208,6 +224,41 @@ class ImpersonationControllerTest {
         assertThat(end.entityId()).isEqualTo(start.entityId());
         assertThat(end.actorUserId()).isEqualTo(superAdminId);
         assertThat(end.actorRole()).isEqualTo("SUPER_ADMIN");
+    }
+
+    @Test
+    void passwordChangeOnTheImpersonatedAccount_terminatesTheImpersonatedSession() throws Exception {
+        // PRD §19.1 / CLAUDE.md §6 A07: changing a password kills that user's live sessions. An
+        // impersonated session authenticates *as* that user without going through the chain's
+        // SessionAuthenticationStrategy, so unless the redeem endpoint registers it itself it is
+        // invisible to SessionRevoker's registry scan and would survive the change made to shut it
+        // out. This is the end-to-end proof that it does not.
+        MockHttpSession session = redeemSuccessfully();
+        mockMvc
+                .perform(get(URI.create("http://" + slug + ".localhost/admin/users")).session(session))
+                .andExpect(status().isOk());
+
+        // The production trigger, not a direct SessionRevoker call: PasswordResetService publishes
+        // this event and security.PasswordChangeSessionRevoker acts on it after commit.
+        asSystem(
+                () ->
+                        transactions.execute(
+                                status -> {
+                                    events.publishEvent(new PasswordChangedEvent(adminUserId));
+                                    return null;
+                                }));
+
+        // ConcurrentSessionFilter is what enforces an expired registration: it logs the session out
+        // and short-circuits the chain rather than serving the page.
+        String body =
+                mockMvc
+                        .perform(get(URI.create("http://" + slug + ".localhost/admin/users")).session(session))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        assertThat(body).contains("This session has been expired");
+        assertThat(session.isInvalid()).isTrue();
     }
 
     @Test
