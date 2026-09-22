@@ -96,11 +96,36 @@ public class EntityAuditListener {
         write(entity, snapshotter.snapshot(entity), null, Action.DELETE);
     }
 
+    /**
+     * Records a fact that no entity lifecycle produced — currently only the start and end of a
+     * Super Admin impersonation session (PRD FR-1.8).
+     *
+     * <p>Public, and the only public write on this class, because {@code audit.system.AuditEntry}
+     * has no persist-capable constructor by design (see its Javadoc): the raw insert below is the
+     * single way a row is ever written, and an event with no entity behind it still has to go
+     * through it rather than grow a second path. The actor is passed in rather than read from the
+     * {@code SecurityContext} for the same reason the impersonation events exist at all — the
+     * actor is the <em>Super Admin</em>, who is not the authenticated principal on the tenant
+     * subdomain where these are recorded.
+     *
+     * <p>Runs on whatever transaction the caller already has, or on its own connection if none —
+     * {@code audit_entry} carries no RLS (ADR 0005 decision B), so it needs no {@code
+     * app.tenant_id} to have been set.
+     */
+    public void recordManualEvent(
+            @Nullable UUID tenantId,
+            UUID actorUserId,
+            String actorRole,
+            String entityType,
+            @Nullable String entityId,
+            Action action,
+            @Nullable String afterJson) {
+        insert(tenantId, actorUserId, actorRole, entityType, entityId, action, null, afterJson);
+    }
+
     private void write(
             TenantAwareEntity entity, @Nullable String before, @Nullable String after, Action action) {
-        UUID tenantId = TenantContext.get().orElse(null);
         UUID entityId = entity.getId();
-        Timestamp now = Timestamp.from(clock.instant());
 
         UUID actorUserId = null;
         String actorRole = "SYSTEM";
@@ -109,6 +134,33 @@ public class EntityAuditListener {
             actorUserId = actor.actorId();
             actorRole = highestRole(actor.roleNames());
         }
+
+        insert(
+                TenantContext.get().orElse(null),
+                actorUserId,
+                actorRole,
+                entity.getClass().getSimpleName(),
+                entityId == null ? null : entityId.toString(),
+                action,
+                before,
+                after);
+    }
+
+    /**
+     * The one place an {@code audit_entry} row is created. Both the JPA-callback path and {@link
+     * #recordManualEvent} funnel through here so the statement text, the primary-key strategy, and
+     * the request-context columns cannot drift apart between them.
+     */
+    private void insert(
+            @Nullable UUID tenantId,
+            @Nullable UUID actorUserId,
+            String actorRole,
+            String entityType,
+            @Nullable String entityId,
+            Action action,
+            @Nullable String before,
+            @Nullable String after) {
+        Timestamp now = Timestamp.from(clock.instant());
 
         String ip = null;
         String userAgent = null;
@@ -140,8 +192,8 @@ public class EntityAuditListener {
                 actorUserId,
                 actorRole,
                 now,
-                entity.getClass().getSimpleName(),
-                entityId == null ? null : entityId.toString(),
+                entityType,
+                entityId,
                 action.name(),
                 before,
                 after,
@@ -154,6 +206,12 @@ public class EntityAuditListener {
 
     /** Highest-privilege role wins when a user holds more than one (PRD §26's hierarchy). */
     private static String highestRole(java.util.Set<String> roleNames) {
+        // Checked first, and not part of the hierarchy: an impersonated principal reports this
+        // marker *instead of* the Admin's real roles, so every write made during a Super Admin
+        // support session is distinguishable from one the Admin made themselves (PRD FR-1.8).
+        if (roleNames.contains(AuditActor.IMPERSONATION_ROLE)) {
+            return AuditActor.IMPERSONATION_ROLE;
+        }
         if (roleNames.contains("ADMIN")) {
             return "ADMIN";
         }
