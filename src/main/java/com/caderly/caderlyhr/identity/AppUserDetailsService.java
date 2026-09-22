@@ -48,16 +48,7 @@ public class AppUserDetailsService implements UserDetailsService {
                 user.email(),
                 passwordHash,
                 user.roles(),
-                isEnabled(user),
+                AppUserPrincipal.isEnabled(user),
                 !user.isLocked(clock.instant()));
-    }
-
-    /**
-     * INVITED and DISABLED accounts cannot authenticate. LOCKED is deliberately not handled here —
-     * it is expressed through {@code accountNonLocked} from the {@code locked_until} timestamp, so
-     * a lapsed lock lets the user straight back in with no job to clear it.
-     */
-    private static boolean isEnabled(AppUser user) {
-        return user.status() != UserStatus.INVITED && user.status() != UserStatus.DISABLED;
     }
 }

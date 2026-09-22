@@ -18,8 +18,14 @@ import org.springframework.security.core.userdetails.UserDetails;
  *
  * <p>Implements {@link AuditActor} so {@code audit.EntityAuditListener} can attribute a write without
  * {@code audit} depending on {@code identity} (ADR 0017) — see that interface's Javadoc.
+ *
+ * <p>Not {@code final}, for exactly one subclass: {@link ImpersonatedAdminPrincipal}, which
+ * overrides {@link #roleNames()} alone. It has to <em>be</em> an {@code AppUserPrincipal} rather
+ * than wrap one, because every {@code @AuthenticationPrincipal AppUserPrincipal} controller
+ * parameter in the application resolves by assignability — see that class's Javadoc. The
+ * constructor stays package-private, so the set of subclasses cannot grow outside this package.
  */
-public final class AppUserPrincipal implements UserDetails, AuditActor {
+public class AppUserPrincipal implements UserDetails, AuditActor {
 
     private final UUID userId;
     private final String email;
@@ -41,6 +47,22 @@ public final class AppUserPrincipal implements UserDetails, AuditActor {
         this.roles = Set.copyOf(roles);
         this.enabled = enabled;
         this.accountNonLocked = accountNonLocked;
+    }
+
+    /**
+     * Whether {@code user} may hold a session at all.
+     *
+     * <p>INVITED and DISABLED accounts cannot. LOCKED is deliberately not handled here — it is
+     * expressed through {@code accountNonLocked} from the {@code locked_until} timestamp, so a
+     * lapsed lock lets the user straight back in with no job to clear it.
+     *
+     * <p>Lives on the principal rather than in {@link AppUserDetailsService} because two callers
+     * build principals now: that service on login, and {@link ImpersonationService} on a support
+     * hand-off. A second copy of this predicate is exactly the kind of drift that ends with a
+     * disabled account still reachable down one of the two paths.
+     */
+    static boolean isEnabled(AppUser user) {
+        return user.status() != UserStatus.INVITED && user.status() != UserStatus.DISABLED;
     }
 
     public UUID userId() {
