@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:replace="~{superadmin-layout :: layout(#{superadmin.tenants.title}, ~{::#content})}">
+  <div id="content" class="flex-grow-1 p-4">
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+      <h1 th:text="#{superadmin.tenants.title}">Tenants</h1>
+      <!--/* Bootstrap's own offcanvas toggle — no htmx involved, unlike admin/organization.html's
+             Add button: the create form below is a plain full-page POST (see
+             SuperAdminTenantController#create's Javadoc for why), so there is no form-fragment
+             response for htmx to swap into this panel in the first place. */-->
+      <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="offcanvas" data-bs-target="#tenantOffcanvas">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i> <span th:text="#{superadmin.tenants.add}">Add Tenant</span>
+      </button>
+    </div>
+
+    <!--/* Deliberately vague on why there was no Admin, mirroring auth/login.html's
+           impersonationFailed alert on the tenant side. */-->
+    <div class="alert alert-danger py-2" role="alert" th:if="${param.impersonateFailed}">
+      <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>
+      <span th:text="#{superadmin.tenants.no-admin-to-impersonate}">That tenant has no active Admin to impersonate.</span>
+    </div>
+
+    <div th:if="${#lists.isEmpty(tenantRows)}" class="text-center text-muted py-5 mb-5">
+      <i class="bi bi-buildings fs-1 d-block mb-2" aria-hidden="true"></i>
+      <p class="mb-0" th:text="#{superadmin.tenants.empty}">No tenants yet. Add one to get started.</p>
+    </div>
+
+    <div th:unless="${#lists.isEmpty(tenantRows)}" class="table-responsive mb-5">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col" th:text="#{superadmin.tenants.table.slug}">Slug</th>
+            <th scope="col" th:text="#{common.field.name}">Name</th>
+            <th scope="col" th:text="#{common.field.status}">Status</th>
+            <th scope="col" th:text="#{superadmin.tenants.table.employees}">Employees</th>
+            <th scope="col" class="text-end" th:text="#{common.table.actions}">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="tenant : ${tenantRows}">
+            <td th:text="${tenant.slug()}">acme</td>
+            <td th:text="${tenant.name()}">Acme Inc</td>
+            <td>
+              <span class="badge"
+                    th:classappend="${tenant.status() == 'ACTIVE'} ? 'bg-success-subtle text-success-emphasis'
+                                     : (${tenant.status() == 'SUSPENDED'} ? 'bg-warning-subtle text-warning-emphasis'
+                                                                          : 'bg-secondary-subtle text-secondary-emphasis')"
+                    th:text="#{|superadmin.tenants.status.${#strings.toLowerCase(tenant.status())}|}">Active</span>
+            </td>
+            <td th:text="${tenant.employeeCount()}">12</td>
+            <td class="text-end text-nowrap">
+              <!--/* Impersonate: a plain form POST, not htmx — see the controller's Javadoc. Only
+                     offered for a tenant still usable; a suspended/deleted tenant has no login
+                     page worth landing an operator on. */-->
+              <form th:if="${tenant.status() == 'ACTIVE'}" method="post" class="d-inline"
+                    th:action="@{/superadmin/tenants/{id}/impersonate(id=${tenant.id()})}">
+                <button type="submit" class="btn btn-outline-secondary btn-sm" th:aria-label="#{superadmin.tenants.aria.impersonate}"
+                        th:title="#{superadmin.tenants.impersonate}">
+                  <i class="bi bi-eye" aria-hidden="true"></i>
+                </button>
+              </form>
+              <button type="button" class="btn btn-outline-secondary btn-sm"
+                      th:aria-label="${tenant.status() == 'SUSPENDED'} ? #{superadmin.tenants.aria.reinstate} : #{superadmin.tenants.aria.suspend}"
+                      th:title="${tenant.status() == 'SUSPENDED'} ? #{superadmin.tenants.reinstate} : #{superadmin.tenants.suspend}"
+                      th:if="${tenant.status() != 'DELETED'}"
+                      th:hx-patch="@{/superadmin/tenants/{id}/suspend(id=${tenant.id()})}">
+                <i class="bi" th:classappend="${tenant.status() == 'SUSPENDED'} ? 'bi-play-circle' : 'bi-pause-circle'" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm" th:aria-label="#{superadmin.tenants.aria.delete}"
+                      th:if="${tenant.status() != 'DELETED'}"
+                      data-bs-toggle="modal" th:attr="data-bs-target='#confirmDeleteTenant-' + ${tenant.id()}">
+                <i class="bi bi-trash" aria-hidden="true"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div th:each="tenant : ${tenantRows}" class="modal fade" tabindex="-1" aria-hidden="true"
+         th:id="'confirmDeleteTenant-' + ${tenant.id()}">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" th:text="#{superadmin.tenants.delete-confirm(${tenant.name()})}">Delete this tenant?</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
+          </div>
+          <div class="modal-body">
+            <p th:text="#{superadmin.tenants.delete-warning}">This cannot be undone. The tenant's data is kept but no one will be able to sign in.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" th:text="#{common.action.cancel}">Cancel</button>
+            <button type="button" class="btn btn-danger btn-sm" data-bs-dismiss="modal"
+                    th:hx-delete="@{/superadmin/tenants/{id}(id=${tenant.id()})}"
+                    th:text="#{superadmin.tenants.delete-submit}">
+              Delete tenant
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!--/* Slide-over panel (UI Guidelines §6). A plain full-page form, unlike
+           admin/organization.html's htmx-swapped one: SuperAdminTenantController#create either
+           redirects (success) or re-renders this whole page with the panel forced open via the
+           'show' class below (failure) — there is no fragment response to swap in either case. */-->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="tenantOffcanvas" style="width: 480px"
+         aria-labelledby="tenantOffcanvasLabel" th:classappend="${openCreatePanel} ? 'show'">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="tenantOffcanvasLabel" th:text="#{superadmin.tenants.form-heading}">Create tenant</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" th:aria-label="#{common.aria.close}"></button>
+      </div>
+      <div class="offcanvas-body">
+        <form th:object="${tenantForm}" th:action="@{/superadmin/tenants}" method="post">
+
+          <div class="mb-3">
+            <label class="form-label" for="tenant-slug">
+              <span th:text="#{superadmin.tenants.field.slug}">Slug</span> <span class="text-danger" aria-hidden="true">*</span>
+            </label>
+            <input class="form-control" type="text" id="tenant-slug" th:field="*{slug}" maxlength="50" required
+                   th:classappend="${#fields.hasErrors('slug')} ? 'is-invalid'" />
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('slug')}" th:errors="*{slug}">Invalid slug</div>
+            <div class="form-text" th:text="#{superadmin.tenants.field.slug-help}">Lowercase letters, numbers, and hyphens — this becomes the tenant's subdomain.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="tenant-name">
+              <span th:text="#{common.field.name}">Name</span> <span class="text-danger" aria-hidden="true">*</span>
+            </label>
+            <input class="form-control" type="text" id="tenant-name" th:field="*{name}" maxlength="200" required
+                   th:classappend="${#fields.hasErrors('name')} ? 'is-invalid'" />
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">Invalid name</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="tenant-timezone">
+              <span th:text="#{superadmin.tenants.field.timezone}">Timezone</span> <span class="text-danger" aria-hidden="true">*</span>
+            </label>
+            <input class="form-control" type="text" id="tenant-timezone" th:field="*{timezone}" maxlength="50" required
+                   th:classappend="${#fields.hasErrors('timezone')} ? 'is-invalid'" />
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('timezone')}" th:errors="*{timezone}">Invalid timezone</div>
+            <div class="form-text" th:text="#{superadmin.tenants.field.timezone-help}">An IANA zone id, e.g. Asia/Kolkata.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="tenant-weekend-days" th:text="#{superadmin.tenants.field.weekend-days}">Weekend days</label>
+            <input class="form-control" type="number" id="tenant-weekend-days" th:field="*{weekendDays}" min="0" max="127"
+                   th:classappend="${#fields.hasErrors('weekendDays')} ? 'is-invalid'" />
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('weekendDays')}" th:errors="*{weekendDays}">Invalid weekend days</div>
+            <div class="form-text" th:text="#{superadmin.tenants.field.weekend-days-help}">Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64. Default 96 = Saturday and Sunday.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="tenant-logo-url" th:text="#{superadmin.tenants.field.logo-url}">Logo URL</label>
+            <input class="form-control" type="text" id="tenant-logo-url" th:field="*{logoUrl}" maxlength="500"
+                   th:classappend="${#fields.hasErrors('logoUrl')} ? 'is-invalid'" />
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('logoUrl')}" th:errors="*{logoUrl}">Invalid logo URL</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="tenant-first-admin-email">
+              <span th:text="#{superadmin.tenants.field.first-admin-email}">First Admin's email</span> <span class="text-danger" aria-hidden="true">*</span>
+            </label>
+            <input class="form-control" type="email" id="tenant-first-admin-email" th:field="*{firstAdminEmail}" required
+                   th:classappend="${#fields.hasErrors('firstAdminEmail')} ? 'is-invalid'" />
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('firstAdminEmail')}" th:errors="*{firstAdminEmail}">Invalid email</div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mt-4">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="offcanvas" th:text="#{common.action.cancel}">Cancel</button>
+            <button class="btn btn-primary btn-sm" type="submit" th:text="#{superadmin.tenants.save}">Create tenant</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</th:block>
+</body>
+</html>
