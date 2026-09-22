@@ -4,6 +4,24 @@
 <body>
 <!--/* UI Guidelines §9: skip link must be the first focusable element and visible on focus. */-->
 <a class="visually-hidden-focusable skip-link" th:href="@{#main-content}" th:text="#{common.skip-to-main-content}">Skip to main content</a>
+<!--/* Super Admin support session (PRD FR-1.8). Above the topbar and full width so it cannot be
+       mistaken for page content: the whole point is that the operator never forgets whose account
+       they are driving. `impersonation` comes from ImpersonationModelAdvice and is null — so this
+       whole block is absent — on every ordinary login. */-->
+<div th:if="${impersonation != null}" role="status"
+     class="alert alert-warning border-0 border-bottom rounded-0 mb-0 py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+  <span>
+    <i class="bi bi-eye-fill me-2" aria-hidden="true"></i>
+    <strong th:text="#{impersonation.banner.viewing-as(${impersonation.impersonatedEmail})}">Viewing as someone@example.com</strong>
+    <span class="ms-2" th:text="#{impersonation.banner.operator(${impersonation.superAdminEmail})}">Super Admin session</span>
+  </span>
+  <!--/* A POST form, not a link: ending a session is state-changing, so it carries the CSRF
+         token Thymeleaf injects into th:action forms — same reasoning as Log out. */-->
+  <form th:action="@{/end-impersonation}" method="post" class="m-0">
+    <button class="btn btn-sm btn-outline-dark" type="submit"
+            th:text="#{impersonation.banner.end}">End impersonation</button>
+  </form>
+</div>
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 <div class="d-flex">
   <div th:replace="~{fragments/sidebar :: sidebar}"></div>

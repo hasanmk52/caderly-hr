@@ -39,6 +39,16 @@
                th:text="#{auth.login.info.logged-out}">
             You have been signed out.
           </div>
+          <div class="alert alert-info py-2" role="status" th:if="${param.impersonationEnded}"
+               th:text="#{auth.login.info.impersonation-ended}">
+            The support session has ended.
+          </div>
+          <!--/* Deliberately vague: expired, already spent, and minted for another tenant all land
+                 here, and which one it was is not the visitor's business (PRD FR-1.8). */-->
+          <div class="alert alert-danger py-2" role="alert" th:if="${param.impersonationFailed}">
+            <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>
+            <span th:text="#{auth.login.error.impersonation-failed}">That support link is no longer valid.</span>
+          </div>
 
           <form th:action="@{/login}" method="post">
             <div class="mb-3">

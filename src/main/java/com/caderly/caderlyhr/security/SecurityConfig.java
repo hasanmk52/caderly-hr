@@ -21,6 +21,10 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.DelegatingSecurityContextRepository;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 /**
@@ -80,6 +84,26 @@ class SecurityConfig {
     @Bean
     SessionRegistry sessionRegistry() {
         return new SessionRegistryImpl();
+    }
+
+    /**
+     * This realm's {@code SecurityContext} store, wired explicitly onto the chain below.
+     *
+     * <p>Composed exactly as {@code SecurityContextConfigurer} composes its own default (request
+     * attribute first, {@code HttpSession} second, under the stock {@code SPRING_SECURITY_CONTEXT}
+     * key), so naming it changes no behaviour. It is named for two reasons. First, symmetry: since
+     * sub-phase 1.13 {@code superadmin.SuperAdminSecurityConfig} states its repository explicitly
+     * because it must use a <em>different</em> session key, and a reader comparing the two realms
+     * should be able to see both answers rather than one answer and an omission. Second, {@code
+     * web.ImpersonationController} establishes a session without going through an authentication
+     * filter, and it has to save the context where <em>this</em> chain will look for it on the next
+     * request — injecting the very same bean is what makes that true by construction instead of by
+     * two independent constructions happening to agree.
+     */
+    @Bean
+    SecurityContextRepository tenantSecurityContextRepository() {
+        return new DelegatingSecurityContextRepository(
+                new RequestAttributeSecurityContextRepository(), new HttpSessionSecurityContextRepository());
     }
 
     /** Without this, SessionRegistryImpl never learns that a session was destroyed. */
@@ -160,13 +184,15 @@ class SecurityConfig {
             HttpSecurity http,
             SessionRegistry sessionRegistry,
             AppUserDetailsService appUsers,
-            PasswordEncoder passwordEncoder)
+            PasswordEncoder passwordEncoder,
+            SecurityContextRepository securityContextRepository)
             throws Exception {
         DaoAuthenticationProvider tenantAuthentication = new DaoAuthenticationProvider(appUsers);
         tenantAuthentication.setPasswordEncoder(passwordEncoder);
         tenantAuthentication.afterPropertiesSet();
 
         http.authenticationProvider(tenantAuthentication)
+                .securityContext(context -> context.securityContextRepository(securityContextRepository))
                 .authorizeHttpRequests(
                         authorize ->
                                 authorize
@@ -175,6 +201,12 @@ class SecurityConfig {
                                                 SecurityPaths.FORGOT_PASSWORD_PATH,
                                                 "/reset-password",
                                                 "/accept-invite",
+                                                // Ticket-authenticated, like the two above: the browser
+                                                // arriving here has no session yet — establishing one is
+                                                // the endpoint's whole job (PRD FR-1.8). The ticket is
+                                                // single-use and one minute old at most; see
+                                                // identity.ImpersonationService.
+                                                SecurityPaths.IMPERSONATE_PATH,
                                                 // Token-authenticated, not session-authenticated (CLAUDE.md §6
                                                 // A01's deliberate exception — see api.CalendarFeedController's
                                                 // Javadoc). The URL-level permitAll() here is what makes the

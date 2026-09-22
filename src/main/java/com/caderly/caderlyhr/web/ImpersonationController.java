@@ -1,0 +1,210 @@
+package com.caderly.caderlyhr.web;
+
+import com.caderly.caderlyhr.audit.EntityAuditListener;
+import com.caderly.caderlyhr.audit.system.AuditEntry.Action;
+import com.caderly.caderlyhr.common.NotFoundException;
+import com.caderly.caderlyhr.identity.ImpersonatedAdminPrincipal;
+import com.caderly.caderlyhr.identity.ImpersonationService;
+import com.caderly.caderlyhr.identity.ImpersonationTicket;
+import com.caderly.caderlyhr.security.SecurityPaths;
+import com.caderly.caderlyhr.tenant.TenantSummary;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * The two ends of a Super Admin support session (PRD FR-1.8): redeeming a ticket minted in the
+ * operator console, and giving the operator a way out of the session they started.
+ *
+ * <p><strong>Both endpoints live in the tenant-facing chain, on the tenant's own subdomain.</strong>
+ * That is the entire design. The Super Admin realm keeps its {@code SecurityContext} under its own
+ * session key precisely so an operator session can never satisfy a tenant page (sub-phase 1.13's
+ * fix, {@code superadmin.SuperAdminSecurityConfig}); impersonation is the one sanctioned way across
+ * that line, and it crosses it by <em>authenticating as the Admin</em> in the tenant realm rather
+ * than by teaching the tenant realm to accept operator principals. A reviewer should be able to
+ * confirm that nothing here widens what a Super Admin session alone can reach.
+ *
+ * <p>See {@code SecurityPaths#IMPERSONATE_PATH} for why the redeem URL is not spelled
+ * {@code /superadmin-impersonate}.
+ */
+@Controller
+class ImpersonationController {
+
+    private static final Logger log = LoggerFactory.getLogger(ImpersonationController.class);
+
+    /** One destination for every rejection, so a probe learns nothing about which check failed. */
+    private static final String FAILURE_REDIRECT =
+            "redirect:" + SecurityPaths.LOGIN_PATH + "?impersonationFailed";
+
+    /** {@code audit_entry.entity_type} for the start/end pair; there is no entity behind them. */
+    private static final String AUDIT_ENTITY_TYPE = "ImpersonationSession";
+
+    private final ImpersonationService impersonation;
+    private final EntityAuditListener auditListener;
+    private final SecurityContextRepository securityContextRepository;
+    private final ObjectMapper mapper;
+
+    ImpersonationController(
+            ImpersonationService impersonation,
+            EntityAuditListener auditListener,
+            SecurityContextRepository securityContextRepository,
+            ObjectMapper mapper) {
+        this.impersonation = impersonation;
+        this.auditListener = auditListener;
+        this.securityContextRepository = securityContextRepository;
+        this.mapper = mapper;
+    }
+
+    /**
+     * Spends a ticket and leaves behind a session authenticated as the target Admin.
+     *
+     * <p>{@code permitAll()} because the browser arriving here has no tenant session yet — the
+     * ticket is the credential, and {@code ImpersonationService} has already made it single-use and
+     * one minute old at most. Everything below fails closed to one redirect.
+     */
+    @GetMapping(SecurityPaths.IMPERSONATE_PATH)
+    @PreAuthorize("permitAll()")
+    String redeem(
+            @RequestParam("token") String token,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+
+        Optional<ImpersonationTicket> redeemed = impersonation.redeem(token);
+        if (redeemed.isEmpty()) {
+            return FAILURE_REDIRECT;
+        }
+        ImpersonationTicket ticket = redeemed.get();
+
+        // The ticket names the tenant it was minted for; the subdomain decides which tenant this
+        // request is in. They have to be the same tenant, or a ticket for one customer would
+        // authenticate its holder on another's subdomain — where @TenantId would then scope every
+        // page to *that* tenant's data. Checked here as well as relied upon in the lookup below,
+        // because "the user id happens not to exist over there" is luck, not a boundary.
+        TenantSummary tenant = RequestTenant.of(request);
+        if (!ticket.tenantId().equals(tenant.id())) {
+            log.warn(
+                    "Rejected an impersonation ticket minted for tenant {} presented on tenant {}",
+                    ticket.tenantId(),
+                    tenant.id());
+            return FAILURE_REDIRECT;
+        }
+
+        ImpersonatedAdminPrincipal principal;
+        try {
+            principal = impersonation.buildImpersonatedPrincipal(ticket.targetUserId());
+        } catch (NotFoundException exception) {
+            // The account was removed between minting and redeeming — a sixty-second window, but
+            // this is the one place a missing target must not become a 404 page that says so.
+            log.warn("Impersonation target {} no longer exists in tenant {}", ticket.targetUserId(), tenant.id());
+            return FAILURE_REDIRECT;
+        }
+
+        // Session fixation, the same defence formLogin applies with sessionFixation().newSession():
+        // this endpoint is reachable without authentication, so a session id planted beforehand
+        // must not survive into the authenticated session.
+        HttpSession previous = request.getSession(false);
+        if (previous != null) {
+            previous.invalidate();
+        }
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(
+                        principal, null, principal.getAuthorities()));
+        SecurityContextHolder.setContext(context);
+        // Saved through the tenant chain's own repository bean (security.SecurityConfig), which is
+        // what the SecurityContextHolderFilter on the very next request loads from. Constructing a
+        // repository here instead would work only for as long as the two constructions agreed.
+        securityContextRepository.saveContext(context, request, response);
+
+        String correlationId = UUID.randomUUID().toString();
+        new ImpersonationSession(
+                        ticket.superAdminId(), ticket.superAdminEmail(), principal.getUsername(), correlationId)
+                .storeIn(request.getSession(true));
+
+        auditListener.recordManualEvent(
+                ticket.tenantId(),
+                ticket.superAdminId(),
+                "SUPER_ADMIN",
+                AUDIT_ENTITY_TYPE,
+                correlationId,
+                Action.CREATE,
+                sessionJson(ticket.superAdminEmail(), principal.getUsername(), tenant.slug()));
+        log.info(
+                "Super Admin {} started an impersonation session as {} in tenant {}",
+                ticket.superAdminId(),
+                ticket.targetUserId(),
+                tenant.id());
+
+        return "redirect:/";
+    }
+
+    /**
+     * Ends a support session: writes the closing audit row, then drops the session entirely.
+     *
+     * <p>{@code isAuthenticated()} rather than {@code permitAll()} — ending a session is only
+     * meaningful from inside one, and an unauthenticated caller has nothing to end. An ordinary
+     * tenant user reaching this (they have no banner to click, but the URL is guessable) has no
+     * impersonation attribute in their session, so it is a no-op redirect rather than a logout.
+     */
+    @PostMapping(SecurityPaths.END_IMPERSONATION_PATH)
+    @PreAuthorize("isAuthenticated()")
+    String end(HttpServletRequest request) {
+        ImpersonationSession impersonated = ImpersonationSession.of(request);
+        if (impersonated == null) {
+            return "redirect:/";
+        }
+
+        // Written before the session goes away: an invalidate that happened without its closing
+        // row would leave a session that looks, in the audit trail, like it never ended.
+        auditListener.recordManualEvent(
+                RequestTenant.of(request).id(),
+                impersonated.superAdminId(),
+                "SUPER_ADMIN",
+                AUDIT_ENTITY_TYPE,
+                impersonated.correlationId(),
+                Action.DELETE,
+                sessionJson(
+                        impersonated.superAdminEmail(),
+                        impersonated.impersonatedEmail(),
+                        RequestTenant.of(request).slug()));
+
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        SecurityContextHolder.clearContext();
+        log.info("Super Admin {} ended an impersonation session", impersonated.superAdminId());
+
+        return "redirect:" + SecurityPaths.LOGIN_PATH + "?impersonationEnded";
+    }
+
+    /**
+     * The {@code after_json} payload shared by both events — who was driving, whose account, and
+     * where. Built through the application {@code ObjectMapper} rather than concatenated, so an
+     * apostrophe in an address cannot produce a row Postgres rejects as malformed {@code jsonb}.
+     */
+    private String sessionJson(String superAdminEmail, String targetAdminEmail, String tenantSlug) {
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("superAdminEmail", superAdminEmail);
+        payload.put("targetAdminEmail", targetAdminEmail);
+        payload.put("tenantSlug", tenantSlug);
+        return mapper.writeValueAsString(payload);
+    }
+}
