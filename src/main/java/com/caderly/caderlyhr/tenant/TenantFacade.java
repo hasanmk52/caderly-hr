@@ -87,6 +87,15 @@ public interface TenantFacade {
      */
     List<TenantAdminView> listAllForAdmin();
 
+    /**
+     * A single tenant by id, active, suspended, or soft-deleted alike — the Super Admin console's
+     * row lookup for the suspend/delete/impersonate actions, which land on one tenant rather than
+     * the whole list {@link #listAllForAdmin()} returns. A small addendum to this interface
+     * (originally Task 1's) made by Task 6, which needed a one-row read {@code listAllForAdmin()}
+     * doesn't conveniently give.
+     */
+    Optional<TenantAdminView> find(UUID tenantId);
+
     record TenantBranding(String name, @Nullable String logoUrl) {}
 
     record TenantAdminView(

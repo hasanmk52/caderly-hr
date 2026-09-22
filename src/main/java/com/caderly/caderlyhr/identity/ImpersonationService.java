@@ -2,6 +2,7 @@ package com.caderly.caderlyhr.identity;
 
 import com.caderly.caderlyhr.common.NotFoundException;
 import com.caderly.caderlyhr.common.SecureToken;
+import com.caderly.caderlyhr.tenant.TenantContext;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Clock;
@@ -133,4 +134,36 @@ public class ImpersonationService {
                 AppUserPrincipal.isEnabled(user),
                 !user.isLocked(clock.instant()));
     }
+
+    /**
+     * The Super Admin console's target picker for {@code POST
+     * /superadmin/tenants/{id}/impersonate}: an arbitrary ACTIVE Admin in {@code tenantId}, if one
+     * exists.
+     *
+     * <p>{@code findAll()} rather than a dedicated query — there is no "find admin users"
+     * repository method today, and at this scale (a handful of tenants, each with a handful of
+     * users) a full scan costs nothing worth indexing for (CLAUDE.md §11's serial-fan-out
+     * precedent, mirrored from {@code people.EmployeeTerminationJob}). If a tenant has more than
+     * one ACTIVE Admin, this arbitrarily picks the first one {@code findAll()} returns — an
+     * accepted MVP simplification; a full admin-picker UI is out of scope (YAGNI).
+     *
+     * <p>Sets {@code TenantContext} itself rather than requiring the caller to: {@code app_user} is
+     * RLS-protected per tenant, so — exactly as {@link #buildImpersonatedPrincipal} notes for its
+     * own {@code findById} — this read needs a real, resolved tenant context, not {@code
+     * TenantContext.runAsSystem}'s bypass (ADR 0003).
+     */
+    public Optional<AdminAccount> findAnyAdmin(UUID tenantId) {
+        TenantContext.set(tenantId);
+        try {
+            return users.findAll().stream()
+                    .filter(u -> u.roles().contains(Role.ADMIN) && u.status() == UserStatus.ACTIVE)
+                    .findFirst()
+                    .map(u -> new AdminAccount(u.requireId(), u.email()));
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /** An ACTIVE Admin found by {@link #findAnyAdmin}, ready to be impersonated. */
+    public record AdminAccount(UUID userId, String email) {}
 }

@@ -181,6 +181,13 @@ public class TenantService implements TenantFacade {
                 () -> repository.findAll().stream().map(TenantService::toAdminView).toList());
     }
 
+    @Override
+    public Optional<TenantAdminView> find(UUID tenantId) {
+        return TenantContext.runAsSystem(
+                "superadmin: look up tenant " + tenantId,
+                () -> repository.findById(tenantId).map(TenantService::toAdminView));
+    }
+
     private Tenant findByIdOrThrow(UUID tenantId) {
         return repository
                 .findById(tenantId)
