@@ -9,7 +9,6 @@ import com.caderly.caderlyhr.security.SecurityPaths;
 import com.caderly.caderlyhr.tenant.TenantContext;
 import com.caderly.caderlyhr.tenant.TenantFacade;
 import com.caderly.caderlyhr.tenant.TenantFacade.TenantAdminView;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
@@ -124,28 +123,37 @@ class SuperAdminTenantController {
     }
 
     /**
-     * Toggles suspension. {@code HX-Redirect} makes htmx do a full client-side navigation back to
-     * the list rather than trying to swap a fragment in place (there is nothing sensible to swap a
-     * PATCH's own response into) — the plain {@code "redirect:"} view alongside it is what a
-     * non-htmx caller (this endpoint's own MockMvc tests included) actually receives.
+     * Toggles suspension and re-renders the tenant list fragment in place, mirroring {@code
+     * web.AdminOrganizationController#deleteDivision}'s own convention exactly: no redirect of any
+     * kind, just a 200 response whose body is {@code superadmin/tenants :: content} — the same
+     * fragment the row-action button targets via {@code hx-target="#tenant-list-content"
+     * hx-swap="outerHTML"}. A genuine Spring {@code redirect:} plus an {@code HX-Redirect} header
+     * does *not* work here: per the fetch/XHR spec, htmx's underlying XHR transparently follows a
+     * same-origin 3xx redirect before htmx's own response handling ever runs, so htmx would only
+     * ever observe the final 200 tenant-list page (which carries no {@code HX-Redirect}) and, with
+     * no {@code hx-target}, fall back to swapping that page's body into the button itself. Returning
+     * the fragment directly sidesteps the whole redirect-following problem.
      */
     @PatchMapping("/superadmin/tenants/{id}/suspend")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    String toggleSuspend(@PathVariable UUID id, HttpServletResponse response) {
+    String toggleSuspend(@PathVariable UUID id, Model model) {
         TenantAdminView tenant = requireTenant(id);
         if (tenant.suspended()) {
             tenants.reinstate(id);
         } else {
             tenants.suspend(id);
         }
-        return redirectToList(response);
+        populateTable(model);
+        return "superadmin/tenants :: content";
     }
 
+    /** Same fragment-response convention as {@link #toggleSuspend} — see its Javadoc. */
     @DeleteMapping("/superadmin/tenants/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    String delete(@PathVariable UUID id, HttpServletResponse response) {
+    String delete(@PathVariable UUID id, Model model) {
         tenants.softDelete(id);
-        return redirectToList(response);
+        populateTable(model);
+        return "superadmin/tenants :: content";
     }
 
     /**
@@ -174,13 +182,6 @@ class SuperAdminTenantController {
                 impersonation.mint(current.superAdminId(), current.getUsername(), id, admin.get().userId());
 
         return "redirect:https://" + tenant.slug() + "." + baseDomain + SecurityPaths.IMPERSONATE_PATH + "?token=" + token;
-    }
-
-    private String redirectToList(HttpServletResponse response) {
-        // See toggleSuspend's Javadoc: this header is what makes an htmx-issued PATCH/DELETE end
-        // in a full navigation instead of an in-place fragment swap.
-        response.setHeader("HX-Redirect", "/superadmin/tenants");
-        return "redirect:/superadmin/tenants";
     }
 
     private void populateTable(Model model) {

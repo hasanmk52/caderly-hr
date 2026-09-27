@@ -22,84 +22,96 @@
       <span th:text="#{superadmin.tenants.no-admin-to-impersonate}">That tenant has no active Admin to impersonate.</span>
     </div>
 
-    <div th:if="${#lists.isEmpty(tenantRows)}" class="text-center text-muted py-5 mb-5">
-      <i class="bi bi-buildings fs-1 d-block mb-2" aria-hidden="true"></i>
-      <p class="mb-0" th:text="#{superadmin.tenants.empty}">No tenants yet. Add one to get started.</p>
-    </div>
+    <!--/* Everything a suspend/delete mutation response touches lives inside #tenant-list-content —
+           same convention as admin/organization.html's #organization-content: the row-action
+           buttons below target this div with hx-swap="outerHTML", and the controller returns
+           "superadmin/tenants :: content" directly (no redirect of any kind — see
+           SuperAdminTenantController#toggleSuspend's Javadoc for why a redirect + HX-Redirect
+           does not actually reach htmx). */-->
+    <div id="tenant-list-content" hx-swap-oob="true" th:fragment="content">
 
-    <div th:unless="${#lists.isEmpty(tenantRows)}" class="table-responsive mb-5">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th scope="col" th:text="#{superadmin.tenants.table.slug}">Slug</th>
-            <th scope="col" th:text="#{common.field.name}">Name</th>
-            <th scope="col" th:text="#{common.field.status}">Status</th>
-            <th scope="col" th:text="#{superadmin.tenants.table.employees}">Employees</th>
-            <th scope="col" class="text-end" th:text="#{common.table.actions}">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr th:each="tenant : ${tenantRows}">
-            <td th:text="${tenant.slug()}">acme</td>
-            <td th:text="${tenant.name()}">Acme Inc</td>
-            <td>
-              <span class="badge"
-                    th:classappend="${tenant.status() == 'ACTIVE'} ? 'bg-success-subtle text-success-emphasis'
-                                     : (${tenant.status() == 'SUSPENDED'} ? 'bg-warning-subtle text-warning-emphasis'
-                                                                          : 'bg-secondary-subtle text-secondary-emphasis')"
-                    th:text="#{|superadmin.tenants.status.${#strings.toLowerCase(tenant.status())}|}">Active</span>
-            </td>
-            <td th:text="${tenant.employeeCount()}">12</td>
-            <td class="text-end text-nowrap">
-              <!--/* Impersonate: a plain form POST, not htmx — see the controller's Javadoc. Only
-                     offered for a tenant still usable; a suspended/deleted tenant has no login
-                     page worth landing an operator on. */-->
-              <form th:if="${tenant.status() == 'ACTIVE'}" method="post" class="d-inline"
-                    th:action="@{/superadmin/tenants/{id}/impersonate(id=${tenant.id()})}">
-                <button type="submit" class="btn btn-outline-secondary btn-sm" th:aria-label="#{superadmin.tenants.aria.impersonate}"
-                        th:title="#{superadmin.tenants.impersonate}">
-                  <i class="bi bi-eye" aria-hidden="true"></i>
+      <div th:if="${#lists.isEmpty(tenantRows)}" class="text-center text-muted py-5 mb-5">
+        <i class="bi bi-buildings fs-1 d-block mb-2" aria-hidden="true"></i>
+        <p class="mb-0" th:text="#{superadmin.tenants.empty}">No tenants yet. Add one to get started.</p>
+      </div>
+
+      <div th:unless="${#lists.isEmpty(tenantRows)}" class="table-responsive mb-5">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col" th:text="#{superadmin.tenants.table.slug}">Slug</th>
+              <th scope="col" th:text="#{common.field.name}">Name</th>
+              <th scope="col" th:text="#{common.field.status}">Status</th>
+              <th scope="col" th:text="#{superadmin.tenants.table.employees}">Employees</th>
+              <th scope="col" class="text-end" th:text="#{common.table.actions}">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="tenant : ${tenantRows}">
+              <td th:text="${tenant.slug()}">acme</td>
+              <td th:text="${tenant.name()}">Acme Inc</td>
+              <td>
+                <span class="badge"
+                      th:classappend="${tenant.status() == 'ACTIVE'} ? 'bg-success-subtle text-success-emphasis'
+                                       : (${tenant.status() == 'SUSPENDED'} ? 'bg-warning-subtle text-warning-emphasis'
+                                                                            : 'bg-secondary-subtle text-secondary-emphasis')"
+                      th:text="#{|superadmin.tenants.status.${#strings.toLowerCase(tenant.status())}|}">Active</span>
+              </td>
+              <td th:text="${tenant.employeeCount()}">12</td>
+              <td class="text-end text-nowrap">
+                <!--/* Impersonate: a plain form POST, not htmx — see the controller's Javadoc. Only
+                       offered for a tenant still usable; a suspended/deleted tenant has no login
+                       page worth landing an operator on. */-->
+                <form th:if="${tenant.status() == 'ACTIVE'}" method="post" class="d-inline"
+                      th:action="@{/superadmin/tenants/{id}/impersonate(id=${tenant.id()})}">
+                  <button type="submit" class="btn btn-outline-secondary btn-sm" th:aria-label="#{superadmin.tenants.aria.impersonate}"
+                          th:title="#{superadmin.tenants.impersonate}">
+                    <i class="bi bi-eye" aria-hidden="true"></i>
+                  </button>
+                </form>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        th:aria-label="${tenant.status() == 'SUSPENDED'} ? #{superadmin.tenants.aria.reinstate} : #{superadmin.tenants.aria.suspend}"
+                        th:title="${tenant.status() == 'SUSPENDED'} ? #{superadmin.tenants.reinstate} : #{superadmin.tenants.suspend}"
+                        th:if="${tenant.status() != 'DELETED'}"
+                        th:hx-patch="@{/superadmin/tenants/{id}/suspend(id=${tenant.id()})}"
+                        hx-target="#tenant-list-content" hx-swap="outerHTML">
+                  <i class="bi" th:classappend="${tenant.status() == 'SUSPENDED'} ? 'bi-play-circle' : 'bi-pause-circle'" aria-hidden="true"></i>
                 </button>
-              </form>
-              <button type="button" class="btn btn-outline-secondary btn-sm"
-                      th:aria-label="${tenant.status() == 'SUSPENDED'} ? #{superadmin.tenants.aria.reinstate} : #{superadmin.tenants.aria.suspend}"
-                      th:title="${tenant.status() == 'SUSPENDED'} ? #{superadmin.tenants.reinstate} : #{superadmin.tenants.suspend}"
-                      th:if="${tenant.status() != 'DELETED'}"
-                      th:hx-patch="@{/superadmin/tenants/{id}/suspend(id=${tenant.id()})}">
-                <i class="bi" th:classappend="${tenant.status() == 'SUSPENDED'} ? 'bi-play-circle' : 'bi-pause-circle'" aria-hidden="true"></i>
-              </button>
-              <button type="button" class="btn btn-outline-danger btn-sm" th:aria-label="#{superadmin.tenants.aria.delete}"
-                      th:if="${tenant.status() != 'DELETED'}"
-                      data-bs-toggle="modal" th:attr="data-bs-target='#confirmDeleteTenant-' + ${tenant.id()}">
-                <i class="bi bi-trash" aria-hidden="true"></i>
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+                <button type="button" class="btn btn-outline-danger btn-sm" th:aria-label="#{superadmin.tenants.aria.delete}"
+                        th:if="${tenant.status() != 'DELETED'}"
+                        data-bs-toggle="modal" th:attr="data-bs-target='#confirmDeleteTenant-' + ${tenant.id()}">
+                  <i class="bi bi-trash" aria-hidden="true"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <div th:each="tenant : ${tenantRows}" class="modal fade" tabindex="-1" aria-hidden="true"
-         th:id="'confirmDeleteTenant-' + ${tenant.id()}">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" th:text="#{superadmin.tenants.delete-confirm(${tenant.name()})}">Delete this tenant?</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
-          </div>
-          <div class="modal-body">
-            <p th:text="#{superadmin.tenants.delete-warning}">This cannot be undone. The tenant's data is kept but no one will be able to sign in.</p>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" th:text="#{common.action.cancel}">Cancel</button>
-            <button type="button" class="btn btn-danger btn-sm" data-bs-dismiss="modal"
-                    th:hx-delete="@{/superadmin/tenants/{id}(id=${tenant.id()})}"
-                    th:text="#{superadmin.tenants.delete-submit}">
-              Delete tenant
-            </button>
+      <div th:each="tenant : ${tenantRows}" class="modal fade" tabindex="-1" aria-hidden="true"
+           th:id="'confirmDeleteTenant-' + ${tenant.id()}">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" th:text="#{superadmin.tenants.delete-confirm(${tenant.name()})}">Delete this tenant?</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
+            </div>
+            <div class="modal-body">
+              <p th:text="#{superadmin.tenants.delete-warning}">This cannot be undone. The tenant's data is kept but no one will be able to sign in.</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" th:text="#{common.action.cancel}">Cancel</button>
+              <button type="button" class="btn btn-danger btn-sm" data-bs-dismiss="modal"
+                      th:hx-delete="@{/superadmin/tenants/{id}(id=${tenant.id()})}"
+                      hx-target="#tenant-list-content" hx-swap="outerHTML"
+                      th:text="#{superadmin.tenants.delete-submit}">
+                Delete tenant
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
     </div>
 
     <!--/* Slide-over panel (UI Guidelines §6). A plain full-page form, unlike

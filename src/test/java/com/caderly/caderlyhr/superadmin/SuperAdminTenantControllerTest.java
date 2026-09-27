@@ -1,11 +1,13 @@
 package com.caderly.caderlyhr.superadmin;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -161,6 +163,14 @@ class SuperAdminTenantControllerTest {
         assertThat(matching).isEqualTo(1);
     }
 
+    /**
+     * Proves the fragment-response fix, not just the underlying state change: a real htmx PATCH
+     * never follows a redirect (there is none), and the response body it receives is the
+     * re-rendered {@code #tenant-list-content} fragment showing the new status text. Asserting
+     * {@code status().isOk()} here is deliberate — it is exactly the assertion that would have
+     * failed against the previous {@code redirect:} + {@code HX-Redirect} implementation, which
+     * returned a 302 with no body for MockMvc (which never follows redirects) to inspect.
+     */
     @Test
     void suspend_togglesSuspensionBothWays() throws Exception {
         MockHttpSession session = superAdminSession();
@@ -172,7 +182,8 @@ class SuperAdminTenantControllerTest {
                         patch(URI.create("http://localhost/superadmin/tenants/" + tenantId + "/suspend"))
                                 .session(session)
                                 .with(csrf()))
-                .andExpect(redirectedUrl("/superadmin/tenants"));
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Suspended")));
         assertThat(findTenantById(tenantId).isSuspended()).isTrue();
 
         mockMvc
@@ -180,10 +191,12 @@ class SuperAdminTenantControllerTest {
                         patch(URI.create("http://localhost/superadmin/tenants/" + tenantId + "/suspend"))
                                 .session(session)
                                 .with(csrf()))
-                .andExpect(redirectedUrl("/superadmin/tenants"));
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Active")));
         assertThat(findTenantById(tenantId).isSuspended()).isFalse();
     }
 
+    /** See {@link #suspend_togglesSuspensionBothWays}'s Javadoc — same fragment-response proof. */
     @Test
     void delete_softDeletesTheTenant_stillListedButUnresolvableBySlug() throws Exception {
         MockHttpSession session = superAdminSession();
@@ -192,7 +205,8 @@ class SuperAdminTenantControllerTest {
 
         mockMvc
                 .perform(delete(URI.create("http://localhost/superadmin/tenants/" + tenantId)).session(session).with(csrf()))
-                .andExpect(redirectedUrl("/superadmin/tenants"));
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Deleted")));
 
         assertThat(findTenantById(tenantId).getDeletedAt()).isNotNull();
         assertThat(tenantFacade.bySlug(slug)).isEmpty();
