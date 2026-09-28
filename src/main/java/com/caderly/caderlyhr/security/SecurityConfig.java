@@ -21,6 +21,7 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.security.web.context.DelegatingSecurityContextRepository;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
@@ -185,7 +186,8 @@ class SecurityConfig {
             SessionRegistry sessionRegistry,
             AppUserDetailsService appUsers,
             PasswordEncoder passwordEncoder,
-            SecurityContextRepository securityContextRepository)
+            SecurityContextRepository securityContextRepository,
+            LogoutHandler impersonationLogoutHandler)
             throws Exception {
         DaoAuthenticationProvider tenantAuthentication = new DaoAuthenticationProvider(appUsers);
         tenantAuthentication.setPasswordEncoder(passwordEncoder);
@@ -247,6 +249,12 @@ class SecurityConfig {
                         logout ->
                                 logout
                                         .logoutUrl("/logout")
+                                        // Closes the audit trail for a support session ended via this ordinary
+                                        // link rather than the dedicated "End impersonation" one — see
+                                        // web.ImpersonationLogoutHandler's Javadoc for why this has to run
+                                        // here (not just in ImpersonationController#end) and why it runs
+                                        // before invalidateHttpSession below erases the session it reads.
+                                        .addLogoutHandler(impersonationLogoutHandler)
                                         .logoutSuccessUrl(SecurityPaths.LOGIN_PATH + "?loggedOut")
                                         .invalidateHttpSession(true)
                                         .deleteCookies("JSESSIONID")

@@ -1,7 +1,5 @@
 package com.caderly.caderlyhr.web;
 
-import com.caderly.caderlyhr.audit.EntityAuditListener;
-import com.caderly.caderlyhr.audit.system.AuditEntry.Action;
 import com.caderly.caderlyhr.common.NotFoundException;
 import com.caderly.caderlyhr.identity.ImpersonatedAdminPrincipal;
 import com.caderly.caderlyhr.identity.ImpersonationService;
@@ -11,8 +9,6 @@ import com.caderly.caderlyhr.tenant.TenantSummary;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -28,7 +24,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import tools.jackson.databind.ObjectMapper;
 
 /**
  * The two ends of a Super Admin support session (PRD FR-1.8): redeeming a ticket minted in the
@@ -54,26 +49,20 @@ class ImpersonationController {
     private static final String FAILURE_REDIRECT =
             "redirect:" + SecurityPaths.LOGIN_PATH + "?impersonationFailed";
 
-    /** {@code audit_entry.entity_type} for the start/end pair; there is no entity behind them. */
-    private static final String AUDIT_ENTITY_TYPE = "ImpersonationSession";
-
     private final ImpersonationService impersonation;
-    private final EntityAuditListener auditListener;
+    private final ImpersonationSessionAuditor auditor;
     private final SecurityContextRepository securityContextRepository;
     private final SessionRegistry sessionRegistry;
-    private final ObjectMapper mapper;
 
     ImpersonationController(
             ImpersonationService impersonation,
-            EntityAuditListener auditListener,
+            ImpersonationSessionAuditor auditor,
             SecurityContextRepository securityContextRepository,
-            SessionRegistry sessionRegistry,
-            ObjectMapper mapper) {
+            SessionRegistry sessionRegistry) {
         this.impersonation = impersonation;
-        this.auditListener = auditListener;
+        this.auditor = auditor;
         this.securityContextRepository = securityContextRepository;
         this.sessionRegistry = sessionRegistry;
-        this.mapper = mapper;
     }
 
     /**
@@ -133,14 +122,7 @@ class ImpersonationController {
         // extra row for a redemption that then fails is the harmless direction of that trade.
         // (The end() path below already orders itself this way for the same reason.)
         String correlationId = UUID.randomUUID().toString();
-        auditListener.recordManualEvent(
-                ticket.tenantId(),
-                ticket.superAdminId(),
-                "SUPER_ADMIN",
-                AUDIT_ENTITY_TYPE,
-                correlationId,
-                Action.CREATE,
-                sessionJson(ticket.superAdminEmail(), principal.getUsername(), tenant.slug()));
+        auditor.recordStart(tenant, ticket.superAdminId(), ticket.superAdminEmail(), principal.getUsername(), correlationId);
 
         // Session fixation, the same defence formLogin applies with sessionFixation().newSession():
         // this endpoint is reachable without authentication, so a session id planted beforehand
@@ -200,17 +182,7 @@ class ImpersonationController {
 
         // Written before the session goes away: an invalidate that happened without its closing
         // row would leave a session that looks, in the audit trail, like it never ended.
-        auditListener.recordManualEvent(
-                RequestTenant.of(request).id(),
-                impersonated.superAdminId(),
-                "SUPER_ADMIN",
-                AUDIT_ENTITY_TYPE,
-                impersonated.correlationId(),
-                Action.DELETE,
-                sessionJson(
-                        impersonated.superAdminEmail(),
-                        impersonated.impersonatedEmail(),
-                        RequestTenant.of(request).slug()));
+        auditor.recordEnd(RequestTenant.of(request), impersonated);
 
         HttpSession session = request.getSession(false);
         if (session != null) {
@@ -220,18 +192,5 @@ class ImpersonationController {
         log.info("Super Admin {} ended an impersonation session", impersonated.superAdminId());
 
         return "redirect:" + SecurityPaths.LOGIN_PATH + "?impersonationEnded";
-    }
-
-    /**
-     * The {@code after_json} payload shared by both events — who was driving, whose account, and
-     * where. Built through the application {@code ObjectMapper} rather than concatenated, so an
-     * apostrophe in an address cannot produce a row Postgres rejects as malformed {@code jsonb}.
-     */
-    private String sessionJson(String superAdminEmail, String targetAdminEmail, String tenantSlug) {
-        Map<String, String> payload = new LinkedHashMap<>();
-        payload.put("superAdminEmail", superAdminEmail);
-        payload.put("targetAdminEmail", targetAdminEmail);
-        payload.put("tenantSlug", tenantSlug);
-        return mapper.writeValueAsString(payload);
     }
 }

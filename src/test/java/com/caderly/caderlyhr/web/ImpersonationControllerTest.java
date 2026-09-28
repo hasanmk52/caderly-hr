@@ -262,6 +262,37 @@ class ImpersonationControllerTest {
     }
 
     @Test
+    void logout_duringAnImpersonatedSession_writesTheClosingAuditEntryTooLikeEndImpersonationDoes() throws Exception {
+        // I-2 (final whole-branch review): an operator who ends a support session via the
+        // ordinary tenant Logout link instead of clicking "End impersonation" must still leave a
+        // paired CREATE/DELETE audit trail — see web.ImpersonationLogoutHandler.
+        MockHttpSession session = redeemSuccessfully();
+
+        mockMvc
+                .perform(post(URI.create("http://" + slug + ".localhost/logout")).session(session).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        AuditEntry start = onlyImpersonationRow(Action.CREATE);
+        AuditEntry end = onlyImpersonationRow(Action.DELETE);
+        assertThat(end.entityId()).isEqualTo(start.entityId());
+        assertThat(end.actorUserId()).isEqualTo(superAdminId);
+        assertThat(end.actorRole()).isEqualTo("SUPER_ADMIN");
+    }
+
+    @Test
+    void logout_duringAnOrdinaryTenantSession_writesNoImpersonationAuditEntry() throws Exception {
+        // The other half of the proof: ImpersonationLogoutHandler must be a no-op for every
+        // ordinary logout, not fire unconditionally on /logout.
+        MockHttpSession session = normalLoginSession();
+
+        mockMvc
+                .perform(post(URI.create("http://" + slug + ".localhost/logout")).session(session).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(impersonationRows()).isEmpty();
+    }
+
+    @Test
     void endImpersonation_onAnOrdinaryTenantSession_endsNothingAndWritesNoAuditEntry() throws Exception {
         MockHttpSession session = normalLoginSession();
 
