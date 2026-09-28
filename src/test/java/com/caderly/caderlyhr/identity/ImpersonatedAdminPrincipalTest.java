@@ -52,7 +52,7 @@ class ImpersonatedAdminPrincipalTest {
 
     @Test
     void isAnAppUserPrincipal_soControllersResolveItAsTheAuthenticationPrincipal() {
-        // 25 controller methods declare @AuthenticationPrincipal AppUserPrincipal. Spring's
+        // 27 controller methods declare @AuthenticationPrincipal AppUserPrincipal. Spring's
         // argument resolver passes null for a principal that is not assignable to the declared
         // type, so a principal that merely *wrapped* an AppUserPrincipal would make every one of
         // those pages fail during an impersonated session. See ImpersonatedAdminPrincipal's javadoc.

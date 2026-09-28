@@ -27,7 +27,15 @@
            buttons below target this div with hx-swap="outerHTML", and the controller returns
            "superadmin/tenants :: content" directly (no redirect of any kind — see
            SuperAdminTenantController#toggleSuspend's Javadoc for why a redirect + HX-Redirect
-           does not actually reach htmx). */-->
+           does not actually reach htmx).
+
+           This div is BOTH the hx-swap-oob="true" element AND the row buttons' hx-target: htmx
+           processes the OOB swap first, replacing this element (by id) with the freshly rendered
+           one before the triggering button's own hx-target/hx-swap="outerHTML" runs — by then that
+           swap's target reference is the old, already-detached node, so it has no visible effect.
+           Not a new pattern here: byte-for-byte the same shape as admin/organization.html's
+           #organization-content + its delete-division button, already shipped and exercised there
+           (final whole-branch review, Phase 1.13: verified identical, not just similar). */-->
     <div id="tenant-list-content" hx-swap-oob="true" th:fragment="content">
 
       <div th:if="${#lists.isEmpty(tenantRows)}" class="text-center text-muted py-5 mb-5">

@@ -240,7 +240,7 @@ blank-defaulted). If either is blank, it logs at `info` and no-ops — a deliber
 failure posture from the fail-*closed* IP allowlist, since a missing bootstrap credential simply
 means "don't bootstrap," not a security gap. Otherwise, inside
 `TenantContext.runAsSystem("bootstrap super admin", ...)`, it checks `SuperAdminRepository
-.findAll().isEmpty()` (simplest correct check — the table holds at most one row in practice) before
+.count() > 0` (simplest correct check — the table holds at most one row in practice) before
 inserting, making repeated application starts with the same env vars safe. This is the same
 mechanism used to create the first Super Admin in every environment (dev, MHZ prod, any future
 pilot-tenant deployment) — not a one-off manual `INSERT` or a dev-only seeder.
@@ -324,6 +324,12 @@ need opposite fixes; conflating them is the mistake to avoid next time.
   enforceable (loopback binding + a trusted reverse proxy); revisit once `TotpService` exists.
 - A soft-deleted tenant's slug is permanently unavailable for reuse — a real product-behavior
   question with no owner yet (decision I).
+- `TenantProvisioningService.provision` is deliberately non-transactional across its two steps
+  (Global Constraint 1's RLS sequencing requires it), and a tenant's slug can never be reused once
+  taken (the point above). Together, a first-Admin invite that fails after `createTenant` has
+  already committed — a bounced address, an outbox/SMTP failure — leaves an orphaned tenant row
+  permanently occupying that slug, with no compensating transaction to roll it back. Each choice is
+  independently reasonable; this is the accepted cost of the two interacting, not a bug in either.
 - `findAnyAdmin`'s first-match selection means a tenant with multiple Admins has no way to choose
   which one an impersonation session targets — fine for MVP, a gap for a tenant that actually has
   more than one Admin.
