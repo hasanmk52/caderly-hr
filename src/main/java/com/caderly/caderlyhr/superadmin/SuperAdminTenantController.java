@@ -1,5 +1,7 @@
 package com.caderly.caderlyhr.superadmin;
 
+import com.caderly.caderlyhr.audit.EntityAuditListener;
+import com.caderly.caderlyhr.audit.system.AuditEntry.Action;
 import com.caderly.caderlyhr.common.CaderlyException;
 import com.caderly.caderlyhr.common.NotFoundException;
 import com.caderly.caderlyhr.identity.ImpersonationService;
@@ -16,8 +18,10 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -36,6 +40,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * The Super Admin console's tenant list (PRD FR-1.8): create, suspend/reinstate, soft-delete, and
@@ -67,6 +72,8 @@ class SuperAdminTenantController {
     private final ImpersonationService impersonation;
     private final MessageSource messages;
     private final String baseDomain;
+    private final EntityAuditListener auditListener;
+    private final ObjectMapper mapper;
 
     SuperAdminTenantController(
             TenantFacade tenants,
@@ -74,13 +81,17 @@ class SuperAdminTenantController {
             PeopleFacade people,
             ImpersonationService impersonation,
             MessageSource messages,
-            @Value("${caderly.base-domain:localhost}") String baseDomain) {
+            @Value("${caderly.base-domain:localhost}") String baseDomain,
+            EntityAuditListener auditListener,
+            ObjectMapper mapper) {
         this.tenants = tenants;
         this.provisioning = provisioning;
         this.people = people;
         this.impersonation = impersonation;
         this.messages = messages;
         this.baseDomain = baseDomain;
+        this.auditListener = auditListener;
+        this.mapper = mapper;
     }
 
     @GetMapping("/superadmin/tenants")
@@ -111,7 +122,8 @@ class SuperAdminTenantController {
                         form.weekendDays(),
                         form.logoUrl(),
                         form.firstAdminEmail(),
-                        baseUrl());
+                        baseUrl(),
+                        currentSuperAdmin().actorId());
                 return "redirect:/superadmin/tenants";
             } catch (CaderlyException exception) {
                 binding.rejectValue("slug", exception.errorCode(), errorDetail(exception));
@@ -138,11 +150,13 @@ class SuperAdminTenantController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     String toggleSuspend(@PathVariable UUID id, Model model) {
         TenantAdminView tenant = requireTenant(id);
-        if (tenant.suspended()) {
-            tenants.reinstate(id);
-        } else {
+        boolean suspending = !tenant.suspended();
+        if (suspending) {
             tenants.suspend(id);
+        } else {
+            tenants.reinstate(id);
         }
+        recordTenantAudit(id, Action.UPDATE, Map.of("suspended", suspending));
         populateTable(model);
         return "superadmin/tenants :: content";
     }
@@ -152,8 +166,29 @@ class SuperAdminTenantController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     String delete(@PathVariable UUID id, Model model) {
         tenants.softDelete(id);
+        recordTenantAudit(id, Action.DELETE, Map.of("deleted", true));
         populateTable(model);
         return "superadmin/tenants :: content";
+    }
+
+    /**
+     * Every Super Admin tenant-lifecycle write is audited here rather than inside {@link
+     * TenantFacade}/{@code tenant.TenantService} (CLAUDE.md §5 rule 6): {@code tenant} sits below
+     * {@code audit} in the package dependency order ({@code audit.EntityAuditListener} already
+     * imports {@code tenant.TenantContext}), so the reverse import would be an ArchUnit-forbidden
+     * cycle. This controller already sits above both, so this is the correct, cycle-free place for
+     * the write to happen — see {@link TenantProvisioningService#provision} for the create case's
+     * identical reasoning.
+     */
+    private void recordTenantAudit(UUID tenantId, Action action, Map<String, Object> afterFields) {
+        auditListener.recordManualEvent(
+                tenantId,
+                currentSuperAdmin().actorId(),
+                "SUPER_ADMIN",
+                "Tenant",
+                tenantId.toString(),
+                action,
+                mapper.writeValueAsString(new LinkedHashMap<>(afterFields)));
     }
 
     /**

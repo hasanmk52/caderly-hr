@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.caderly.caderlyhr.TestcontainersConfiguration;
+import com.caderly.caderlyhr.audit.AuditEntryRepository;
+import com.caderly.caderlyhr.audit.system.AuditEntry;
+import com.caderly.caderlyhr.audit.system.AuditEntry.Action;
 import com.caderly.caderlyhr.common.ConflictException;
 import com.caderly.caderlyhr.identity.AppUser;
 import com.caderly.caderlyhr.identity.AppUserRepository;
@@ -44,6 +47,7 @@ class TenantProvisioningServiceTest {
     @Autowired private AppUserRepository users;
     @Autowired private EmailOutboxRepository outbox;
     @Autowired private EmployeeRepository employees;
+    @Autowired private AuditEntryRepository auditEntries;
 
     @AfterEach
     void clearTenantContext() {
@@ -62,7 +66,14 @@ class TenantProvisioningServiceTest {
         // wrong slug or duplicate email would produce.
         UUID tenantId =
                 provisioning.provision(
-                        slug, "Acme Inc", "Asia/Kolkata", 32, "https://logo.example/a.png", adminEmail, BASE_URL);
+                        slug,
+                        "Acme Inc",
+                        "Asia/Kolkata",
+                        32,
+                        "https://logo.example/a.png",
+                        adminEmail,
+                        BASE_URL,
+                        UUID.randomUUID());
 
         assertThat(tenantId).isNotNull();
         Tenant saved = findTenant(tenantId);
@@ -77,7 +88,7 @@ class TenantProvisioningServiceTest {
     void provision_queuesExactlyOneInviteEmailToTheFirstAdmin() {
         String adminEmail = uniqueEmail();
 
-        provisioning.provision(uniqueSlug(), "Acme Inc", "UTC", 96, null, adminEmail, BASE_URL);
+        provisioning.provision(uniqueSlug(), "Acme Inc", "UTC", 96, null, adminEmail, BASE_URL, UUID.randomUUID());
 
         List<EmailOutbox> queued =
                 TenantContext.runAsSystem(
@@ -93,7 +104,8 @@ class TenantProvisioningServiceTest {
         String adminEmail = uniqueEmail();
 
         UUID tenantId =
-                provisioning.provision(uniqueSlug(), "Acme Inc", "UTC", 96, null, adminEmail, BASE_URL);
+                provisioning.provision(
+                        uniqueSlug(), "Acme Inc", "UTC", 96, null, adminEmail, BASE_URL, UUID.randomUUID());
 
         TenantContext.set(tenantId);
         try {
@@ -113,11 +125,38 @@ class TenantProvisioningServiceTest {
     @Test
     void provision_calledTwiceWithTheSameSlug_throwsConflict() {
         String slug = uniqueSlug();
-        provisioning.provision(slug, "First", "UTC", 96, null, uniqueEmail(), BASE_URL);
+        provisioning.provision(slug, "First", "UTC", 96, null, uniqueEmail(), BASE_URL, UUID.randomUUID());
 
         assertThatThrownBy(
-                        () -> provisioning.provision(slug, "Second", "UTC", 96, null, uniqueEmail(), BASE_URL))
+                        () ->
+                                provisioning.provision(
+                                        slug, "Second", "UTC", 96, null, uniqueEmail(), BASE_URL, UUID.randomUUID()))
                 .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void provision_writesATenantCreateAuditEntryAttributedToTheActingSuperAdmin() {
+        String slug = uniqueSlug();
+        UUID actorId = UUID.randomUUID();
+
+        UUID tenantId =
+                provisioning.provision(slug, "Acme Inc", "UTC", 96, null, uniqueEmail(), BASE_URL, actorId);
+
+        List<AuditEntry> rows =
+                TenantContext.runAsSystem(
+                        "test: read audit_entry",
+                        () ->
+                                auditEntries.findAll().stream()
+                                        .filter(row -> "Tenant".equals(row.entityType()))
+                                        .filter(row -> tenantId.toString().equals(row.entityId()))
+                                        .toList());
+
+        assertThat(rows).hasSize(1);
+        AuditEntry row = rows.getFirst();
+        assertThat(row.action()).isEqualTo(Action.CREATE);
+        assertThat(row.actorUserId()).isEqualTo(actorId);
+        assertThat(row.actorRole()).isEqualTo("SUPER_ADMIN");
+        assertThat(row.afterJson()).contains(slug).contains("Acme Inc");
     }
 
     private static String uniqueSlug() {

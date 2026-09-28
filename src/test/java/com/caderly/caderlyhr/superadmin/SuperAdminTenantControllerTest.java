@@ -12,6 +12,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.caderly.caderlyhr.TestcontainersConfiguration;
+import com.caderly.caderlyhr.audit.AuditEntryRepository;
+import com.caderly.caderlyhr.audit.system.AuditEntry;
+import com.caderly.caderlyhr.audit.system.AuditEntry.Action;
 import com.caderly.caderlyhr.identity.AppUser;
 import com.caderly.caderlyhr.identity.AppUserRepository;
 import com.caderly.caderlyhr.identity.Role;
@@ -23,6 +26,8 @@ import com.caderly.caderlyhr.tenant.TenantContext;
 import com.caderly.caderlyhr.tenant.TenantFacade;
 import com.caderly.caderlyhr.tenant.TenantRepository;
 import java.net.URI;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,19 +68,24 @@ class SuperAdminTenantControllerTest {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private TransactionTemplate transactions;
     @Autowired private RateLimitFilter rateLimitFilter;
+    @Autowired private AuditEntryRepository auditEntries;
 
     private String superAdminEmail;
+    private UUID superAdminId;
 
     @BeforeEach
     void seed() {
         rateLimitFilter.clearBuckets(null);
         superAdminEmail = "root-" + shortId() + "@caderly.test";
-        asSystem(
-                () ->
-                        transactions.execute(
-                                status ->
-                                        superAdmins.save(
-                                                new SuperAdmin(superAdminEmail, passwordEncoder.encode(PASSWORD)))));
+        superAdminId =
+                asSystem(
+                                () ->
+                                        transactions.execute(
+                                                status ->
+                                                        superAdmins.save(
+                                                                new SuperAdmin(
+                                                                        superAdminEmail, passwordEncoder.encode(PASSWORD)))))
+                        .requireId();
     }
 
     @Test
@@ -142,6 +152,11 @@ class SuperAdminTenantControllerTest {
                                                 outbox.findAll().stream()
                                                         .anyMatch(row -> row.toEmail().equals(adminEmail))));
         assertThat(queued).isTrue();
+
+        AuditEntry audit = onlyTenantAuditRow(saved.getId(), Action.CREATE);
+        assertThat(audit.actorUserId()).isEqualTo(superAdminId);
+        assertThat(audit.actorRole()).isEqualTo("SUPER_ADMIN");
+        assertThat(audit.afterJson()).contains(slug).contains("Acme Inc");
     }
 
     @Test
@@ -185,6 +200,9 @@ class SuperAdminTenantControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Suspended")));
         assertThat(findTenantById(tenantId).isSuspended()).isTrue();
+        AuditEntry suspendRow = tenantAuditRows(tenantId, Action.UPDATE).getFirst();
+        assertThat(suspendRow.actorUserId()).isEqualTo(superAdminId);
+        assertThat(suspendRow.afterJson()).contains("\"suspended\"").contains("true");
 
         mockMvc
                 .perform(
@@ -194,6 +212,12 @@ class SuperAdminTenantControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Active")));
         assertThat(findTenantById(tenantId).isSuspended()).isFalse();
+        List<AuditEntry> updateRows =
+                tenantAuditRows(tenantId, Action.UPDATE).stream()
+                        .sorted(Comparator.comparing(AuditEntry::occurredAt))
+                        .toList();
+        assertThat(updateRows).hasSize(2);
+        assertThat(updateRows.get(1).afterJson()).contains("\"suspended\"").contains("false");
     }
 
     /** See {@link #suspend_togglesSuspensionBothWays}'s Javadoc — same fragment-response proof. */
@@ -211,6 +235,11 @@ class SuperAdminTenantControllerTest {
         assertThat(findTenantById(tenantId).getDeletedAt()).isNotNull();
         assertThat(tenantFacade.bySlug(slug)).isEmpty();
         assertThat(tenantFacade.listAllForAdmin().stream().anyMatch(row -> row.id().equals(tenantId))).isTrue();
+
+        AuditEntry deleteRow = onlyTenantAuditRow(tenantId, Action.DELETE);
+        assertThat(deleteRow.actorUserId()).isEqualTo(superAdminId);
+        assertThat(deleteRow.actorRole()).isEqualTo("SUPER_ADMIN");
+        assertThat(deleteRow.afterJson()).contains("\"deleted\"").contains("true");
     }
 
     @Test
@@ -324,6 +353,24 @@ class SuperAdminTenantControllerTest {
         } finally {
             TenantContext.clear();
         }
+    }
+
+    private AuditEntry onlyTenantAuditRow(UUID tenantId, Action action) {
+        List<AuditEntry> rows = tenantAuditRows(tenantId, action);
+        assertThat(rows).hasSize(1);
+        return rows.getFirst();
+    }
+
+    private List<AuditEntry> tenantAuditRows(UUID tenantId, Action action) {
+        return asSystem(
+                () ->
+                        transactions.execute(
+                                status ->
+                                        auditEntries.findAll().stream()
+                                                .filter(row -> "Tenant".equals(row.entityType()))
+                                                .filter(row -> tenantId.toString().equals(row.entityId()))
+                                                .filter(row -> row.action() == action)
+                                                .toList()));
     }
 
     private static <T> T asSystem(Supplier<T> action) {
