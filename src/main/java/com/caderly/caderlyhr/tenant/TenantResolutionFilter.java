@@ -48,13 +48,25 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         // Infrastructure endpoints and static assets are tenant-independent; /error must
         // stay reachable for the 404/503 error dispatch itself; /superadmin is a realm of its
-        // own with no tenant to resolve (see this class's Javadoc).
+        // own with no tenant to resolve (see this class's Javadoc). /js/ and /fonts/ join /css/
+        // here for the same reason /superadmin needed it: that realm's pages are served on the
+        // base domain with no tenant subdomain to resolve, and this app's own static assets
+        // (caderly.js included — see its own header comment on the CSRF header it attaches to
+        // every htmx request) live under these prefixes rather than /webjars/. Without this, the
+        // Super Admin console's suspend/reinstate/delete actions 403 (missing CSRF header, since
+        // caderly.js itself 404s here) even though the page it's on renders fine.
         String path = request.getRequestURI();
         return path.startsWith("/actuator")
                 || path.startsWith("/superadmin")
                 || path.startsWith("/bootui")
                 || path.startsWith("/webjars/")
                 || path.startsWith("/css/")
+                || path.startsWith("/js/")
+                || path.startsWith("/fonts/")
+                || path.equals("/favicon.ico")
+                || path.equals("/favicon-32x32.png")
+                || path.equals("/favicon-16x16.png")
+                || path.equals("/apple-touch-icon.png")
                 || path.startsWith("/error");
     }
 

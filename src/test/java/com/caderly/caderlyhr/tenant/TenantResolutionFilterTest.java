@@ -87,6 +87,24 @@ class TenantResolutionFilterTest {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
     }
 
+    @Test
+    void staticJsAsset_withoutTenant_returns200() throws Exception {
+        // Regression: the Super Admin console (base domain, no tenant subdomain) depends on
+        // caderly.js to attach the CSRF header to every htmx request — if this 404s, every
+        // suspend/reinstate/delete action there 403s while the page itself still renders fine.
+        mockMvc.perform(get("/js/caderly.js")).andExpect(status().isOk());
+    }
+
+    @Test
+    void staticFontAsset_withoutTenant_returns200() throws Exception {
+        mockMvc.perform(get("/fonts/ibm-plex-sans-latin-400-normal.woff2")).andExpect(status().isOk());
+    }
+
+    @Test
+    void favicon_withoutTenant_returns200() throws Exception {
+        mockMvc.perform(get("/favicon.ico")).andExpect(status().isOk());
+    }
+
     // Seeding a tenant is itself cross-tenant work (there's no tenant yet to be "in") — same
     // reasoning as TenantService#bySlug (ADR 0004): runAsSystem, not a real tenant context.
     private Tenant seedTenantIfAbsent(String slug, String name) {
