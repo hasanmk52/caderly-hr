@@ -122,7 +122,7 @@ class SuperAdminTenantController {
                         form.weekendDays(),
                         form.logoUrl(),
                         form.firstAdminEmail(),
-                        baseUrl(),
+                        tenantBaseUrl(form.slug()),
                         currentSuperAdmin().actorId());
                 return "redirect:/superadmin/tenants";
             } catch (CaderlyException exception) {
@@ -256,9 +256,19 @@ class SuperAdminTenantController {
         return superAdmin;
     }
 
-    /** Mirrors {@code web.RequestTenant#baseUrl} (package-private in a different package). */
-    private static String baseUrl() {
-        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+    /**
+     * The new tenant's own origin, not this request's — unlike {@code web.RequestTenant#baseUrl}
+     * (package-private in a different package), which builds an invite link from the current
+     * request when a tenant Admin invites a colleague from their own subdomain. A Super Admin's
+     * request never carries the new tenant's subdomain (it's on the console's own host), so the
+     * host must be overridden explicitly rather than copied from the incoming request; scheme and
+     * port are still taken from it so this works unchanged under dev's plain HTTP.
+     */
+    private String tenantBaseUrl(String slug) {
+        return ServletUriComponentsBuilder.fromCurrentContextPath()
+                .host(slug + "." + baseDomain)
+                .build()
+                .toUriString();
     }
 
     /** Mirrors {@code web.WebMessages#errorDetail} (package-private in a different package). */

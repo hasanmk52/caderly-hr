@@ -144,14 +144,20 @@ class SuperAdminTenantControllerTest {
             TenantContext.clear();
         }
 
-        boolean queued =
+        var queuedRow =
                 asSystem(
                         () ->
                                 transactions.execute(
                                         status ->
                                                 outbox.findAll().stream()
-                                                        .anyMatch(row -> row.toEmail().equals(adminEmail))));
-        assertThat(queued).isTrue();
+                                                        .filter(row -> row.toEmail().equals(adminEmail))
+                                                        .findFirst()
+                                                        .orElseThrow()));
+        // Regression: the invite link must point at the NEW tenant's own subdomain, not the
+        // Super Admin console's host the request actually arrived on — a Super Admin's request
+        // never carries the new tenant's subdomain, unlike a tenant Admin inviting a colleague
+        // from their own subdomain, so this can't be built from the current request's host.
+        assertThat(queuedRow.bodyHtml()).contains("http://" + slug + ".localhost/accept-invite?token=");
 
         AuditEntry audit = onlyTenantAuditRow(saved.getId(), Action.CREATE);
         assertThat(audit.actorUserId()).isEqualTo(superAdminId);
