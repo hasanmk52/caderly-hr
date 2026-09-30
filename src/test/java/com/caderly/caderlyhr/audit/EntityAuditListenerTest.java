@@ -5,9 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.caderly.caderlyhr.audit.system.AuditEntry;
 import com.caderly.caderlyhr.audit.system.AuditEntry.Action;
 import com.caderly.caderlyhr.identity.AppUser;
+import com.caderly.caderlyhr.identity.AppUserDetailsService;
 import com.caderly.caderlyhr.identity.AppUserRepository;
+import com.caderly.caderlyhr.identity.ImpersonationService;
 import com.caderly.caderlyhr.identity.PasswordResetToken;
 import com.caderly.caderlyhr.identity.PasswordResetTokenRepository;
+import com.caderly.caderlyhr.identity.Role;
 import com.caderly.caderlyhr.org.Division;
 import com.caderly.caderlyhr.org.DivisionRepository;
 import com.caderly.caderlyhr.people.Employee;
@@ -19,6 +22,9 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -35,6 +41,9 @@ class EntityAuditListenerTest extends TenantIsolationTestBase {
     @Autowired private AppUserRepository users;
     @Autowired private AuditEntryRepository auditEntries;
     @Autowired private TransactionTemplate transactions;
+    @Autowired private ImpersonationService impersonation;
+    @Autowired private AppUserDetailsService appUserDetails;
+    @Autowired private EntityAuditListener listener;
 
     @Test
     void create_writesAnAuditEntryWithNoBeforeState() {
@@ -161,6 +170,111 @@ class EntityAuditListenerTest extends TenantIsolationTestBase {
                                 }));
 
         assertThat(findFor(tenantA, "PasswordResetToken", null)).isEmpty();
+    }
+
+    @Test
+    void write_underAnImpersonatedSession_isTaggedDistinctlyButStillAttributedToTheAdmin() {
+        // PRD FR-1.8: a support session must be visibly a support session in the audit trail. The
+        // write really was made against this Admin's account, so actor_user_id stays the Admin's
+        // id; actor_role is what records that a Super Admin was driving it.
+        UUID adminId =
+                asTenant(
+                        tenantA,
+                        () ->
+                                transactions.execute(
+                                        status -> {
+                                            AppUser admin = AppUser.active(uniqueEmail(), "hash");
+                                            admin.grant(Role.ADMIN);
+                                            return users.save(admin).getId();
+                                        }));
+
+        UUID divisionId =
+                asTenant(
+                        tenantA,
+                        () -> {
+                            UserDetails principal = impersonation.buildImpersonatedPrincipal(adminId);
+                            SecurityContextHolder.getContext()
+                                    .setAuthentication(
+                                            new UsernamePasswordAuthenticationToken(
+                                                    principal, null, principal.getAuthorities()));
+                            try {
+                                return transactions.execute(
+                                        status -> divisions.save(Division.create("Support", null)).getId());
+                            } finally {
+                                SecurityContextHolder.clearContext();
+                            }
+                        });
+
+        AuditEntry row = findFor(tenantA, "Division", divisionId).get(0);
+        assertThat(row.actorRole()).isEqualTo("SUPERADMIN_IMPERSONATING");
+        assertThat(row.actorUserId()).isEqualTo(adminId);
+    }
+
+    @Test
+    void write_underAnOrdinaryAdminSession_isStillTaggedAdmin() {
+        // The control case for the one above: the new highestRole branch must not have changed
+        // how a normal login is recorded.
+        UUID adminId =
+                asTenant(
+                        tenantA,
+                        () ->
+                                transactions.execute(
+                                        status -> {
+                                            AppUser admin = AppUser.active(uniqueEmail(), "hash");
+                                            admin.grant(Role.ADMIN);
+                                            return users.save(admin).getId();
+                                        }));
+
+        UUID divisionId =
+                asTenant(
+                        tenantA,
+                        () -> {
+                            UserDetails principal = appUserDetails.loadUserByUsername(emailOf(adminId));
+                            SecurityContextHolder.getContext()
+                                    .setAuthentication(
+                                            new UsernamePasswordAuthenticationToken(
+                                                    principal, null, principal.getAuthorities()));
+                            try {
+                                return transactions.execute(
+                                        status -> divisions.save(Division.create("Normal", null)).getId());
+                            } finally {
+                                SecurityContextHolder.clearContext();
+                            }
+                        });
+
+        AuditEntry row = findFor(tenantA, "Division", divisionId).get(0);
+        assertThat(row.actorRole()).isEqualTo("ADMIN");
+        assertThat(row.actorUserId()).isEqualTo(adminId);
+    }
+
+    @Test
+    void recordManualEvent_writesARowThatNoEntityLifecycleProduced() {
+        // The impersonation start/end events have no entity behind them, so they go in through
+        // this path rather than a JPA callback — same insert, same column discipline.
+        String correlationId = UUID.randomUUID().toString();
+        UUID actorId = UUID.randomUUID();
+
+        listener.recordManualEvent(
+                tenantA,
+                actorId,
+                "SUPER_ADMIN",
+                "ImpersonationSession",
+                correlationId,
+                Action.CREATE,
+                "{\"reason\":\"test\"}");
+
+        List<AuditEntry> rows = findFor(tenantA, "ImpersonationSession", null);
+        AuditEntry row =
+                rows.stream().filter(r -> correlationId.equals(r.entityId())).findFirst().orElseThrow();
+        assertThat(row.action()).isEqualTo(Action.CREATE);
+        assertThat(row.actorUserId()).isEqualTo(actorId);
+        assertThat(row.actorRole()).isEqualTo("SUPER_ADMIN");
+        assertThat(row.beforeJson()).isNull();
+        assertThat(row.afterJson()).contains("test");
+    }
+
+    private String emailOf(UUID userId) {
+        return users.findById(userId).orElseThrow().email();
     }
 
     /**

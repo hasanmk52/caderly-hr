@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="layout(title, content)">
+<!--/* Chrome-free shell for the Super Admin console (PRD FR-1.8) — its own realm, on its own
+       host, with no tenant topbar/sidebar to show (bare-layout.html is the model; layout.html's
+       chrome assumes a logged-in tenant user, which nothing in this realm ever is). The one
+       addition over bare-layout.html is htmx: superadmin/tenants.html's suspend/reinstate/delete
+       row actions are hx-patch/hx-delete (Global Constraint 9 — no Alpine, since the delete
+       confirmation here uses the same plain Bootstrap modal pattern admin/organization.html and
+       admin/holidays.html already use, which needs no JS beyond Bootstrap's own bundle). */-->
+<head th:replace="~{fragments/head :: head(${title})}"></head>
+<body class="caderly-bare-body">
+<main id="main-content" class="caderly-bare-main" th:replace="${content}"></main>
+<script th:src="@{/webjars/bootstrap/js/bootstrap.bundle.min.js}"></script>
+<script th:src="@{/webjars/htmx.org/dist/htmx.min.js}"></script>
+<script th:src="@{/js/caderly.js}"></script>
+</body>
+</html>

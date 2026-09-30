@@ -14,6 +14,19 @@ import java.util.UUID;
  */
 public interface AuditActor {
 
+    /**
+     * The {@code actor_role} a Super Admin support session records, in place of the impersonated
+     * Admin's real roles (PRD FR-1.8).
+     *
+     * <p>Defined here because both sides of the contract need the same literal and neither package
+     * may import the other: {@code identity.ImpersonatedAdminPrincipal} returns it from {@link
+     * #roleNames()}, and {@code audit.EntityAuditListener} recognises it when reducing a role set
+     * to one column value. It is not a member of {@code identity.Role} — nobody can be granted it;
+     * it is a label on the audit trail. 24 characters, against {@code audit_entry.actor_role}'s
+     * {@code varchar(30)} (widened by the sub-phase 1.13 migration for exactly this value).
+     */
+    String IMPERSONATION_ROLE = "SUPERADMIN_IMPERSONATING";
+
     UUID actorId();
 
     /** Role names as Spring Security sees them (e.g. {@code "ADMIN"}), never the {@code ROLE_}-prefixed authority string. */

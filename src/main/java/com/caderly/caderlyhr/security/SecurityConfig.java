@@ -1,15 +1,18 @@
 package com.caderly.caderlyhr.security;
 
+import com.caderly.caderlyhr.identity.AppUserDetailsService;
 import java.time.Clock;
 import java.time.Duration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -18,49 +21,37 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
-import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
+import org.springframework.security.web.authentication.logout.LogoutHandler;
+import org.springframework.security.web.context.DelegatingSecurityContextRepository;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 /**
- * Authentication and authorization (PRD §19.1, §19.2, §19.6; CLAUDE.md §6). Shape agreed in ADR
- * 0006 before implementation, per the CLAUDE.md §12 ask-first rule.
+ * Authentication and authorization for the tenant realm (PRD §19.1, §19.2, §19.6; CLAUDE.md §6).
+ * Shape agreed in ADR 0006 before implementation, per the CLAUDE.md §12 ask-first rule.
  *
- * <p>Notably absent: a custom {@code AuthenticationProvider}. Stock {@code
+ * <p>Still no <em>custom</em> {@code AuthenticationProvider} (ADR 0006 decision A): stock {@code
  * DaoAuthenticationProvider} over {@code AppUserDetailsService} is already tenant-scoped, because
- * {@code AppUser} carries {@code @TenantId} — see ADR 0006 decision A.
+ * {@code AppUser} carries {@code @TenantId}. What changed in sub-phase 1.13 is that the provider is
+ * now <em>constructed here</em> rather than inferred. Spring Security only auto-wires one from a
+ * {@code UserDetailsService} bean when the context holds exactly one, and {@code
+ * superadmin.SuperAdminDetailsService} is a second — with two present it wires neither, for
+ * either realm. Each chain therefore names its own store explicitly, which is also what keeps
+ * Super Admin credentials from ever being checked against {@code app_user}, or the reverse.
+ *
+ * <p>{@code @Order(100)} leaves room below it for {@code superadmin.SuperAdminSecurityConfig}'s
+ * {@code @Order(1)} chain: this one carries no {@code securityMatcher} and so matches everything,
+ * and an unordered pair would let it swallow {@code /superadmin/**}.
  */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 class SecurityConfig {
 
-    static final String LOGIN_PATH = "/login";
-    static final String FORGOT_PASSWORD_PATH = "/forgot-password";
-
     /** PRD §19.1's idle timeout is a container setting; this is the absolute cap on top of it. */
     private static final Duration MAX_SESSION_AGE = Duration.ofHours(24);
-
-    /**
-     * PRD §19.6, tightened. The PRD's draft allows cdn.jsdelivr.net and unpkg.com, but every asset
-     * is served from WebJars on our own origin, so those hosts are dropped.
-     *
-     * <p>Deliberately no {@code 'unsafe-eval'}: Alpine.js needs it for expression evaluation, but
-     * nothing in the app uses Alpine yet (no {@code x-data} anywhere). The first template that
-     * does will break visibly in the browser console, and the fix at that point is to adopt
-     * Alpine's CSP build rather than to weaken this directive.
-     *
-     * <p>{@code 'unsafe-inline'} remains on style-src only, which Bootstrap components require.
-     */
-    private static final String CONTENT_SECURITY_POLICY =
-            "default-src 'self'; "
-                    + "script-src 'self'; "
-                    + "style-src 'self' 'unsafe-inline'; "
-                    + "img-src 'self' data:; "
-                    + "font-src 'self'; "
-                    + "form-action 'self'; "
-                    + "base-uri 'self'; "
-                    + "frame-ancestors 'none'";
 
     /** CLAUDE.md §6 A02. Cost 12 is a deliberate CPU cost; do not lower it to speed tests up. */
     @Bean
@@ -96,6 +87,26 @@ class SecurityConfig {
         return new SessionRegistryImpl();
     }
 
+    /**
+     * This realm's {@code SecurityContext} store, wired explicitly onto the chain below.
+     *
+     * <p>Composed exactly as {@code SecurityContextConfigurer} composes its own default (request
+     * attribute first, {@code HttpSession} second, under the stock {@code SPRING_SECURITY_CONTEXT}
+     * key), so naming it changes no behaviour. It is named for two reasons. First, symmetry: since
+     * sub-phase 1.13 {@code superadmin.SuperAdminSecurityConfig} states its repository explicitly
+     * because it must use a <em>different</em> session key, and a reader comparing the two realms
+     * should be able to see both answers rather than one answer and an omission. Second, {@code
+     * web.ImpersonationController} establishes a session without going through an authentication
+     * filter, and it has to save the context where <em>this</em> chain will look for it on the next
+     * request — injecting the very same bean is what makes that true by construction instead of by
+     * two independent constructions happening to agree.
+     */
+    @Bean
+    SecurityContextRepository tenantSecurityContextRepository() {
+        return new DelegatingSecurityContextRepository(
+                new RequestAttributeSecurityContextRepository(), new HttpSessionSecurityContextRepository());
+    }
+
     /** Without this, SessionRegistryImpl never learns that a session was destroyed. */
     @Bean
     HttpSessionEventPublisher httpSessionEventPublisher() {
@@ -109,7 +120,10 @@ class SecurityConfig {
      */
     @Bean
     RateLimitFilter rateLimitFilter() {
-        return new RateLimitFilter(LOGIN_PATH, FORGOT_PASSWORD_PATH);
+        return new RateLimitFilter(
+                SecurityPaths.LOGIN_PATH,
+                SecurityPaths.FORGOT_PASSWORD_PATH,
+                SecurityPaths.SUPER_ADMIN_LOGIN_PATH);
     }
 
     @Bean
@@ -150,17 +164,51 @@ class SecurityConfig {
         return new FilterRegistrationBean<>(filter);
     }
 
+    /**
+     * Tenant-realm form login over {@code app_user}.
+     *
+     * <p>The provider is local to this chain — added through {@code http.authenticationProvider},
+     * which feeds this {@code HttpSecurity}'s own {@code AuthenticationManagerBuilder} ({@code
+     * HttpSecurity} is a prototype bean, so the builder is per-chain). Deliberately <em>not</em> a
+     * shared {@code @Bean AuthenticationManager}: a single such bean becomes the parent manager of
+     * every chain in the application, so a failed Super Admin login would fall through to it and
+     * be retried against this realm's user store, and vice versa. Per-chain keeps the two realms
+     * genuinely unable to see each other's credentials.
+     *
+     * <p>Going through the builder rather than {@code http.authenticationManager(...)} also keeps
+     * the {@code AuthenticationEventPublisher} the builder already carries, which is what {@link
+     * LoginAttemptListener} listens to for {@code login_audit} rows and the lockout counter.
+     */
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, SessionRegistry sessionRegistry)
+    @Order(100)
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            SessionRegistry sessionRegistry,
+            AppUserDetailsService appUsers,
+            PasswordEncoder passwordEncoder,
+            SecurityContextRepository securityContextRepository,
+            LogoutHandler impersonationLogoutHandler)
             throws Exception {
-        http.authorizeHttpRequests(
+        DaoAuthenticationProvider tenantAuthentication = new DaoAuthenticationProvider(appUsers);
+        tenantAuthentication.setPasswordEncoder(passwordEncoder);
+        tenantAuthentication.afterPropertiesSet();
+
+        http.authenticationProvider(tenantAuthentication)
+                .securityContext(context -> context.securityContextRepository(securityContextRepository))
+                .authorizeHttpRequests(
                         authorize ->
                                 authorize
                                         .requestMatchers(
-                                                LOGIN_PATH,
-                                                FORGOT_PASSWORD_PATH,
+                                                SecurityPaths.LOGIN_PATH,
+                                                SecurityPaths.FORGOT_PASSWORD_PATH,
                                                 "/reset-password",
                                                 "/accept-invite",
+                                                // Ticket-authenticated, like the two above: the browser
+                                                // arriving here has no session yet — establishing one is
+                                                // the endpoint's whole job (PRD FR-1.8). The ticket is
+                                                // single-use and one minute old at most; see
+                                                // identity.ImpersonationService.
+                                                SecurityPaths.IMPERSONATE_PATH,
                                                 // Token-authenticated, not session-authenticated (CLAUDE.md §6
                                                 // A01's deliberate exception — see api.CalendarFeedController's
                                                 // Javadoc). The URL-level permitAll() here is what makes the
@@ -188,20 +236,26 @@ class SecurityConfig {
                                         .authenticated())
                 .formLogin(
                         form ->
-                                form.loginPage(LOGIN_PATH)
-                                        .loginProcessingUrl(LOGIN_PATH)
+                                form.loginPage(SecurityPaths.LOGIN_PATH)
+                                        .loginProcessingUrl(SecurityPaths.LOGIN_PATH)
                                         .usernameParameter("email")
                                         .defaultSuccessUrl("/", true)
                                         // One generic failure destination for every cause, so the user
                                         // cannot learn whether the address exists, is locked, or is
                                         // disabled (CLAUDE.md §6 A07).
-                                        .failureUrl(LOGIN_PATH + "?error")
+                                        .failureUrl(SecurityPaths.LOGIN_PATH + "?error")
                                         .permitAll())
                 .logout(
                         logout ->
                                 logout
                                         .logoutUrl("/logout")
-                                        .logoutSuccessUrl(LOGIN_PATH + "?loggedOut")
+                                        // Closes the audit trail for a support session ended via this ordinary
+                                        // link rather than the dedicated "End impersonation" one — see
+                                        // web.ImpersonationLogoutHandler's Javadoc for why this has to run
+                                        // here (not just in ImpersonationController#end) and why it runs
+                                        // before invalidateHttpSession below erases the session it reads.
+                                        .addLogoutHandler(impersonationLogoutHandler)
+                                        .logoutSuccessUrl(SecurityPaths.LOGIN_PATH + "?loggedOut")
                                         .invalidateHttpSession(true)
                                         .deleteCookies("JSESSIONID")
                                         .permitAll())
@@ -213,36 +267,7 @@ class SecurityConfig {
                                         .sessionFixation(fixation -> fixation.newSession())
                                         .maximumSessions(-1)
                                         .sessionRegistry(sessionRegistry))
-                .headers(
-                        headers ->
-                                headers
-                                        .frameOptions(frame -> frame.deny())
-                                        .xssProtection(
-                                                xss ->
-                                                        // The legacy XSS auditor is disabled on purpose: it is
-                                                        // removed from modern browsers and, where it survives,
-                                                        // has introduced vulnerabilities of its own. CSP above
-                                                        // is the actual defence.
-                                                        xss.headerValue(
-                                                                XXssProtectionHeaderWriter.HeaderValue.DISABLED))
-                                        .contentSecurityPolicy(
-                                                csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
-                                        .referrerPolicy(
-                                                referrer ->
-                                                        referrer.policy(
-                                                                ReferrerPolicyHeaderWriter.ReferrerPolicy
-                                                                        .STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-                                        .permissionsPolicyHeader(
-                                                permissions ->
-                                                        permissions.policy(
-                                                                "accelerometer=(), camera=(), geolocation=(),"
-                                                                    + " gyroscope=(), magnetometer=(), microphone=(),"
-                                                                    + " payment=(), usb=()"))
-                                        .httpStrictTransportSecurity(
-                                                hsts ->
-                                                        hsts.includeSubDomains(true)
-                                                                .preload(true)
-                                                                .maxAgeInSeconds(Duration.ofDays(365).toSeconds())));
+                .headers(SecurityHeaders.standard());
 
         // CSRF stays at the Spring Security default (on, for every state-changing method). htmx
         // sends the token from the rendered form, so there is no reason to weaken this.

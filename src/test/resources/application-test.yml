@@ -47,3 +47,8 @@ caderly:
       # Under target/, not the project root — cleaned by `mvn clean`, never committed.
       root: target/test-storage
     max-file-size: 25MB
+  superadmin:
+    # MockMvc's default client address, so /superadmin/** is reachable in tests without every
+    # request faking a header. A case that wants to look like an outside client sends an
+    # X-Forwarded-For instead (SuperAdminSecurityConfigTest).
+    ip-allowlist: 127.0.0.1/32

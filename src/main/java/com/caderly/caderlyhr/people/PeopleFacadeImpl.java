@@ -40,6 +40,12 @@ class PeopleFacadeImpl implements PeopleFacade {
 
     @Override
     @Transactional(readOnly = true)
+    public long countActiveEmployees() {
+        return employees.countByStatusNot(EmployeeStatus.TERMINATED);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<EmployeeHireInfo> listActiveEmployeeHireInfo() {
         return employees.findAllByStatusNot(EmployeeStatus.TERMINATED).stream()
                 .map(e -> new EmployeeHireInfo(e.requireId(), e.hireDate()))

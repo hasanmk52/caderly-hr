@@ -118,6 +118,28 @@ caderly:
     # PRD §6.7 FR-7.3. Below the servlet's spring.servlet.multipart.max-file-size so an oversize
     # upload fails inside UploadValidator with a friendly inline message, not a raw 413 (ADR 0012).
     max-file-size: 25MB
+  superadmin:
+    # Blank defaults are deliberate here, unlike caderly.email.from or caderly.people.encryption-key
+    # above: there is no safe default Super Admin password to fall back to, but every environment
+    # that isn't bootstrapping one right now (CI, tests, a pilot tenant that already provisioned
+    # its Super Admin by hand) must still be able to start with nothing set. SuperAdminBootstrap
+    # treats blank-or-unset as "don't bootstrap" rather than failing closed (CLAUDE.md §6 A05's
+    # usual rule is inverted here on purpose — see that class's Javadoc).
+    bootstrap-email: ${CADERLY_SUPERADMIN_EMAIL:}
+    bootstrap-password: ${CADERLY_SUPERADMIN_PASSWORD:}
+    # Comma-separated CIDRs allowed to reach /superadmin/** at all (SuperAdminIpAllowlistFilter).
+    # Blank here means nobody — the filter fails closed, so an unset CADERLY_SUPERADMIN_IP_ALLOWLIST
+    # makes the console permanently 403 rather than publicly reachable. That is the intended
+    # behaviour, not a missing default: this allowlist is the console's second factor, and a
+    # "0.0.0.0/0" fallback would quietly remove it. Every real deployment must set the variable
+    # (e.g. "203.0.113.4/32,10.0.0.0/8").
+    #
+    # Deployment requirement, not a suggestion: the address judged here is ClientIpResolver's
+    # first X-Forwarded-For hop, so Caddy (PRD §27) must *set* that header rather than append to
+    # it, and the app's own port must not be reachable from outside the proxy. Append-or-trust
+    # leaves the header attacker-controlled, and a forged "X-Forwarded-For: <allowlisted>"
+    # reduces the console to password-only — the same posture this setting exists to prevent.
+    ip-allowlist: ${CADERLY_SUPERADMIN_IP_ALLOWLIST:}
 
 logging:
   level:

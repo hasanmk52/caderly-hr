@@ -1,94 +1,120 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.13 — Super Admin Console
-**Branch:** `phase-1.13-superadmin` (not yet created — create it before writing any code)
+**Working on:** Phase 1.14 — Deployment & Ops
+**Branch:** `phase-1.14-deployment` (not yet created — create it before writing any code)
+**Goal:** MHZ's instance runs on a real VPS: Docker Compose (app + reverse proxy only, Postgres
+native on the host), automatic TLS, nightly backups, and an install guide a solo engineer can
+follow end-to-end without guessing.
+
+## Phase 1.13 — Super Admin Console (complete)
+
+**Branch:** `phase-1.13-superadmin`
 **Goal:** Hasan (the one Super Admin) can provision a new tenant + first Admin in one form
 submit, suspend/delete a tenant, and impersonate a tenant's Admin for support — all from a
 separate `/superadmin` console with its own authentication realm and an IP allowlist.
+**Design record:** ADR 0019 (`docs/adr/0019-superadmin-console-realm-and-impersonation.md`) —
+the dual-realm security design, why ADR 0003/0004's deferred `BYPASSRLS` work turned out not to
+be needed, the two vulnerabilities found and fixed during review, the impersonation ticket
+mechanism, MFA deferral, and the htmx redirect gotcha.
+
+## Definition of Done for Phase 1.13 — all complete, verified below
+
+- **Hasan can create a new tenant + first Admin in one form submit and log in as that Admin
+  afterward.** Verified: `superadmin.TenantProvisioningServiceTest` (create tenant + first Admin
+  in one transaction, invite email queued to `email_outbox`) and
+  `superadmin.SuperAdminTenantControllerTest` (the console's `create()` endpoint end-to-end via
+  MockMvc). Login-afterward is the pre-existing accept-invite flow (Phase 1.2/1.4), reused
+  unmodified — no new login path was needed.
+- **Suspending a tenant blocks login for every user in it; unsuspending restores it.** Verified:
+  `tenant.TenantResolutionFilterTest#home_whenSuspendedTenant_returns503` and
+  `security.AuthenticationFlowTest#login_whenTenantIsSuspended_isRejectedBeforeAuthentication` —
+  the suspension check runs in `TenantResolutionFilter`, before the security chain, so a suspended
+  tenant never reaches a password check at all, not merely gets rejected after one.
+- **Deleting a tenant is soft (grace period), not an immediate hard delete.** Verified:
+  `tenant.TenantServiceTest` asserts `softDelete` sets `deleted_at` and
+  `TenantFacade.bySlug`/`findAnyAdmin`-style lookups return empty for a soft-deleted tenant
+  afterward; no hard-delete code path exists anywhere in this phase's diff.
+- **Impersonating an Admin works, is clearly indicated in the UI while active, and every write
+  made during it is audited with `actor_role=SUPERADMIN_IMPERSONATING`.** Verified:
+  `identity.ImpersonationServiceTest`/`web.ImpersonationControllerTest` (ticket mint/redeem,
+  session established, `SessionRegistry` registration, audit start/end events with the correlated
+  `entity_id`) and a live `GET /admin/users` returning `200` mid-session proving `@PreAuthorize`
+  behaves as the real Admin. The in-session banner is the impersonation-banner fragment added to
+  the tenant layout, confirmed rendered in the controller test's returned HTML.
+- **`./mvnw verify` green, ArchUnit green, no new exemptions beyond what `superadmin`'s existing
+  ArchUnit carve-out already allows.** Verified: full suite green throughout (661/661 at Task 6's
+  completion per the phase ledger; re-confirmed via `./mvnw -q -o test` and `./mvnw -q -o verify`
+  at Task 7 close-out, both exit 0, zero new ArchUnit exemptions).
+
+Design record for all of the above, including two vulnerabilities found and fixed during review
+(cross-realm session isolation; a percent-encoding bypass of the IP allowlist/rate limiter) and
+the reasoning for not needing ADR 0003/0004's deferred `BYPASSRLS` work: **ADR 0019**
+(`docs/adr/0019-superadmin-console-realm-and-impersonation.md`).
 
 ## Read these before doing anything
 
-1. `docs/Caderly_Implementation_Plan.md` — the "1.13 Super Admin console" section under Phase 1
-   — MVP.
-2. `docs/Caderly_PRD.md` — §6.12 (FR-12.1 through FR-12.5), §23.2's `/superadmin/**` endpoints,
-   §26's Super Admin row in the permissions matrix, and §27's architecture diagram for where the
-   Super Admin realm sits relative to the main app.
-3. `CLAUDE.md` — §12: a separate `SecurityFilterChain` for `/superadmin/**` is exactly the kind
-   of change §12 says to stop and ask before making (alongside `SecurityConfig` itself), even
-   though it's additive rather than a change to the existing tenant-facing chain. Also §5 rule 6
-   (`TenantContext.runAsSystem` for anything that bypasses tenancy — impersonation is the
-   textbook case) and §6 A07 (session revocation, MFA) since Super Admin login is a second,
-   parallel authentication realm to the tenant one.
+1. `docs/Caderly_Implementation_Plan.md` — the "1.14 Deployment & Ops" section under Phase 1 —
+   MVP.
+2. `docs/Caderly_PRD.md` — whatever sections cover deployment/ops expectations (backup cadence,
+   TLS, the "PostgreSQL is external" architecture decision already locked in CLAUDE.md §3).
+3. `CLAUDE.md` — §3 (locked stack: Docker + docker-compose for the app + reverse proxy only,
+   PostgreSQL is external/host-native, distroless JRE 25 base image — do not containerize
+   Postgres), §6 A05 (security headers, actuator exposure, no default passwords — all must hold
+   in the shipped Docker image), §6 A08 (Docker base image pinned by digest, not just tag).
 
 ## Already in place — do not redo
 
-- **`tenant.Tenant`/`TenantRepository`** — `suspended` (boolean) and `deleted_at` (nullable
-  timestamp) columns already exist on the `tenant` table (migration
-  `V202607241000__create_tenant_and_super_admin.sql`), unused by any code yet. Phase 1.13 is what
-  finally reads/writes them.
-- **`super_admin` table** already exists (same migration) — `id`, `email`, `password_hash`,
-  `mfa_secret`, `created_at`. No JPA entity, repository, or `UserDetailsService` wired to it yet;
-  the `com.caderly.caderlyhr.superadmin` package is currently empty. This table is intentionally
-  system-scoped: no `tenant_id`, no RLS (same category as `email_outbox`/`audit_entry`, ADR 0005
-  decision B) — a Super Admin is not a member of any tenant.
-- **`TenantContext.runAsSystem`** (used already by `EmployeeTerminationJob`, tenant provisioning
-  test fixtures, etc.) — the mechanism impersonation's tenant-switch and every cross-tenant Super
-  Admin read should reuse, not a new bespoke bypass.
-- **`audit` module** (`AuditListener`, `AuditEntry`) — already captures actor id and role on every
-  write; FR-12.5's "impersonate with explicit audit log entry" needs a new `actor_role` value
-  (`SUPERADMIN_IMPERSONATING` per the Implementation Plan) recorded on every write made while
-  impersonating, not a new audit mechanism.
-- **Admin-only page/filter patterns** (`admin/notifications.html`, `admin/audit-log.html`,
-  `admin/reports*.html` from 1.12) — the tenant list + create form is a good candidate to reuse
-  the same filter-form and table conventions, adapted for a cross-tenant (not tenant-scoped) list.
+- **Distroless JRE 25 base image and Docker + docker-compose as the deployment mechanism** are
+  already locked in CLAUDE.md §3 — this phase builds the actual `Dockerfile`/`docker-compose.yml`,
+  it does not decide the approach.
+- **`application.yml`'s env-var-driven configuration** (DB URL, DB user/password, SMTP,
+  `CADERLY_ENCRYPTION_KEY`, `CADERLY_SUPERADMIN_EMAIL`/`PASSWORD`, `caderly.superadmin
+  .ip-allowlist`, etc.) — every secret this phase's `.env.example` needs to document already
+  exists as an env-var-backed property from earlier phases; this phase does not invent new
+  secrets, it documents and wires the existing ones for a real deployment.
+- **Actuator already restricted per CLAUDE.md §6 A05** (`/actuator/env`, `/actuator/heapdump`
+  disabled in the prod profile) — this phase's Prometheus scrape endpoint work builds on that
+  existing posture, it does not loosen it.
+- **The Super Admin IP allowlist's deployment requirement is already documented** next to
+  `caderly.superadmin.ip-allowlist` in `application.yml` (Phase 1.13, ADR 0019 decision A): the
+  reverse proxy must **set**, not append, `X-Forwarded-For`, and the app port must be bound to
+  loopback. The Caddyfile this phase writes must satisfy that requirement for the whole app, not
+  just the Super Admin console.
 
-## Remaining Phase 1.13 work
+## Remaining Phase 1.14 work
 
-### Backend
-- `SuperAdmin` entity (`BaseEntity`, not `TenantAwareEntity` — see "already in place" above) +
-  repository + `UserDetailsService` for the new realm.
-- Separate `SecurityFilterChain` for `/superadmin/**`, distinct from the tenant-facing one —
-  confirm approach before implementing (CLAUDE.md §12).
-- IP allowlist filter, configured via env var, guarding the whole `/superadmin/**` chain.
-- Tenant provisioning service: create tenant + first Admin (`AppUser` + linked `Employee`?
-  confirm whether Super Admin-created Admins need an Employee record or just an `AppUser`) in one
-  transaction, sending the same invite-email path `identity`/`people` already use elsewhere.
-- Suspend (`tenant.suspended = true`, blocks login tenant-wide — confirm exactly where this is
-  checked in the login flow) and delete (`tenant.deleted_at` set, 30-day grace period per FR-12.4
-  — confirm what "grace period" means operationally: a scheduled hard-delete job, or just a
-  soft-delete that a future job purges; no such job exists yet).
-- Impersonation endpoint: spoofs `TenantContext` + `Authentication` for one session, audit entries
-  during that session marked `actor_role=SUPERADMIN_IMPERSONATING`.
-
-### Frontend
-- Super Admin console shell (separate layout from the tenant app's `layout.html`? confirm — a
-  Super Admin is never "in" a tenant, so the tenant-scoped topbar/sidebar don't apply as-is).
-- Tenant list + create form + suspend/delete row actions.
+### Infra
+- Multi-stage `Dockerfile`, distroless JRE 25 base image pinned by digest (CLAUDE.md §6 A08).
+- `docker-compose.yml` with `caderly-app` + `caddy` only — no Postgres service; the app connects
+  to the host's native Postgres 17 (`host.docker.internal:5432` or the host's LAN IP).
+- `Caddyfile` with automatic TLS for `*.caderly.app` (or the chosen domain).
+- Nightly `pg_dump` cron on the host, uploaded off-site to S3.
+- `.env.example` documenting every env var this app already reads (DB URL/user/password, SMTP,
+  encryption key, Super Admin bootstrap credentials, IP allowlist) — no new secrets, just
+  documentation of what already exists.
+- `INSTALL.md` for the MHZ Debian VPS: Postgres 17 via `apt`, `caderly` role + database,
+  `pg_hba.conf` for local + Docker-bridge access, then `docker compose up -d`.
+- Prometheus scrape endpoint (via the already-present Actuator, exposed per CLAUDE.md §6 A05's
+  management-port + auth rule).
+- Wildcard DNS setup guide.
+- Optional Kubernetes/cloud variant documented separately (same image, external managed Postgres
+  — RDS/Cloud SQL/Neon — same env vars, no code change).
 
 ### Tests
-- Impersonation audit trail correct (`actor_role` value, tenant context during the impersonated
-  session, and that it reverts cleanly after).
-- IP allowlist enforced (allowed IP gets through, disallowed gets 403/blocked before
-  authentication).
-- RBAC: `/superadmin/**` unreachable via the tenant-facing `SecurityFilterChain`'s session, and
-  vice versa — the two realms must not cross-authenticate.
+- `docker compose up` on a fresh Debian box (after Postgres is installed + DB created) works
+  end-to-end.
+- Restore-from-backup drill documented and run once.
 
-## Definition of Done for Phase 1.13
+## Definition of Done for Phase 1.14
 
-- Hasan can create a new tenant + first Admin in one form submit (PRD's own DoD wording) and log
-  in as that Admin afterward.
-- Suspending a tenant blocks login for every user in it; unsuspending restores it.
-- Deleting a tenant is soft (grace period), not an immediate hard delete.
-- Impersonating an Admin works, is clearly indicated in the UI while active, and every write made
-  during it is audited with `actor_role=SUPERADMIN_IMPERSONATING`.
-- `./mvnw verify` green, ArchUnit green, no new exemptions beyond what `superadmin`'s existing
-  ArchUnit carve-out already allows.
+- MHZ's instance runs on a $10/mo Hetzner VPS: Postgres 17 native, Docker running `caderly-app` +
+  `caddy`, wildcard TLS working for the chosen domain (e.g. `mhz.caderly.app`).
 
-## Not in scope for Phase 1.13 — do not start any of this
+## Not in scope for Phase 1.14 — do not start any of this
 
-- Any tenant self-service signup flow — Super Admin-only provisioning, per PRD §6.12.
-- Billing/subscription management — not named anywhere in PRD §6.12 or the Implementation Plan.
-- Per-tenant feature flags — no PRD requirement for this yet.
+- Any Phase 2 feature work — this phase is infra-only.
+- Kubernetes/cloud-managed-Postgres as the primary deployment target — documented as an optional
+  variant only; the MHZ/pilot-tenant target is the Debian VPS + native Postgres shape.
 
 ## Carried forward — open items
 
@@ -169,14 +195,36 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
   reassignment via FK) — only scalar columns are diffed (Phase 1.11, ADR 0017). The one relation
   most likely to matter (manager) already has its own audited history table
   (`people.EmployeeManagerHistory`). Revisit only if a real need for relation-level diffs surfaces.
-- **Super Admin's cross-tenant audit view is not built** (PRD §26) — Phase 1.13 builds the console
-  itself (provisioning/suspend/delete/impersonate); a cross-tenant audit *viewer* on top of the
-  already-system-scoped `audit_entry` table is not named in the Implementation Plan's 1.13 scope
-  and should be confirmed as in/out before building it.
+- **Super Admin's cross-tenant audit view is still not built** (PRD §26) — Phase 1.13 built the
+  console itself (provisioning/suspend/delete/impersonate) but deliberately not a cross-tenant
+  audit *viewer* on top of the already-system-scoped `audit_entry` table; that was confirmed
+  out-of-scope for 1.13, not merely missed. Still needs an owning phase.
+- **A soft-deleted tenant's slug can never be reused** (Phase 1.13, ADR 0019 decision I) —
+  `tenant.slug` has a bare `UNIQUE` constraint, no partial index excluding soft-deleted rows. A
+  real product-behavior question (should a deleted tenant's slug free up after its grace period?)
+  flagged during Task 1, never resolved. Any fix needs a schema change and its own ADR.
+- **`ImpersonationService.findAnyAdmin` picks the first ACTIVE Admin found** when a tenant has more
+  than one (Phase 1.13, ADR 0019 decision I) — no admin-picker UI was in scope. Revisit if a real
+  pilot tenant with multiple Admins needs to choose which one to impersonate.
+- **Super Admin login has no MFA** (Phase 1.13, ADR 0019 decision F) — no `TotpService` exists
+  anywhere in the codebase yet, for any realm. The IP allowlist + rate limiting are the controls
+  for this phase. Revisit once TOTP is built for the tenant realm; wiring it into the Super Admin
+  realm at that point is a small addition on top, not a new mechanism.
+- **htmx cannot observe a response header on a redirect its own XHR call already followed** (Phase
+  1.13, ADR 0019 decision H) — a real, non-obvious gotcha (not specific to Super Admin) worth
+  remembering anywhere else in this codebase that pairs `HX-Redirect` with a genuine
+  Spring `redirect:`: the fix is a plain `200` fragment response, or a real top-level form
+  navigation when the target is cross-origin (CORS blocks the XHR case there).
+- **`SuperAdminSecurityConfig`'s Javadoc still misstates Spring's default `SecurityContextRepository`
+  composition order** (Phase 1.13) — functionally harmless, comment-only, deliberately left alone
+  per CLAUDE.md §12 rather than touched out-of-scope during an unrelated fix round.
+- **`superadmin.SuperAdminTenantController`'s `errorDetail()`/`baseUrl()` helpers duplicate logic**
+  already in `web.WebMessages`/`web.RequestTenant`, which aren't visible outside their own package
+  (Phase 1.13) — reasonable duplication at this scale, not extracted into a shared seam.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to whatever sub-phase comes next (this file's 1.12 → 1.13 update is the template).
-3. Commit `phase-1.13-superadmin` and open a PR against `main`.
+2. Update this file to whatever sub-phase comes next (this file's 1.13 → 1.14 update is the template).
+3. Commit `phase-1.14-deployment` and open a PR against `main`.
 4. Do not start the next phase in the same session.

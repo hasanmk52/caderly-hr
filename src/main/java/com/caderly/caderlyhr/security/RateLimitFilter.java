@@ -1,6 +1,7 @@
 package com.caderly.caderlyhr.security;
 
 import com.caderly.caderlyhr.common.ClientIpResolver;
+import com.caderly.caderlyhr.common.RequestPathResolver;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
@@ -19,8 +20,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Throttles the two endpoints an attacker would hammer (PRD §19.7): login at 10/min per IP, and
- * password-reset requests at 3/hour per email address.
+ * Throttles the three endpoints an attacker would hammer (PRD §19.7): tenant login at 10/min per
+ * IP, Super Admin login at the same rate on its own counter, and password-reset requests at 3/hour
+ * per email address.
  *
  * <p>The login limit is also what keeps a distributed attack bounded: lockout is keyed on (email +
  * IP) as of ADR 0017 (superseding ADR 0006 decision B), so one IP spraying many different accounts
@@ -40,6 +42,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final String loginPath;
     private final String forgotPasswordPath;
+    private final String superAdminLoginPath;
 
     /**
      * Buckets expire well after their refill window so an idle key cannot pin memory, while an
@@ -49,9 +52,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final Cache<String, Bucket> buckets =
             Caffeine.newBuilder().maximumSize(100_000).expireAfterAccess(Duration.ofHours(2)).build();
 
-    public RateLimitFilter(String loginPath, String forgotPasswordPath) {
+    public RateLimitFilter(
+            String loginPath, String forgotPasswordPath, String superAdminLoginPath) {
         this.loginPath = loginPath;
         this.forgotPasswordPath = forgotPasswordPath;
+        this.superAdminLoginPath = superAdminLoginPath;
     }
 
     @Override
@@ -78,6 +83,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private boolean allowed(HttpServletRequest request, String path) {
         if (loginPath.equals(path)) {
             return consume("login:" + ClientIpResolver.resolve(request), LOGIN_LIMIT);
+        }
+        // Its own key prefix, so a tenant-login flood cannot exhaust the Super Admin console's
+        // budget (or hide behind it) — the two realms share the rate, never the counter.
+        //
+        // Matched on the decoded path, unlike the two tenant branches around it. The Super Admin
+        // chain is selected by securityMatcher("/superadmin/**"), which matches decoded, so
+        // /%73uperadmin/login reaches the login filter while a raw-URI comparison here does not
+        // see it — an unlimited password oracle on the highest-privilege account in the system.
+        // The tenant branches keep comparing the raw URI: their behaviour predates this task and
+        // changing it is not this task's to make (SuperAdminIpAllowlistFilter's Javadoc has the
+        // same note).
+        if (superAdminLoginPath.equals(RequestPathResolver.decodedPath(request))) {
+            return consume("superadmin-login:" + ClientIpResolver.resolve(request), LOGIN_LIMIT);
         }
         if (forgotPasswordPath.equals(path)) {
             String email = request.getParameter("email");
