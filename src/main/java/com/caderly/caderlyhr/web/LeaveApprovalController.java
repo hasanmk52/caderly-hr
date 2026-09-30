@@ -33,12 +33,11 @@ import org.springframework.web.bind.annotation.PostMapping;
  * every signed-in user, alongside the Time off requests approval pane, which stays Manager/Admin
  * only. Manager approval authority is transitive (direct + indirect reports, via {@code
  * PeopleFacade#isManagerOf}) even though routing/notification at submit time stays direct-manager-
- * only (BR-2 MVP scope) — see the Phase 1.6 plan's decision 5.
+ * only (BR-2 MVP scope).
  *
- * <p>The class-level {@code @PreAuthorize} was widened from {@code hasRole('MANAGER')} to {@code
- * isAuthenticated()} in sub-phase 1.9 (ADR 0015) so a plain Employee can reach their own Tasks
- * pane; every mutation endpoint (approve/reject) keeps its own method-level {@code
- * hasRole('MANAGER')}, which overrides the class level and is unaffected by the widening.
+ * <p>The class-level {@code @PreAuthorize} is {@code isAuthenticated()} (ADR 0015) so a plain
+ * Employee can reach their own Tasks pane; every mutation endpoint (approve/reject) keeps its own
+ * method-level {@code hasRole('MANAGER')}, which overrides the class level.
  */
 @Controller
 @PreAuthorize("isAuthenticated()")
@@ -78,7 +77,7 @@ class LeaveApprovalController {
     }
 
     /**
-     * Derived "Complete your profile" task (PRD FR-8.4, sub-phase 1.9's ADR 0015) — no {@code
+     * Derived "Complete your profile" task (PRD FR-8.4, ADR 0015) — no {@code
      * Task} table exists; this is computed fresh from the employee's own blank self-service
      * fields every time the page loads, and disappears on its own once they're filled in.
      */

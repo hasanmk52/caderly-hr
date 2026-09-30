@@ -83,8 +83,8 @@ class ArchitectureTest {
 
     @Test
     void sendingMail_isConfinedToTheOutboxDispatcher() {
-        // CLAUDE.md §6a rule 1. Until sub-phase 1.10 this was convention only: nothing stopped a
-        // service calling mailSender.send() straight from a request path, where it either blocks
+        // CLAUDE.md §6a rule 1: nothing stops a service calling mailSender.send() straight from
+        // a request path, where it either blocks
         // the user on a third party or — worse — succeeds after its own transaction rolled back,
         // announcing something that did not happen. notifications.system is the outbox's own
         // package, where the @Scheduled dispatcher legitimately performs the SMTP call.

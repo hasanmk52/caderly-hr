@@ -28,7 +28,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 /**
  * CLAUDE.md §8: one 200 test per role plus one anonymous-denied test, for each of the six
- * {@code /widgets/*} fragment endpoints (PRD §24.2, sub-phase 1.9). All six carry the same
+ * {@code /widgets/*} fragment endpoints (PRD §24.2). All six carry the same
  * {@code hasRole('EMPLOYEE')} floor as {@code HomeController.home()} — the role hierarchy passes
  * Manager and Admin through too.
  *

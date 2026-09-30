@@ -179,7 +179,7 @@ class EmailOutboxTest extends TenantIsolationTestBase {
         assertThat(failed.status()).isEqualTo(EmailStatus.FAILED);
         assertThat(failed.attempts()).isEqualTo(3);
         assertThat(failed.lastError()).contains("permanently broken");
-        // Never lose the intent row (CLAUDE.md §6a rule 3) — Phase 1.10's Admin UI retries it.
+        // Never lose the intent row (CLAUDE.md §6a rule 3) — the Admin UI retries it.
         assertThat(findRow(rowId)).isNotNull();
 
         // And a FAILED row is not picked up again by ordinary polling.

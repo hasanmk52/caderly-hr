@@ -16,14 +16,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * Phase 1.5's DoD headline flow, end to end through a real browser (CLAUDE.md §3, §8): Admin
- * defines a leave type, adds a holiday, creates a hired employee — the employee's balance appears
- * on their Home dashboard. CSV bulk upload itself is covered by {@code
- * PublicHolidayServiceTest}'s integration tests, not repeated here; this spec's job is proving
- * the browser-rendered path, one manually-added holiday is enough for that.
+ * The headline flow, end to end through a real browser (CLAUDE.md §3, §8): Admin defines a leave
+ * type, adds a holiday, creates a hired employee — the employee's balance appears on their Home
+ * dashboard. CSV bulk upload itself is covered by {@code PublicHolidayServiceTest}'s integration
+ * tests, not repeated here; this spec's job is proving the browser-rendered path, one
+ * manually-added holiday is enough for that.
  *
  * <p>Mirrors {@code EmployeeLifecycleE2ETest}'s helpers (login, invite-token-from-outbox) rather
- * than re-deriving them, per CURRENT_PHASE.md.
+ * than re-deriving them.
  */
 class LeaveConfigE2ETest extends PlaywrightE2ETestBase {
 

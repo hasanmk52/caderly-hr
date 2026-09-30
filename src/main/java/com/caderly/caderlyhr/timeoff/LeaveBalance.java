@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /**
  * One employee's entitlement to one leave type for one calendar year (PRD §12.1, §12.2). {@code
- * used} stays zero this phase — booking/approval (Phase 1.6) is what ever increments it.
+ * used} starts at zero — booking/approval is what ever increments it.
  *
  * <p>{@code employeeId} is a plain id, not a JPA relation: {@code timeoff} reads {@code people}
  * data only through {@code PeopleFacade} (CLAUDE.md §4), the same convention {@code
@@ -50,9 +50,8 @@ public class LeaveBalance extends TenantAwareEntity {
     private BigDecimal used;
 
     /**
-     * Optimistic lock (decision 2 in the Phase 1.6 plan): approve/cancel/termination-cascade can
-     * all race to update {@code used} on the same row, which earlier phases never risked since
-     * nothing wrote to it before booking existed.
+     * Optimistic lock: approve/cancel/termination-cascade can all race to update {@code used} on
+     * the same row.
      */
     @Version
     @Column(name = "version", nullable = false)
@@ -73,9 +72,9 @@ public class LeaveBalance extends TenantAwareEntity {
     }
 
     /**
-     * Admin manual adjustment (PRD §12.2). The required reason is logged by the caller (
-     * {@code BalanceService}), not stored on this row — the real {@code audit_entry} table lands
-     * in Phase 1.11.
+     * Admin manual adjustment (PRD §12.2). The required reason is logged by the caller ({@code
+     * BalanceService}) via SLF4J, not stored on this row or captured by {@code audit_entry}'s
+     * automatic before/after diff.
      */
     public void adjustGranted(BigDecimal newGranted) {
         this.granted = newGranted;

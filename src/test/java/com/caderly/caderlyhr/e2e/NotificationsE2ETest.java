@@ -32,7 +32,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
- * Sub-phase 1.10's DoD headline, end to end through a real browser: an SMTP outage burns an
+ * The headline flow, end to end through a real browser: an SMTP outage burns an
  * email's retry budget, the Admin finds the FAILED row at {@code /admin/notifications}, clicks
  * Retry, and the row reaches SENT once the server is back.
  *

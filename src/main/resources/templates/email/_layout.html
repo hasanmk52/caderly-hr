@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="page(content)">
 <!--/*
-  Shared chrome for every transactional email (PRD §17.1, BRAND.source.md §8.2). Before
-  sub-phase 1.10 this markup existed twice, in identity.IdentityEmails.wrap() and
-  timeoff.TimeoffEmails.wrap(), as Java text blocks.
+  Shared chrome for every transactional email (PRD §17.1, BRAND.source.md §8.2). The single
+  source of this markup — no module keeps its own copy as a Java text block.
 
   Three deliberate departures from the rest of templates/:
 

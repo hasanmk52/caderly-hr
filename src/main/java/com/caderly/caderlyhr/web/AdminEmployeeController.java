@@ -215,10 +215,9 @@ class AdminEmployeeController {
      * under the control the Admin has to change. Mirrors {@code AdminOrganizationController}'s
      * helper of the same name.
      *
-     * <p>Everything used to be rejected onto {@code email}, which was right while a duplicate
-     * address was the only failure this form could produce. It stopped being right once the
-     * manager and department selects could fail on their own: a refused reporting loop rendered
-     * under Email with the Manager select looking untouched.
+     * <p>Errors on the manager or department selects must route to that control, not to {@code
+     * email}: a refused reporting-loop error rendered under Email would leave the Manager select
+     * looking untouched.
      *
      * <p>{@code EMPLOYEE_NOT_FOUND} maps to the manager select because the manager is the only
      * employee id this form submits — the employee being edited arrives as a path variable, and a

@@ -10,7 +10,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Read-only view of approved leave and public holidays for other modules (CLAUDE.md §4). First
- * consumer is {@code calendar} (sub-phase 1.8): the team calendar grid and the per-user iCal feed
+ * consumer is {@code calendar}: the team calendar grid and the per-user iCal feed
  * both need approved leave without any of {@code timeoff}'s write-side state machine or balance
  * math.
  */

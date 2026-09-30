@@ -22,11 +22,11 @@ import org.springframework.web.servlet.ModelAndView;
 /**
  * Every error status Caderly can return must land on a Caderly page.
  *
- * <p>This exists because it did not. Sub-phase 1.2 shipped {@code error/404.html} and {@code
- * error/5xx.html} only, and Boot's {@code DefaultErrorViewResolver} looks for {@code
- * error/<status>} then {@code error/<series>xx} — so a 403 matched neither and fell through to the
+ * <p>This exists because it did not: {@code error/404.html} and {@code error/5xx.html} alone are
+ * not enough — Boot's {@code DefaultErrorViewResolver} looks for {@code error/<status>} then
+ * {@code error/<series>xx}, so a status with neither template (like 403) falls through to the
  * Whitelabel Error Page. With devtools on the classpath (which raises {@code
- * server.error.include-stacktrace} to ALWAYS) that page printed a full stack trace.
+ * server.error.include-stacktrace} to ALWAYS) that page prints a full stack trace.
  *
  * <p>The RBAC tests did not catch it: they assert the status code, and the status code was right.
  * It was the rendered page that was wrong.

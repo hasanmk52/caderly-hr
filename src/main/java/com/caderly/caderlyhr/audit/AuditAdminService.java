@@ -95,7 +95,7 @@ public class AuditAdminService {
         return new AuditDiff(row.entityType(), row.action(), prettyPrint(row.beforeJson()), prettyPrint(row.afterJson()));
     }
 
-    /** Best-effort: a row written before this formatting existed still renders, just unindented. */
+    /** Best-effort: a row without this formatting still renders, just unindented. */
     private @Nullable String prettyPrint(@Nullable String json) {
         if (json == null) {
             return null;

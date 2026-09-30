@@ -10,7 +10,8 @@ public enum EmailStatus {
 
     /**
      * Gave up after exhausting the retry budget. Terminal, but the row is never deleted — an Admin
-     * can inspect {@code last_error} and requeue it (retry UI lands in Phase 1.10).
+     * can inspect {@code last_error} and requeue it via {@link
+     * com.caderly.caderlyhr.notifications.NotificationAdminService#requeue}.
      */
     FAILED
 }

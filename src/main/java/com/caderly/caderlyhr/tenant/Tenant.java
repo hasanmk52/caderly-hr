@@ -13,9 +13,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * The cross-tenant root (PRD §21). Deliberately does NOT extend {@code common.BaseEntity}: its
  * shape doesn't fit — no {@code tenant_id} (it IS the tenant) and no {@code updated_at} in the
- * current schema. See ADR 0003. (A former justification for this — avoiding a package cycle with
- * {@code common} — no longer applies after ADR 0004; extending {@code BaseEntity} is possible if a
- * future phase wants {@code updated_at} on this table, via an additive migration.)
+ * current schema. See ADR 0003. Not required by any package-cycle concern per ADR 0004; extending
+ * {@code BaseEntity} is possible if a future phase wants {@code updated_at} on this table, via an
+ * additive migration.
  */
 @Entity
 @Table(name = "tenant")
@@ -40,7 +40,8 @@ public class Tenant {
     @Column(name = "locale", nullable = false, length = 10)
     private String locale;
 
-    // Bitmask of weekend days: Sat=64, Sun=32 -> 96 (PRD §21)
+    // Bitmask of weekend days: Sat=32, Sun=64 -> 96 (PRD §21); see
+    // LeaveDurationCalculator.decodeWeekend for the bit convention.
     @Column(name = "weekend_days", nullable = false)
     private int weekendDays;
 
@@ -98,8 +99,8 @@ public class Tenant {
     }
 
     /**
-     * A second business constructor for Super Admin tenant provisioning (Phase 1.13), which
-     * collects timezone/weekend-days/logo up front rather than leaving them at the 2-arg
+     * A second business constructor for Super Admin tenant provisioning, which collects
+     * timezone/weekend-days/logo up front rather than leaving them at the 2-arg
      * constructor's defaults for a later Admin edit. Mirrors that constructor's field defaults for
      * everything not taken as a parameter here, so a tenant built either way agrees with a fresh
      * insert (see the 2-arg constructor's own comment re: V202609151000).
@@ -126,7 +127,7 @@ public class Tenant {
         this.suspended = false;
     }
 
-    /** Super Admin soft-delete (Phase 1.13) — no restore method: out of scope per the design plan. */
+    /** Super Admin soft-delete — no restore method, soft-delete only by design. */
     public void softDelete(Instant when) {
         this.deletedAt = when;
     }

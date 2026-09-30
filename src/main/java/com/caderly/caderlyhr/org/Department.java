@@ -39,8 +39,9 @@ public class Department extends TenantAwareEntity {
     @JoinColumn(name = "division_id", nullable = false)
     private Division division;
 
-    // No FK yet: `employee` doesn't exist until Phase 1.4 (see CURRENT_PHASE.md). Plain UUID,
-    // never populated in 1.3 — reserved so the 1.4 migration only needs to ADD CONSTRAINT.
+    // Plain UUID, not a JPA relationship: org must not depend on people.Employee directly
+    // (CLAUDE.md §4). The DB-level FK exists (V202608121242); resolving/validating the id is the
+    // caller's job via people.PeopleFacade.
     @Column(name = "head_employee_id")
     private @Nullable UUID headEmployeeId;
 
@@ -72,9 +73,9 @@ public class Department extends TenantAwareEntity {
     }
 
     /**
-     * PRD §13.2: hard delete only when nothing references the row; otherwise archive. In Phase
-     * 1.3 nothing can yet reference a Department (no Employee entity), so this is only reachable
-     * once 1.4 wires the employee-count guard into {@code DepartmentService}.
+     * PRD §13.2: hard delete only when nothing references the row; otherwise archive. Called by
+     * {@code DepartmentService} once its employee-count guard finds this Department still has
+     * active employees.
      */
     public void archive() {
         this.archived = true;

@@ -52,7 +52,7 @@ public interface TenantFacade {
     void updateNotificationSettings(NotificationSettings settings);
 
     /**
-     * Provisions a new tenant (PRD FR-1.8, Phase 1.13's Super Admin console). Runs entirely under
+     * Provisions a new tenant (PRD FR-1.8) for the Super Admin console. Runs entirely under
      * {@code TenantContext.runAsSystem} — there is no tenant to be "in" yet — and evicts the
      * {@link #bySlug} cache before returning, so a Super Admin who immediately visits the new
      * tenant's subdomain resolves it right away rather than waiting out the cache TTL.
@@ -74,8 +74,7 @@ public interface TenantFacade {
     void reinstate(UUID tenantId);
 
     /**
-     * Marks a tenant deleted (PRD FR-1.8). No restore method: out of scope per the design plan's
-     * soft-delete-only DoD for this phase.
+     * Marks a tenant deleted (PRD FR-1.8). No restore method: soft-delete only by design.
      *
      * @throws com.caderly.caderlyhr.common.NotFoundException if {@code tenantId} doesn't exist.
      */
@@ -90,9 +89,8 @@ public interface TenantFacade {
     /**
      * A single tenant by id, active, suspended, or soft-deleted alike — the Super Admin console's
      * row lookup for the suspend/delete/impersonate actions, which land on one tenant rather than
-     * the whole list {@link #listAllForAdmin()} returns. A small addendum to this interface
-     * (originally Task 1's) made by Task 6, which needed a one-row read {@code listAllForAdmin()}
-     * doesn't conveniently give.
+     * the whole list {@link #listAllForAdmin()} returns — a one-row read {@code
+     * listAllForAdmin()} doesn't conveniently give.
      */
     Optional<TenantAdminView> find(UUID tenantId);
 

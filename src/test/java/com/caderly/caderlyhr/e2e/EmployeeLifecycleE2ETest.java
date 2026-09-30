@@ -16,11 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * The Phase 1.4 DoD's headline flow, end to end through a real browser (CLAUDE.md §3, §8):
- * Admin creates an Employee, the invite is accepted, the Employee edits their own profile, Admin
- * terminates them, and login is blocked afterward. First Playwright usage in this codebase —
- * deferred twice already (1.2, 1.3); CURRENT_PHASE.md names 1.4 as the phase with enough screens
- * to justify standing up the harness.
+ * The headline flow, end to end through a real browser (CLAUDE.md §3, §8): Admin creates an
+ * Employee, the invite is accepted, the Employee edits their own profile, Admin terminates them,
+ * and login is blocked afterward. First Playwright usage in this codebase.
  *
  * <p>Runs against a real embedded server ({@code RANDOM_PORT}) so htmx/Alpine/Bootstrap JS
  * actually executes, unlike {@code MockMvc}. The invite link is read directly from {@code

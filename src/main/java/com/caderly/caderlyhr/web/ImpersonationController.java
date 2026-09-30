@@ -31,8 +31,8 @@ import org.springframework.web.bind.annotation.RequestParam;
  *
  * <p><strong>Both endpoints live in the tenant-facing chain, on the tenant's own subdomain.</strong>
  * That is the entire design. The Super Admin realm keeps its {@code SecurityContext} under its own
- * session key precisely so an operator session can never satisfy a tenant page (sub-phase 1.13's
- * fix, {@code superadmin.SuperAdminSecurityConfig}); impersonation is the one sanctioned way across
+ * session key precisely so an operator session can never satisfy a tenant page ({@code
+ * superadmin.SuperAdminSecurityConfig}, ADR 0019); impersonation is the one sanctioned way across
  * that line, and it crosses it by <em>authenticating as the Admin</em> in the tenant realm rather
  * than by teaching the tenant realm to accept operator principals. A reviewer should be able to
  * confirm that nothing here widens what a Super Admin session alone can reach.

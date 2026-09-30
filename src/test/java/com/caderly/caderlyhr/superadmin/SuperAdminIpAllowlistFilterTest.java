@@ -83,7 +83,8 @@ class SuperAdminIpAllowlistFilterTest {
     @Test
     void doFilter_whenTheRealmPathIsPercentEncoded_stillAppliesTheAllowlist() throws Exception {
         // getRequestURI() is undecoded, but securityMatcher("/superadmin/**") matches decoded, so
-        // this exact URI used to skip the allowlist and still authenticate a Super Admin.
+        // without decoding first, this exact URI would skip the allowlist while still
+        // authenticating a Super Admin.
         MockFilterChain chain = new MockFilterChain();
 
         MockHttpServletResponse response =

@@ -21,7 +21,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * CLAUDE.md §5 rule 8: every new tenant-scoped entity gets a test proving cross-tenant reads come
- * back empty. Covers all three Phase 1.5 tables (mirrors {@code PeopleTenantIsolationTest}'s
+ * back empty. Covers all three {@code timeoff} tables (mirrors {@code PeopleTenantIsolationTest}'s
  * scope — proving the mechanism, not repeating a raw-JDBC probe per table).
  */
 class TimeoffTenantIsolationTest extends TenantIsolationTestBase {

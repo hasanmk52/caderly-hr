@@ -27,9 +27,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * The one deliberate exception to session auth (CLAUDE.md §6 A01): token-authenticated instead,
- * confirmed here rather than assumed. Phase 1.8 DoD: a bad/missing token is a clean 4xx, never a
- * 500 or a silent empty-but-200 feed — and this is the one new endpoint outside normal session
- * auth, so its cross-tenant isolation needs its own proof too.
+ * confirmed here rather than assumed. A bad/missing token is a clean 4xx, never a 500 or a silent
+ * empty-but-200 feed — and this is the one endpoint outside normal session auth, so its
+ * cross-tenant isolation needs its own proof too.
  */
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")

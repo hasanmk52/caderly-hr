@@ -17,11 +17,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
- * {@code calendar}'s two entry points into {@code people} (sub-phase 1.8): resolving the iCal
- * token owner's employee id, and the team calendar grid's employee list filtered by
- * department/division. Also covers {@code listPeers}, Home's "My Peers" widget's query
- * (sub-phase 1.9 / ADR 0015), and {@code reports.ReportService}'s Leave Balance and Headcount
- * report queries (Phase 1.12 / ADR 0018).
+ * {@code calendar}'s two entry points into {@code people}: resolving the iCal token owner's
+ * employee id, and the team calendar grid's employee list filtered by department/division. Also
+ * covers {@code listPeers}, Home's "My Peers" widget's query (ADR 0015), and {@code
+ * reports.ReportService}'s Leave Balance and Headcount report queries (ADR 0018).
  */
 class PeopleFacadeImplTest extends TenantIsolationTestBase {
 

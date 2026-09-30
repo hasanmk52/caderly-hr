@@ -26,7 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * Phase 1.6's DoD headline flow, end to end through a real browser (CLAUDE.md §3, §8): an Employee
+ * The headline flow, end to end through a real browser (CLAUDE.md §3, §8): an Employee
  * books time off via the Home dashboard's modal, the request has no manager to route to so it
  * falls back to the tenant's Admin(s) (PRD §12.4 step 2), the Admin approves it from the For
  * Action inbox, and the employee's balance reflects the debit. Mirrors {@code

@@ -12,9 +12,8 @@ import org.springframework.http.server.PathContainer;
  * while Spring Security's {@code PathPatternRequestMatcher} — what backs {@code securityMatcher}
  * and {@code loginProcessingUrl} — matches against the decoded path. A plain {@code
  * getRequestURI().startsWith("/superadmin")} check therefore misses {@code /%73uperadmin/login},
- * which the security chain still routes to the Super Admin login filter. Measured, not assumed:
- * before this helper existed, that exact request authenticated a Super Admin from an address
- * outside the IP allowlist.
+ * which the security chain still routes to the Super Admin login filter — letting a
+ * percent-encoded request bypass both the IP allowlist and the rate limiter (ADR 0019).
  *
  * <p>Decoding goes through {@link PathContainer} rather than {@code URLDecoder} so it reproduces
  * the chain's own semantics exactly — per <em>segment</em>, so {@code %2F} decodes to a character

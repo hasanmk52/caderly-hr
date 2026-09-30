@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * {@link TenantService}'s Super Admin surface (Phase 1.13). Every method here runs from a thread
+ * {@link TenantService}'s Super Admin surface. Every method here runs from a thread
  * with no {@code TenantContext} set — exactly the Super Admin realm's situation (Global
  * Constraint 1) — so the load-bearing assertion throughout is simply "this does not throw
  * IllegalStateException", not just the more obvious value assertions.
@@ -85,7 +85,7 @@ class TenantServiceTest {
 
         // tenant.slug has a bare UNIQUE constraint (V202607241000), not a partial index excluding
         // soft-deleted rows, so slug reuse is genuinely blocked even once the original tenant is
-        // gone. Flagged in the report as worth confirming is the intended product behaviour.
+        // gone.
         assertThatThrownBy(() -> tenantFacade.createTenant(slug, "Second", "UTC", 96, null))
                 .isInstanceOf(ConflictException.class);
     }

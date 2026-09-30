@@ -99,7 +99,7 @@ class UploadValidatorTest {
     }
 
     /**
-     * The headline security requirement (CLAUDE.md §6 A03, CURRENT_PHASE.md DoD): an extension
+     * The headline security requirement (CLAUDE.md §6 A03): an extension
      * rename alone must not be enough. This file passes the extension check (.pdf is allowed) and
      * is rejected only because Tika's magic-byte detection sees the {@code MZ} executable header
      * underneath, confirming content — not the filename — decides.

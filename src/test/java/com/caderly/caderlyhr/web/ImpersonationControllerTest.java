@@ -263,9 +263,9 @@ class ImpersonationControllerTest {
 
     @Test
     void logout_duringAnImpersonatedSession_writesTheClosingAuditEntryTooLikeEndImpersonationDoes() throws Exception {
-        // I-2 (final whole-branch review): an operator who ends a support session via the
-        // ordinary tenant Logout link instead of clicking "End impersonation" must still leave a
-        // paired CREATE/DELETE audit trail — see web.ImpersonationLogoutHandler.
+        // An operator who ends a support session via the ordinary tenant Logout link instead of
+        // clicking "End impersonation" must still leave a paired CREATE/DELETE audit trail — see
+        // web.ImpersonationLogoutHandler.
         MockHttpSession session = redeemSuccessfully();
 
         mockMvc

@@ -55,8 +55,8 @@ public class EmailDispatcher {
     }
 
     /**
-     * Delivers every currently-due row. Returns how many were attempted, so tests and the future
-     * Admin retry UI can assert on progress.
+     * Delivers every currently-due row. Returns how many were attempted, so tests and the Admin
+     * retry UI can assert on progress.
      *
      * <p>The {@code runAsSystem} wrapper is not optional and not cosmetic. {@code
      * TenantSessionVariableListener} is registered on the <em>transaction manager</em>, so its
@@ -64,7 +64,7 @@ public class EmailDispatcher {
      * TenantContext.require()} unless system mode is set. On this scheduler thread there is no
      * tenant, so without the wrapper every transaction below would die at begin — before a single
      * outbox row was read, and regardless of the fact that {@code email_outbox} itself is
-     * system-scoped. (ADR 0005 records this; an earlier draft of that ADR got it wrong.)
+     * system-scoped (ADR 0005).
      */
     public int dispatchPending() {
         return TenantContext.runAsSystem(

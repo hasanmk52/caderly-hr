@@ -6,7 +6,7 @@ package com.caderly.caderlyhr.identity;
  * in {@code SecurityConfig}, so {@code @PreAuthorize} never has to spell out implied roles.
  *
  * <p>Super Admin is deliberately absent: it is a separate security realm over the cross-tenant
- * {@code super_admin} table, not a role a tenant user can hold (PRD §26, Phase 1.13).
+ * {@code super_admin} table, not a role a tenant user can hold (PRD §26).
  */
 public enum Role {
     EMPLOYEE,

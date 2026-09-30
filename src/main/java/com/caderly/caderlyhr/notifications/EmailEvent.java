@@ -5,8 +5,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Every transactional email Caderly sends (PRD §17.2). One constant per row of that table.
  *
- * <p>The {@code templateKey} is the single source of three things that used to be chosen
- * independently and could therefore disagree: the Thymeleaf template under {@code
+ * <p>The {@code templateKey} is the single source for three things that would otherwise be
+ * chosen independently and could disagree: the Thymeleaf template under {@code
  * templates/email/}, the subject's {@code messages.properties} key, and the {@code event_type}
  * recorded on the outbox row for the Admin viewer's filter.
  */

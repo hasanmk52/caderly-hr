@@ -39,7 +39,7 @@ class TenantResolutionFilterTest {
     void home_whenKnownTenantAndAuthenticated_rendersTenantName() throws Exception {
         seedTenantIfAbsent("mhzgroup", "MHZ Group");
 
-        // A principal with a role is required from sub-phase 1.2 on: "/" is the home dashboard,
+        // A principal with a role is required: "/" is the home dashboard,
         // the chain is default-deny, and HomeController requires EMPLOYEE. The tenant assertions
         // are unaffected — tenant resolution runs in a filter ahead of authentication.
         mockMvc

@@ -21,7 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * Phase 1.7's DoD headline flow (PRD §6.7 FR-7.1, §9.5 US-F.1), end to end through a real browser:
+ * The headline flow (PRD §6.7 FR-7.1, §9.5 US-F.1), end to end through a real browser:
  * Admin uploads the company handbook to Files, and any signed-in Employee downloads it. Neither
  * side needs a linked {@code people.Employee} record — Files authorization is role/session-based
  * only (CLAUDE.md §6 A01) — so both principals here are seeded as plain {@code AppUser}s, the same

@@ -79,7 +79,7 @@ public interface LeaveRequestRepository extends TenantAwareRepository<LeaveReque
             @Param("end") LocalDate end);
 
     /**
-     * Team calendar grid (PRD §6.6 FR-6.1/FR-6.2, sub-phase 1.8): every APPROVED request for the
+     * Team calendar grid (PRD §6.6 FR-6.1/FR-6.2): every APPROVED request for the
      * given employees whose [startDate, endDate] range overlaps [from, to] (inclusive), optionally
      * narrowed to one leave type. {@code leaveTypeId} is nullable — {@code calendar.CalendarService}
      * passes {@code null} when the filter panel's leave-type dropdown is unset.

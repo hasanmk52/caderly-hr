@@ -22,8 +22,8 @@ public interface AuditActor {
      * may import the other: {@code identity.ImpersonatedAdminPrincipal} returns it from {@link
      * #roleNames()}, and {@code audit.EntityAuditListener} recognises it when reducing a role set
      * to one column value. It is not a member of {@code identity.Role} — nobody can be granted it;
-     * it is a label on the audit trail. 24 characters, against {@code audit_entry.actor_role}'s
-     * {@code varchar(30)} (widened by the sub-phase 1.13 migration for exactly this value).
+     * it is a label on the audit trail. 24 characters, fitting within {@code
+     * audit_entry.actor_role}'s {@code varchar(30)}.
      */
     String IMPERSONATION_ROLE = "SUPERADMIN_IMPERSONATING";
 

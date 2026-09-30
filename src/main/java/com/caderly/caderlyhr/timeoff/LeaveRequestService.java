@@ -27,8 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Booking, approval, and cancellation of leave requests (PRD §12.4, §21) — the core of Phase 1.6.
- * Every controller-facing mutation is a single combined write-then-read {@code @Transactional}
+ * Booking, approval, and cancellation of leave requests (PRD §12.4, §21). Every controller-facing
+ * mutation is a single combined write-then-read {@code @Transactional}
  * method (ADR 0007/0009), wrapping a plain write method the integration tests call directly.
  */
 @Service

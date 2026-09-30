@@ -27,8 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  * JavaMailSender} to {@code notifications.system} so that stays true by construction.
  *
  * <p>Nor is there a way to pass a hand-built subject and body: an event names a template, and the
- * template is the only place email HTML exists (sub-phase 1.10 — before it, two modules each kept
- * their own copy of the same chrome).
+ * template is the only place email HTML exists — no module keeps its own copy of the chrome.
  */
 @Service
 public class EmailOutboxService {

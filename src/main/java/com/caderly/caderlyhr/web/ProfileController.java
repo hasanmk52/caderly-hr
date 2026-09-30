@@ -180,7 +180,7 @@ class ProfileController {
     }
 
     /**
-     * Self-cancel only this phase (Phase 1.6 plan decision 7) — an Admin cancelling someone
+     * Self-cancel only — an Admin cancelling someone
      * else's request is service-layer only, no screen, same precedent as {@code
      * BalanceService.adjustManually}. {@code actingIsAdmin} is always {@code false} here: {@code
      * ownEmployee} already guarantees this call can only act on the caller's own record, and

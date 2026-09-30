@@ -53,7 +53,7 @@ public final class TenantContext {
     /**
      * Cross-tenant/system bypass (CLAUDE.md §5 rule 6). The app-layer tenant filter is skipped;
      * Postgres RLS still applies until a dedicated bypass role exists (ADR 0003). Every use is logged
-     * with a reason; a persisted audit entry lands with the audit module in Phase 1.11.
+     * with a reason.
      */
     public static <T> T runAsSystem(String reason, Supplier<T> action) {
         UUID previousTenant = CURRENT_TENANT.get();

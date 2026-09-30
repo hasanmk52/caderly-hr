@@ -9,8 +9,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Read-only view of Employee data for other modules (CLAUDE.md §4). Original consumer is {@code
  * web.AdminOrganizationController}, which needs an employee count to decide whether deleting a
- * Department should archive it instead (PRD §6.4 FR-4.2, the guard 1.3 deferred). {@code timeoff}
- * is the second consumer (Phase 1.5) — its balance-grant jobs need to iterate active employees;
+ * Department should archive it instead (PRD §6.4 FR-4.2). {@code timeoff} is the second
+ * consumer — its balance-grant jobs need to iterate active employees;
  * {@code timeoff} never depends back on {@code people} for anything else, and {@code people}
  * never imports {@code timeoff} at all (see {@link EmployeeHiredEvent}).
  *
@@ -25,7 +25,7 @@ public interface PeopleFacade {
 
     /**
      * Every employee in the current tenant whose status isn't TERMINATED — the Super Admin
-     * console's per-tenant employee count (Phase 1.13). Same convention as {@link
+     * console's per-tenant employee count. Same convention as {@link
      * #countActiveEmployeesInDepartment}, minus the department filter.
      */
     long countActiveEmployees();
@@ -86,7 +86,7 @@ public interface PeopleFacade {
 
     /**
      * Same-department or same-manager peers of {@code employeeId}, excluding the employee itself
-     * and anyone terminated (PRD §24.2 "My Peers" widget, sub-phase 1.9). An employee with neither
+     * and anyone terminated (PRD §24.2 "My Peers" widget). An employee with neither
      * a department nor a manager has no peers.
      */
     List<EmployeePeerInfo> listPeers(UUID employeeId);

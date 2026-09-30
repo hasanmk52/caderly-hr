@@ -145,8 +145,8 @@ public class NotificationAdminService {
         }
 
         /**
-         * Null for rows written before sub-phase 1.10's catalogue, and for a value this build does
-         * not recognise — a downgrade must render the log, not throw on it.
+         * Null for rows predating this catalogue, and for a value this build does not recognise —
+         * a downgrade must render the log, not throw on it.
          */
         private static @Nullable EmailEvent parseEvent(@Nullable String eventType) {
             if (eventType == null) {

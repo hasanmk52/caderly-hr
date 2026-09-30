@@ -17,8 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Unlike {@link EntityAuditListener}, this is called from a normal Spring Security {@code
  * @EventListener} (not from inside a JPA flush callback), so a plain repository {@code save}
  * suffices — no raw-JDBC workaround needed. {@code identity.LoginAttemptService} (tenant-realm
- * logins) and {@code superadmin.SuperAdminLoginAuditHandler} (Super Admin realm logins, sub-phase
- * 1.13) are the two cross-module callers, per CLAUDE.md §4's cross-module-reads-through-a-facade
+ * logins) and {@code superadmin.SuperAdminLoginAuditHandler} (Super Admin realm logins) are the
+ * two cross-module callers, per CLAUDE.md §4's cross-module-reads-through-a-facade
  * rule.
  */
 @Service

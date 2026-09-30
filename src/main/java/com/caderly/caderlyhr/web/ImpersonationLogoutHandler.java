@@ -33,8 +33,7 @@ import org.springframework.stereotype.Component;
  * with no further request from the browser at all, still writes no closing row — neither this
  * handler nor {@code ImpersonationController#end} runs without a request. Covering that would need
  * an {@code HttpSessionListener} reacting to session destruction, a separate and larger piece of
- * infrastructure than this fix (final whole-branch review, Phase 1.13, finding I-2) — left as a
- * documented gap, not fixed here.
+ * infrastructure than this — left as a documented, deliberate gap.
  */
 @Component
 class ImpersonationLogoutHandler implements LogoutHandler {

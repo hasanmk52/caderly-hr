@@ -44,7 +44,7 @@ import org.springframework.web.bind.annotation.PostMapping;
  * DepartmentService} directly.
  *
  * <p>{@link #deleteDepartment} also orchestrates the "no active employees" delete-guard (PRD
- * §6.4 FR-4.2, Phase 1.3's carried-forward gap): it asks {@code people.PeopleFacade} for the
+ * §6.4 FR-4.2): it asks {@code people.PeopleFacade} for the
  * employee count and passes the answer into {@code org}. That orchestration lives here rather
  * than inside {@code org} itself because {@code org} must not depend on {@code people} — {@code
  * people} already depends on {@code org} via {@code OrgFacade}, and the reverse edge would be a

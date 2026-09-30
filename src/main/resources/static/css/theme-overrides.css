@@ -97,8 +97,7 @@
  * pattern Bootstrap uses internally — override each component's local vars, not
  * the property directly. Scoped to what's actually used in these templates
  * (.btn-primary/.btn-danger, their .btn-outline-* counterparts, form focus rings,
- * checkboxes, and since sub-phase 1.10 .pagination) — no dropdown-active styling
- * exists in the templates today.
+ * checkboxes, and .pagination) — no dropdown-active styling exists in the templates today.
  */
 .btn-primary {
   --bs-btn-color: #fff;

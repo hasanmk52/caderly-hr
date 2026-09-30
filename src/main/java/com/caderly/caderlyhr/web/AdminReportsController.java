@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * Admin → Reports (PRD §16.1, §26 "Generate reports" is Admin-only, Phase 1.12): Leave Balance,
+ * Admin → Reports (PRD §16.1, §26 "Generate reports" is Admin-only): Leave Balance,
  * Leave Utilization, and Headcount, each with an on-screen preview and a CSV download of the
  * exact same filtered rows.
  *

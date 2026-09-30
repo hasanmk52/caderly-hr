@@ -39,8 +39,8 @@ import org.springframework.web.multipart.MultipartFile;
  * composes a write call and a separate read call itself (ADR 0007). No {@code @Transactional}
  * here (CLAUDE.md §7).
  *
- * <p>The manual balance-adjustment endpoint has no page this phase (CURRENT_PHASE.md/Implementation
- * Plan list it only under "Backend") — {@code @ResponseBody}, no view.
+ * <p>The manual balance-adjustment endpoint has no page (the Implementation Plan lists it only
+ * under "Backend") — {@code @ResponseBody}, no view.
  */
 @Controller
 @PreAuthorize("hasRole('ADMIN')")
@@ -77,8 +77,8 @@ class AdminLeaveController {
      * reason (none has a "-fill" version) in favor of {@code bi-bandaid}, {@code bi-people}, and
      * {@code bi-wallet} respectively.
      *
-     * <p>{@code bi-calendar-heart} is deliberately excluded: Phase 1.8 reserved it as the fixed,
-     * non-assignable icon for Public Holidays (UI_Guidelines.md §8.4) — leaving it selectable here
+     * <p>{@code bi-calendar-heart} is deliberately excluded: it is the fixed, non-assignable icon
+     * for Public Holidays (UI_Guidelines.md §8.4) — leaving it selectable here
      * too would let a leave type render with the exact same glyph as a holiday.
      */
     private static final List<IconOption> ICON_OPTIONS =

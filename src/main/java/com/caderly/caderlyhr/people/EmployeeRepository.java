@@ -70,7 +70,7 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
             LocalDate onOrBefore, EmployeeStatus status);
 
     /**
-     * Team calendar's employee list (PRD §6.6 FR-6.2, sub-phase 1.8), not-terminated only —
+     * Team calendar's employee list (PRD §6.6 FR-6.2), not-terminated only —
      * matching {@link #findAllByStatusNot}'s convention elsewhere rather than a strict {@code
      * ACTIVE}-only filter. {@code divisionId} needs the join through {@code department}: {@link
      * Employee} has no direct division reference (a division's departments are the only path).
@@ -149,7 +149,7 @@ public interface EmployeeRepository extends TenantAwareRepository<Employee> {
     boolean isManagerOf(@Param("managerId") UUID managerId, @Param("employeeId") UUID employeeId);
 
     /**
-     * Home's "My Peers" widget (PRD §24.2, sub-phase 1.9): same department or same manager as
+     * Home's "My Peers" widget (PRD §24.2): same department or same manager as
      * {@code employeeId}, excluding the employee itself and anyone terminated. Either filter may be
      * {@code null} (an employee with neither a department nor a manager has no peers, not every
      * other unassigned employee) — matching {@link #findActiveForCalendar}'s optional-filter

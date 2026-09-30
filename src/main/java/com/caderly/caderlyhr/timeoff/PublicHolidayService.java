@@ -25,9 +25,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Public holiday calendar CRUD, one row at a time or via CSV bulk upload (PRD §12.1, §12.5). The
- * CSV is parsed in-request and discarded, never persisted as a document — {@code FileStorage}
- * doesn't exist until Phase 1.7, and there is no reason to retain the raw upload once its rows
- * are in {@code public_holiday}.
+ * CSV is parsed in-request and discarded, never persisted as a document — there is no reason to
+ * retain the raw upload once its rows are in {@code public_holiday}.
  */
 @Service
 public class PublicHolidayService {

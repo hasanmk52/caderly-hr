@@ -35,8 +35,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.access.AccessDeniedException;
 
 /**
- * The core of Phase 1.6 (PRD §12.4, BR-2/3/4/6/8/9/11) — book/approve/reject/cancel plus the
- * termination cascade. CLAUDE.md §8: "critical logic, TDD first" applies to the access-control
+ * Booking, approval, and cancellation (PRD §12.4, BR-2/3/4/6/8/9/11) —
+ * book/approve/reject/cancel plus the termination cascade. CLAUDE.md §8: "critical logic, TDD
+ * first" applies to the access-control
  * decisions and balance math exercised here; the pure duration/state-machine math itself is
  * covered separately by {@code LeaveDurationCalculatorTest}/{@code LeaveRequestStateMachineTest}.
  *
@@ -743,8 +744,7 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
 
     @Test
     void cancel_bySelf_notifiesTheApprover() {
-        // PRD §17.2's "Leave cancelled by employee → Approver". notifyCancellation had no test
-        // before sub-phase 1.10 — the only lifecycle email that did not.
+        // PRD §17.2's "Leave cancelled by employee → Approver".
         LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
         Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "Cancel", null));
         Employee report = asTenant(tenantA, () -> createEmployee("Rep", "Cancel", manager.requireId()));
@@ -841,8 +841,8 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
 
     @Test
     void cancel_byUnrelatedNonAdminEmployee_throwsAccessDenied() {
-        // Self-cancel only this phase (Phase 1.6 plan decision 7): cancelling someone else's
-        // request requires actingIsAdmin=true, regardless of any manager relationship.
+        // Self-cancel only: cancelling someone else's request requires actingIsAdmin=true,
+        // regardless of any manager relationship.
         LeaveType type = asTenant(tenantA, () -> createLeaveType("10"));
         Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
         Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));

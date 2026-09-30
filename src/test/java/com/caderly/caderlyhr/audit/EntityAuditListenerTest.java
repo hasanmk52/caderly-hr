@@ -28,9 +28,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Proves {@link EntityAuditListener} actually writes {@code audit_entry} rows (CURRENT_PHASE.md's DoD:
- * "a compensation update ... produces an audit_entry row"), on representative CREATE/UPDATE/DELETE
- * cases rather than one test per audited entity — the listener is wired broadly (ADR 0017), and
+ * Proves {@link EntityAuditListener} actually writes {@code audit_entry} rows, on representative
+ * CREATE/UPDATE/DELETE cases rather than one test per audited entity — the listener is wired
+ * broadly (ADR 0017), and
  * these three cases exercise the mechanism, not each entity's own business logic.
  */
 class EntityAuditListenerTest extends TenantIsolationTestBase {

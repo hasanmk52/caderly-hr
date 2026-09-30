@@ -31,16 +31,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * Team calendar grid and Settings -> Calendar integration (PRD §6.6, §9.4 US-CAL.3, §24.5/§24.10,
- * sub-phase 1.8). Follows {@code FilesController}'s shape: {@code isAuthenticated()} at the class
+ * Team calendar grid and Settings -> Calendar integration (PRD §6.6, §9.4 US-CAL.3, §24.5/§24.10).
+ * Follows {@code FilesController}'s shape: {@code isAuthenticated()} at the class
  * level — PRD §26 gives Employee/Manager/Admin identical "view all" access to the team calendar,
  * so there is no row-level restriction to enforce here.
  *
  * <p>Month view only, no separate htmx fragment endpoint: the filter panel and month
  * navigation are a plain GET form/links, matching {@code AdminEmployeeController}'s
  * department/status filter convention rather than introducing a new htmx pattern for one page.
- * Week view and the Grid/List toggle named in PRD §24.5 are not built this phase — the DoD only
- * requires a filterable month grid, and both are separable additions later.
+ * Week view and the Grid/List toggle named in PRD §24.5 are not built — a filterable month grid
+ * is the DoD requirement, and both are separable additions later.
  */
 @Controller
 @PreAuthorize("isAuthenticated()")

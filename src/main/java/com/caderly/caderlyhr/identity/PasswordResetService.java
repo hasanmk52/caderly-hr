@@ -99,8 +99,7 @@ public class PasswordResetService {
      * Consumes the token and sets the new password.
      *
      * <p>Stamping {@code used_at} is what makes the link single-use (PRD §19.1); the row is kept
-     * rather than deleted so a replay is distinguishable from a token that never existed when
-     * auditing lands in Phase 1.11.
+     * rather than deleted so a replay is distinguishable from a token that never existed.
      */
     @Transactional
     public void completeReset(String rawToken, String newPassword) {

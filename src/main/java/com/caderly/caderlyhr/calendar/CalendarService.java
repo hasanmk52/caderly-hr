@@ -92,9 +92,9 @@ public class CalendarService {
 
     /**
      * No color field: every bar renders with the same fixed brand-theme background/border
-     * (CSS {@code .calendar-bar}), leave types are told apart only by their bold {@code icon}
-     * glyph (see {@code CalendarController.boldIcon}) — a deliberate product decision, not an
-     * oversight (an earlier per-leave-type color-hash version of this record was reverted).
+     * (CSS {@code .calendar-bar}); leave types are told apart only by their bold {@code icon}
+     * glyph (see {@code CalendarController.boldIcon}) — deliberate, so every bar stays visually
+     * consistent regardless of leave type.
      */
     public record LeaveBar(
             UUID leaveRequestId,

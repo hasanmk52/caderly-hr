@@ -12,15 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Locks an account after repeated failures, keyed on (email + IP) via {@code
- * audit.LoginAuditService}'s per-attempt log (ADR 0017, superseding ADR 0006 decision B's
- * per-user-only counter — {@code login_audit} is exactly the record that decision was waiting on).
+ * audit.LoginAuditService}'s per-attempt log (ADR 0017).
  *
  * <p>The <em>trigger</em> is scoped by (email, ip): five failures from one IP against one email
  * locks the account. The <em>result</em> is still "this account is locked" — Spring Security's
  * {@code UserDetails.isAccountNonLocked()} is inherently per-user, so that is the correct seam.
- * Four failures from one IP plus four from another no longer trips the lock, unlike the old
- * per-user counter; {@code security.RateLimitFilter}'s 10/min/IP limit is what still bounds a
- * single IP spraying many different accounts.
+ * Four failures from one IP plus four from another does not trip the lock;
+ * {@code security.RateLimitFilter}'s 10/min/IP limit is what bounds a single IP spraying many
+ * different accounts.
  */
 @Service
 public class LoginAttemptService {

@@ -35,8 +35,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The authentication half of the sub-phase 1.2 Definition of Done, driven through the real filter
- * chain: tenant resolution, rate limiting, CSRF, form login, lockout.
+ * Authentication driven through the real filter chain: tenant resolution, rate limiting, CSRF,
+ * form login, lockout.
  *
  * <p>Named {@code ...Test} rather than {@code ...IT} deliberately — this project has no failsafe
  * execution configured, so surefire is what runs everything and an {@code IT} suffix would mean

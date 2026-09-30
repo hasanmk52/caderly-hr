@@ -36,8 +36,8 @@ public class AppUser extends TenantAwareEntity {
     @Column(name = "password_hash")
     private @Nullable String passwordHash;
 
-    // Mapped but unread: the columns exist so Phase 1.5 (PRD FR-1.5) is an additive change rather
-    // than a migration. No accessors until something needs them.
+    // Mapped but unread: the columns exist so MFA (PRD FR-1.5) can be added as an additive change
+    // rather than a migration. No accessors until something needs them.
     @Column(name = "mfa_secret")
     private @Nullable String mfaSecret;
 
@@ -52,10 +52,10 @@ public class AppUser extends TenantAwareEntity {
     private @Nullable Instant lastLoginAt;
 
     // failed_login_count / failed_login_window_start columns still exist in the DB (ADR 0017
-    // left them in place rather than risk a destructive drop-column migration for this phase)
-    // but are no longer read or written anywhere: the (email + IP) lockout re-key computes the
-    // failure count from audit.LoginAuditRepository instead (identity.LoginAttemptService),
-    // superseding ADR 0006 decision B's per-user counter. Nothing in this class maps them.
+    // left them in place rather than risk a destructive drop-column migration) but are not read
+    // or written anywhere: the (email + IP) lockout re-key computes the failure count from
+    // audit.LoginAuditRepository instead (identity.LoginAttemptService), per ADR 0006 decision B.
+    // Nothing in this class maps them.
 
     @Column(name = "locked_until")
     private @Nullable Instant lockedUntil;
@@ -67,7 +67,7 @@ public class AppUser extends TenantAwareEntity {
     private @Nullable Instant inviteExpiresAt;
 
     /**
-     * The per-user iCal feed token (PRD FR-6.5, sub-phase 1.8), stored raw rather than hashed —
+     * The per-user iCal feed token (PRD FR-6.5), stored raw rather than hashed —
      * see ADR 0014. {@code null} until the user's first visit to Settings -> Calendar integration.
      */
     @Column(name = "ical_token")

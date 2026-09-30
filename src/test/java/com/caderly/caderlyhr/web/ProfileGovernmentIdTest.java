@@ -23,10 +23,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 /**
  * Regression coverage: an added Government ID's {@code idNumber} — encrypted at rest via {@link
  * com.caderly.caderlyhr.common.CryptoConverter} — must actually render back on the owner's own
- * profile. {@code people/profile.html}'s Government IDs list used to print only {@code
- * idType.label}, never the number itself, even though {@link
- * com.caderly.caderlyhr.people.GovernmentId}'s class doc always said the field is "visible ... to ...
- * the owning employee."
+ * profile, not just the {@code idType} label, per {@link
+ * com.caderly.caderlyhr.people.GovernmentId}'s class doc: the field is "visible ... to ... the
+ * owning employee."
  */
 class ProfileGovernmentIdTest extends RbacTestSupport {
 

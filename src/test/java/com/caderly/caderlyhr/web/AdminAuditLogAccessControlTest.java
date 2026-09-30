@@ -24,8 +24,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * CLAUDE.md §8: one 200 and one 403 per protected endpoint per role. PRD §26 puts "View audit log"
- * at Admin only (Super Admin's cross-tenant view is Phase 1.13's job, once that console exists).
- * Shape copied from {@code AdminNotificationsAccessControlTest}.
+ * at Admin only — a Super Admin cross-tenant view does not exist yet. Shape copied from {@code
+ * AdminNotificationsAccessControlTest}.
  */
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")

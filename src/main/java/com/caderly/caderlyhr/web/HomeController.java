@@ -32,7 +32,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 /**
- * Home dashboard (PRD §24.2, UI Guidelines §8.2, sub-phase 1.9 / ADR 0015): the shell renders the
+ * Home dashboard (PRD §24.2, UI Guidelines §8.2, ADR 0015): the shell renders the
  * greeting only, and each widget is its own {@code hx-get} fragment endpoint loaded independently
  * on page load (parallelizes, per UI Guidelines §8.2) rather than one method assembling all six
  * widgets' data up front. The six widgets are Book Time Off, My Peers, Time Off Today, My Days

@@ -35,7 +35,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 /**
  * PRD §24.2's Home dashboard: the shell greeting/grid, and each of the six widget fragment
- * endpoints (sub-phase 1.9 / ADR 0015). Uses a real {@code AppUserPrincipal} (via {@link
+ * endpoints (ADR 0015). Uses a real {@code AppUserPrincipal} (via {@link
  * AppUserDetailsService}), not the generic {@code user(String)} post-processor — {@code
  * HomeController} binds {@code @AuthenticationPrincipal AppUserPrincipal}, which only resolves
  * against the real type (see {@link ProfileAccessControlTest}'s javadoc for the same gotcha).

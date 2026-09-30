@@ -84,7 +84,7 @@ class LeaveApprovalAccessControlTest extends RbacTestSupport {
 
     @Test
     void forAction_asEmployee_returns200_withTasksPaneOnlyNoApprovalsPane() throws Exception {
-        // Sub-phase 1.9 (ADR 0015): every signed-in user reaches their own Tasks pane, but the
+        // ADR 0015: every signed-in user reaches their own Tasks pane, but the
         // Time off requests approvals pane stays Manager/Admin only.
         Employee employee = createEmployee("Rank", "File", null);
         UserDetails principal = loadPrincipal(employee.email());

@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Backs the three Admin → Reports pages (PRD §16.1, Phase 1.12). Every method only joins and
+ * Backs the three Admin → Reports pages (PRD §16.1). Every method only joins and
  * filters data that {@link PeopleFacade}/{@link TimeoffFacade} already aggregated — the
  * aggregation itself (SUM/COUNT/GROUP BY) lives in the module that owns the underlying entity
  * (ADR 0018), never here.

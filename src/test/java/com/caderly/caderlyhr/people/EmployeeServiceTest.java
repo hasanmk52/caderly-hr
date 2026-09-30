@@ -212,8 +212,7 @@ class EmployeeServiceTest extends TenantIsolationTestBase {
 
     /**
      * {@code addressLine2} is deliberately not tracked — it is legitimately empty for most
-     * addresses, so counting it would make the task permanently unclearable (sub-phase 1.9's
-     * ADR 0015).
+     * addresses, so counting it would make the task permanently unclearable (ADR 0015).
      */
     @Test
     void incompleteSelfServiceFields_neverReportsAddressLine2() {

@@ -59,9 +59,7 @@ final class LeaveDurationCalculator {
     /**
      * Decodes {@code Tenant.weekendDays}' bitmask into the set of weekend {@link DayOfWeek}s.
      * Convention: {@code bit = 1 << (DayOfWeek.getValue() - 1)}, i.e. Mon=1..Sun=7 per {@code
-     * java.time} — Mon=1,Tue=2,Wed=4,Thu=8,Fri=16,Sat=32,Sun=64. The stored default of 96 (=32+64)
-     * decodes to Sat+Sun either way the two bits in the field's stale "Sat=64,Sun=32" comment are
-     * read, since nothing consumed this bitmask before this phase.
+     * java.time} — Mon=1,Tue=2,Wed=4,Thu=8,Fri=16,Sat=32,Sun=64.
      */
     static Set<DayOfWeek> decodeWeekend(int bitmask) {
         Set<DayOfWeek> result = EnumSet.noneOf(DayOfWeek.class);

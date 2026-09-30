@@ -34,8 +34,8 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
  *
  * <p>Still no <em>custom</em> {@code AuthenticationProvider} (ADR 0006 decision A): stock {@code
  * DaoAuthenticationProvider} over {@code AppUserDetailsService} is already tenant-scoped, because
- * {@code AppUser} carries {@code @TenantId}. What changed in sub-phase 1.13 is that the provider is
- * now <em>constructed here</em> rather than inferred. Spring Security only auto-wires one from a
+ * {@code AppUser} carries {@code @TenantId}. The provider is <em>constructed here</em> rather
+ * than inferred, because Spring Security only auto-wires one from a
  * {@code UserDetailsService} bean when the context holds exactly one, and {@code
  * superadmin.SuperAdminDetailsService} is a second — with two present it wires neither, for
  * either realm. Each chain therefore names its own store explicitly, which is also what keeps
@@ -92,9 +92,9 @@ class SecurityConfig {
      *
      * <p>Composed exactly as {@code SecurityContextConfigurer} composes its own default (request
      * attribute first, {@code HttpSession} second, under the stock {@code SPRING_SECURITY_CONTEXT}
-     * key), so naming it changes no behaviour. It is named for two reasons. First, symmetry: since
-     * sub-phase 1.13 {@code superadmin.SuperAdminSecurityConfig} states its repository explicitly
-     * because it must use a <em>different</em> session key, and a reader comparing the two realms
+     * key), so naming it changes no behaviour. It is named for two reasons. First, symmetry: {@code
+     * superadmin.SuperAdminSecurityConfig} states its repository explicitly because it must use a
+     * <em>different</em> session key, and a reader comparing the two realms
      * should be able to see both answers rather than one answer and an omission. Second, {@code
      * web.ImpersonationController} establishes a session without going through an authentication
      * filter, and it has to save the context where <em>this</em> chain will look for it on the next

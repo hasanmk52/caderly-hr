@@ -43,10 +43,9 @@ public class SuperAdminIpAllowlistFilter extends OncePerRequestFilter {
      * Only this realm is gated; every tenant URL is unaffected by the operator allowlist.
      *
      * <p>Judged on the <em>decoded</em> path ({@link RequestPathResolver}), because the security
-     * chain's {@code securityMatcher("/superadmin/**")} is. On the raw URI this check skipped
-     * {@code /%73uperadmin/login} while the chain still processed it as a Super Admin login —
-     * which made the allowlist, the console's defense alongside the password, one percent-escape
-     * wide.
+     * chain's {@code securityMatcher("/superadmin/**")} is — matching the raw URI here would let a
+     * percent-encoded request like {@code /%73uperadmin/login} bypass this allowlist while the
+     * chain still processes it as a Super Admin login (ADR 0019).
      */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {

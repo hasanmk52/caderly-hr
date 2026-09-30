@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
 /**
  * Immediately invalidates every session belonging to a user (PRD §19.1).
  *
- * <p>Called on password change and role change today; termination (BR-11, Phase 1.4) will reuse
- * it. Without this, a stolen session survives the password change made to shut it out.
+ * <p>Called on password change, role change, and termination (BR-11). Without this, a stolen
+ * session survives the change made to shut it out.
  *
  * <p>Backed by the in-JVM {@code SessionRegistry}. When the deployment goes multi-instance and
  * sessions move to {@code spring-session-jdbc}, the registry becomes shared and this class does

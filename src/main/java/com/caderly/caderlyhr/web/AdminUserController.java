@@ -15,10 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * <p>Creating a user happens exclusively through People &gt; Add Employee ({@link
  * com.caderly.caderlyhr.web.AdminEmployeeController}), which creates the {@link
  * com.caderly.caderlyhr.identity.AppUser} and its {@link com.caderly.caderlyhr.people.Employee} together
- * in one transaction (PRD §5: an Admin or Manager is also always an Employee). This page used to
- * carry its own separate invite form (sub-phase 1.2, before the Employee record existed); that
- * form was removed because it created accounts with no Employee — inviting there does not put
- * the person on the People page or give them a profile.
+ * in one transaction (PRD §5: an Admin or Manager is also always an Employee). This page has no
+ * invite form of its own: inviting from here would create an account with no Employee, so it
+ * would not appear on the People page or have a profile.
  */
 @Controller
 @RequestMapping("/admin/users")

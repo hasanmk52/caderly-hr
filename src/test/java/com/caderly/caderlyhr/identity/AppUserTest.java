@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
  * Pure logic: the lock/unlock state transitions and invite/reset state transitions. No Spring, no
  * database.
  *
- * <p>The failure-counting/window logic this class used to cover moved to {@code
- * LoginAttemptServiceTest} (ADR 0017): {@link AppUser}'s only remaining job around lockout is
- * holding the resulting {@code lockedUntil}/{@code status} state, not deciding when to set it.
+ * <p>Failure-counting/window logic is covered separately by {@code LoginAttemptServiceTest} (ADR
+ * 0017): {@link AppUser}'s only job around lockout is holding the resulting {@code
+ * lockedUntil}/{@code status} state, not deciding when to set it.
  */
 class AppUserTest {
 
@@ -136,8 +136,8 @@ class AppUserTest {
 
     @Test
     void issueIcalToken_whenCalledAgain_overwritesThePreviousValue() {
-        // Regeneration must invalidate the old URL immediately (Phase 1.8 DoD) — a plain
-        // overwrite, since this is a column, not a history table.
+        // Regeneration must invalidate the old URL immediately — a plain overwrite, since this
+        // is a column, not a history table.
         AppUser user = activeUser();
         user.issueIcalToken("first-token");
 

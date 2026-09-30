@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <!--/* Resolved by Spring Boot's error dispatch for any 5xx (UI Guidelines §7.3: support contact
-       plus a request ID the user can quote). The trace ID is only populated once request-scoped
-       MDC logging lands in Phase 1.11; until then the block stays hidden rather than showing an
-       empty field the user might try to read out. */-->
+       plus a request ID the user can quote). No controller populates a requestId model attribute
+       for this view yet, so the block stays hidden rather than showing an empty field the user
+       might try to read out. */-->
 <th:block th:replace="~{bare-layout :: layout(#{error-page.generic.title}, ~{::#content})}">
   <main id="content" class="caderly-bare-main">
     <div class="caderly-bare-card">

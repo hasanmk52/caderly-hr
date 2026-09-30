@@ -57,7 +57,7 @@ class AdminAccessControlTest {
 
     @Test
     void listUsers_asEmployee_returns403() throws Exception {
-        // The sub-phase 1.2 DoD item: /admin/* as an Employee is forbidden.
+        // /admin/* as an Employee is forbidden.
         mockMvc
                 .perform(adminUsers().with(user("employee@rbac.test").roles("EMPLOYEE")))
                 .andExpect(status().isForbidden());

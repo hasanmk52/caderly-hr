@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Round-trips through opencsv's own reader rather than eyeballing raw bytes, to catch
- * encoding/quoting regressions (Phase 1.12 DoD: "opens cleanly in Excel").
+ * encoding/quoting regressions ("opens cleanly in Excel").
  */
 class ReportCsvWriterTest {
 
@@ -47,8 +47,8 @@ class ReportCsvWriterTest {
             assertThat(parsed.get(0)).containsExactly("Employee", "Department", "Granted");
             assertThat(parsed.get(1)).containsExactly("Jane Doe", "Engineering", "20");
             // A comma inside a value must survive the round trip as one field, not split in two —
-            // proof opencsv is doing real quoting/escaping, the whole reason this phase pulled it
-            // in instead of hand-rolling (ADR 0018 vs. PublicHolidayService's hand-rolled parser).
+            // proof opencsv is doing real quoting/escaping, the whole reason it was pulled in
+            // instead of hand-rolling (ADR 0018 vs. PublicHolidayService's hand-rolled parser).
             assertThat(parsed.get(2)).containsExactly("Comma, Name", "Sales, EMEA", "15.50");
         }
     }

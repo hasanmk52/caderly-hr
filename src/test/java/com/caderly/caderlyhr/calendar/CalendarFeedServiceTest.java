@@ -23,7 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 /**
  * The public iCal feed's assembly (PRD AC-CALENDAR.1): valid token -> the token owner's own
  * approved leave as VEVENTs; anything else -> a clean {@link NotFoundException}, never a silent
- * empty-but-200 feed (Phase 1.8 DoD's explicit requirement).
+ * empty-but-200 feed.
  */
 class CalendarFeedServiceTest extends TenantIsolationTestBase {
 

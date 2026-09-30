@@ -20,9 +20,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Seeds a tenant and one Admin so a fresh dev database is usable immediately.
  *
- * <p>Exists only because nothing else can create the first user yet: Super Admin owns tenant and
- * initial-Admin creation (PRD FR-1.8) and does not arrive until Phase 1.13. Delete this class
- * then.
+ * <p>Duplicates what the Super Admin console's tenant-provisioning flow (PRD FR-1.8) now does for
+ * real tenants; kept for the zero-step local dev convenience of seeding without going through
+ * that console.
  *
  * <p>{@code @Profile("dev")} keeps it out of every other environment, and it is idempotent, so
  * restarts do not fight it or reset a password you have changed by hand.

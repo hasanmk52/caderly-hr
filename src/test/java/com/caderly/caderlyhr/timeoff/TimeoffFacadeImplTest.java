@@ -16,10 +16,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
- * The read-side query {@code calendar} depends on (sub-phase 1.8): approved-leave-in-range for
- * the team grid, all-approved-for-one-employee for the iCal feed, and holidays-in-range for the
- * grid's shaded columns. Month-boundary overlap cases are the ones {@code CURRENT_PHASE.md}
- * calls out explicitly.
+ * The read-side query {@code calendar} depends on: approved-leave-in-range for the team grid,
+ * all-approved-for-one-employee for the iCal feed, and holidays-in-range for the grid's shaded
+ * columns. Month-boundary overlap cases get their own coverage here.
  */
 class TimeoffFacadeImplTest extends TenantIsolationTestBase {
 

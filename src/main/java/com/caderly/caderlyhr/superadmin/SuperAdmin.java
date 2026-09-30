@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A cross-tenant operator account for the Super Admin console (PRD FR-1.8, Phase 1.13).
+ * A cross-tenant operator account for the Super Admin console (PRD FR-1.8).
  *
  * <p>Extends {@link BaseEntity}, <strong>not</strong> {@code TenantAwareEntity} — a Super Admin
  * belongs to no tenant by definition, mirroring {@code tenant.Tenant} itself (ArchitectureTest

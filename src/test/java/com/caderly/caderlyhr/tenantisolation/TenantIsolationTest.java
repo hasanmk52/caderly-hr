@@ -66,14 +66,11 @@ class TenantIsolationTest extends TenantIsolationTestBase {
 
     @Test
     void findAll_inSystemMode_seesNoTenantsRows() {
-        // Unlike the old hand-written @Filter (opt-in per query), Hibernate's native
-        // @TenantId restriction is armed automatically for every session, including
-        // system-mode ones — TenantIdentifierResolver gives system mode a fixed sentinel
-        // no real tenant can ever have (ADR 0004), so this now returns zero rows exactly
-        // like the RLS backstop already does in real dev/prod (ADR 0003) — system mode
-        // was never actually able to see cross-tenant data outside this test's previous
-        // Testcontainers-superuser artifact. Real cross-tenant reads remain deferred to
-        // the Super Admin console (ADR 0003).
+        // Hibernate's native @TenantId restriction is armed automatically for every session,
+        // including system-mode ones — TenantIdentifierResolver gives system mode a fixed
+        // sentinel no real tenant can ever have (ADR 0004), so this returns zero rows, matching
+        // the RLS backstop in real dev/prod (ADR 0003). Real cross-tenant reads remain deferred
+        // to the Super Admin console (ADR 0003).
         List<IsolationProbe> visible =
                 TenantContext.runAsSystem("isolation test: unscoped read", probes::findAll);
 
@@ -82,12 +79,11 @@ class TenantIsolationTest extends TenantIsolationTestBase {
 
     @Test
     void findById_whenTenantBActiveOnTenantARow_returnsEmpty() {
-        // The regression test for ADR 0004's actual improvement over the old hand-written
-        // @Filter: @Filter never applied to EntityManager.find(id)/repository.findById (only
-        // to HQL/Criteria queries), so a direct by-id load could leak across tenants unless
-        // RLS caught it. Hibernate's native @TenantId restriction is armed for every query
-        // it generates, including findById, so this must return empty even without RLS's
-        // help (the Testcontainers datasource user is a superuser and bypasses RLS).
+        // Hibernate's native @TenantId restriction (ADR 0004) is armed for every query it
+        // generates, including findById (unlike a hand-written @Filter, which never applies to
+        // EntityManager.find(id)/repository.findById — only to HQL/Criteria queries), so this
+        // must return empty even without RLS's help (the Testcontainers datasource user is a
+        // superuser and bypasses RLS).
         UUID tenantARowId =
                 asTenant(tenantA, () -> probes.save("findById-target-" + UUID.randomUUID())).getId();
 
@@ -126,12 +122,12 @@ class TenantIsolationTest extends TenantIsolationTestBase {
 
     @Test
     void endToEnd_adminOnboardsTenantThenTenantDoesFullCrudSeamlessly() {
-        // Mirrors the real lifecycle this whole mechanism exists for: a system/admin
-        // operation creates a brand-new tenant (no Super Admin console yet - Phase 1.13 -
-        // so this uses the same runAsSystem path TenantService#bySlug and the test fixtures
-        // already prove works), then a normal request against that tenant's subdomain does
-        // full create/read/update/delete on a TenantAwareEntity with zero entity-specific
-        // tenant code, and none of it is visible to a different, pre-existing tenant.
+        // Mirrors the real lifecycle this whole mechanism exists for: a system/admin operation
+        // creates a brand-new tenant (using the same runAsSystem path TenantService#bySlug and
+        // the test fixtures already prove works, rather than going through the Super Admin
+        // console), then a normal request against that tenant's subdomain does full
+        // create/read/update/delete on a TenantAwareEntity with zero entity-specific tenant
+        // code, and none of it is visible to a different, pre-existing tenant.
         UUID freshTenantId =
                 TenantContext.runAsSystem(
                         "test: admin onboards a new tenant",

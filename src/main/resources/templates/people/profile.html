@@ -10,7 +10,7 @@
       <div class="col-12 col-md-3">
         <div class="card">
           <div class="card-body text-center">
-            <!--/* Avatars: initials in a circle, no upload until Phase 1.7 (UI Guidelines §6). */-->
+            <!--/* Avatars: initials in a circle, no upload feature yet (UI Guidelines §6). */-->
             <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-3"
                  style="width: 96px; height: 96px; font-size: 2rem;"
                  th:text="${#strings.substring(employee.firstName,0,1)} + ${#strings.substring(employee.lastName,0,1)}">JD</div>
@@ -227,9 +227,9 @@
               </div>
             </div>
 
-            <!--/* Time off: balances + request history (PRD §12, Phase 1.6). Cancel is self-only
-                   (Phase 1.6 plan decision 7) — an Admin cancelling someone else's request is a
-                   service-layer-only path this phase, no button here. */-->
+            <!--/* Time off: balances + request history (PRD §12). Cancel is self-only — an Admin
+                   cancelling someone else's request is a service-layer-only path, no button
+                   here. */-->
             <div th:case="'timeoff'">
               <div class="card mb-4" th:if="${!#lists.isEmpty(bookableTypes)}">
                 <div class="card-body">

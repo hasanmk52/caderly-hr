@@ -11,8 +11,8 @@ import java.time.LocalDate;
 
 /**
  * A single day on the tenant's public holiday calendar (PRD §12.1, §12.5), added one at a time or
- * via CSV bulk upload. No edit — delete and re-add covers corrections, matching the "calendar
- * data, not a document" simplicity CURRENT_PHASE.md calls for.
+ * via CSV bulk upload. No edit — delete and re-add covers corrections, matching a "calendar
+ * data, not a document" simplicity.
  */
 @Entity
 @EntityListeners(EntityAuditListener.class)

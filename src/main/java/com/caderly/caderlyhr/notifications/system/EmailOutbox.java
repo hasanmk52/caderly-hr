@@ -46,7 +46,7 @@ public class EmailOutbox extends BaseEntity {
      * Which {@code notifications.EmailEvent} produced this row, as its enum name. A plain String
      * rather than an enum mapping so that a row written by a version that knew an event this one
      * doesn't still reads back — the Admin viewer shows an unknown value verbatim instead of
-     * throwing. Nullable: rows predating sub-phase 1.10's catalogue belong to no event.
+     * throwing. Nullable: a row belongs to no event when it predates this catalogue.
      */
     @Column(name = "event_type", length = 40)
     private @Nullable String eventType;

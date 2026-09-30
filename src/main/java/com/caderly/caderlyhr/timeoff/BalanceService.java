@@ -116,17 +116,16 @@ public class BalanceService {
     }
 
     /**
-     * Admin manual adjustment (PRD §12.2), required-reason. No {@code audit_entry} table exists
-     * yet (Phase 1.11) — logged via SLF4J in the meantime, same precedent as {@code
-     * people.EmployeeService}/{@code InviteService}.
+     * Admin manual adjustment (PRD §12.2), required-reason. {@code audit_entry}'s automatic diff
+     * captures the {@code granted} change itself; the free-text reason is logged via SLF4J, same
+     * precedent as {@code people.EmployeeService}/{@code InviteService}.
      */
     @Transactional
     public LeaveBalance adjustManually(
             UUID employeeId, UUID leaveTypeId, BigDecimal newGranted, String reason, String actorEmail) {
         int year = LocalDate.now(clock).getYear();
         LeaveBalance balance = requireBalance(employeeId, leaveTypeId, year);
-        // M7 (post-1.5 review): reject rather than silently push granted below used — used is no
-        // longer dormant once booking/approval exists (Phase 1.6). Backstopped by the
+        // Reject rather than silently push granted below used. Backstopped by the
         // leave_balance_granted_used_check DB constraint (V202608171000).
         if (newGranted.compareTo(balance.used()) < 0) {
             throw new ValidationException(

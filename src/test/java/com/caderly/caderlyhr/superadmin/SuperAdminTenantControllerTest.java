@@ -45,7 +45,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * {@code SuperAdminTenantController} — the console's create/suspend/delete/impersonate flows (PRD
- * FR-1.8, Phase 1.13 Task 6). Authenticates as a real {@code SuperAdmin} via {@code
+ * FR-1.8). Authenticates as a real {@code SuperAdmin} via {@code
  * /superadmin/login} rather than mocking {@link SuperAdminPrincipal} directly (mirroring {@code
  * SuperAdminSecurityConfigTest}), since the whole point of several cases here is that the realm
  * boundary itself — not a stubbed principal — is what a plain tenant Admin session or an
@@ -185,12 +185,12 @@ class SuperAdminTenantControllerTest {
     }
 
     /**
-     * Proves the fragment-response fix, not just the underlying state change: a real htmx PATCH
+     * Proves the fragment response, not just the underlying state change: a real htmx PATCH
      * never follows a redirect (there is none), and the response body it receives is the
      * re-rendered {@code #tenant-list-content} fragment showing the new status text. Asserting
-     * {@code status().isOk()} here is deliberate — it is exactly the assertion that would have
-     * failed against the previous {@code redirect:} + {@code HX-Redirect} implementation, which
-     * returned a 302 with no body for MockMvc (which never follows redirects) to inspect.
+     * {@code status().isOk()} here is deliberate — a {@code redirect:} + {@code HX-Redirect}
+     * response would return a 302 with no body for MockMvc (which never follows redirects) to
+     * inspect.
      */
     @Test
     void suspend_togglesSuspensionBothWays() throws Exception {

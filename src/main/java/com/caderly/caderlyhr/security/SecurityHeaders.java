@@ -11,8 +11,8 @@ import org.springframework.security.web.header.writers.XXssProtectionHeaderWrite
  * The response-header hardening required by PRD §19.6 / CLAUDE.md §6 A05, as one reusable {@link
  * Customizer}.
  *
- * <p>Extracted from {@code SecurityConfig} when the Super Admin realm gained a second {@link
- * org.springframework.security.web.SecurityFilterChain} (sub-phase 1.13). Two chains mean two
+ * <p>Extracted from {@code SecurityConfig} because the Super Admin realm is a second {@link
+ * org.springframework.security.web.SecurityFilterChain}. Two chains mean two
  * {@code .headers(...)} blocks, and headers are exactly the kind of thing that drifts when it is
  * written twice — a CSP tightened on one chain and forgotten on the other is invisible until
  * something is already being exfiltrated. One method, called from both, makes that impossible.

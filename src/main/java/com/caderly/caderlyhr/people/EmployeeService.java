@@ -114,7 +114,7 @@ public class EmployeeService {
     /**
      * Blank/null fields among exactly the set {@link EmployeeForms.SelfProfilePatch} lets an
      * employee edit themselves — the derived "Complete your profile" task on For Action (PRD
-     * FR-8.4, sub-phase 1.9's ADR 0015). {@code addressLine2} is deliberately excluded: it is
+     * FR-8.4, ADR 0015). {@code addressLine2} is deliberately excluded: it is
      * legitimately empty for most addresses, so counting it would make the task permanently
      * unclearable. Returns field keys (matching {@code common.field.*} message keys), not prose —
      * the web layer resolves the label.
@@ -163,9 +163,9 @@ public class EmployeeService {
 
         statusHistory.save(EmployeeStatusHistory.open(employee, EmployeeStatus.INVITED, form.employmentType(), today));
         // After save(), because the manager transition needs the employee's id (see
-        // applyManagerChange). This is also the only place a manager-history row is written on
-        // create: a second managerHistory.save() used to sit here, duplicating the row
-        // reassignManagerInternal already writes, which left two rows open on the same day.
+        // applyManagerChange). reassignManagerInternal is the only place that writes the
+        // manager-history row on create — do not add a second managerHistory.save() here, or
+        // two rows end up open on the same day.
         applyManagerChange(employee, form.managerId());
 
         UUID userId = inviteService.invite(form.email(), Set.of(Role.EMPLOYEE), appBaseUrl, tenantName);

@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Why a ticket at all, rather than the console simply writing a tenant session: the two realms
  * are on different hosts (the console on the bare base domain, the tenant on its subdomain), and
  * keeping them on different hosts is what stops one realm's session cookie from being usable in
- * the other (sub-phase 1.13, {@code superadmin.SuperAdminSecurityConfig}). A one-use, one-minute
+ * the other ({@code superadmin.SuperAdminSecurityConfig}). A one-use, one-minute
  * bearer in the URL is the narrowest thing that can cross that gap.
  *
  * <p>Tickets live in an in-JVM Caffeine cache, mirroring {@code security.RateLimitFilter}'s

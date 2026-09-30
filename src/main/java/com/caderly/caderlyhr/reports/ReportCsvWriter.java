@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * Serializes a report's header row and data rows to CSV bytes (Phase 1.12). One shared writer for
+ * Serializes a report's header row and data rows to CSV bytes. One shared writer for
  * all three reports rather than one per report — the serialization step is identical regardless
  * of what the columns mean.
  */

@@ -20,7 +20,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * CLAUDE.md §5 rule 8: every new tenant-scoped entity gets a test proving cross-tenant reads come
- * back empty. Covers all three identity entities added in sub-phase 1.2.
+ * back empty. Covers all three identity entities.
  */
 class IdentityTenantIsolationTest extends TenantIsolationTestBase {
 

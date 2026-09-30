@@ -12,8 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Builds the public iCal feed (PRD §6.6 FR-6.5, AC-CALENDAR.1, {@code GET
  * /api/v1/calendar/ical.ics}) — the token owner's own approved leave only (a scope decision made
- * with the user during planning: FR-6.5's "optionally team's leave" is out of scope for this
- * phase; AC-CALENDAR.1 and the Phase 1.8 DoD both describe only the subscriber's own leave).
+ * with the user during planning: FR-6.5's "optionally team's leave" is out of scope;
+ * AC-CALENDAR.1 describes only the subscriber's own leave).
  *
  * <p>No {@code TenantContext.runAsSystem} here: {@code TenantResolutionFilter} already resolves
  * the tenant from the request's subdomain before this runs (verified against {@code

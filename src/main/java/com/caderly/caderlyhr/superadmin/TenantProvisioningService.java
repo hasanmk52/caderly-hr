@@ -19,7 +19,7 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>Deliberately <strong>not</strong> {@code @Transactional} at the method level. {@link
  * TenantFacade#createTenant} already runs its own write under {@code
- * TenantContext.runAsSystem} in its own transaction (Task 1), so by the time it returns here, no
+ * TenantContext.runAsSystem} in its own transaction, so by the time it returns here, no
  * transaction is open on this thread. Only after that do we set {@code TenantContext} to the new
  * tenant and call {@link InviteService#invite}, whose own {@code @Transactional} then opens a
  * <em>fresh</em> transaction with the tenant already resolved — exactly the ordering Global

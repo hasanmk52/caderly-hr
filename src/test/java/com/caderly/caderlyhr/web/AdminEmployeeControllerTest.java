@@ -38,13 +38,14 @@ import org.springframework.validation.BindingResult;
 
 /**
  * Regression coverage for the {@code LazyInitializationException} an Employee with a
- * {@code department} used to throw once it left {@link com.caderly.caderlyhr.people.EmployeeService}'s
- * transaction: {@code spring.jpa.open-in-view: false} means no Hibernate session survives past
- * that boundary, so the lazy {@code department}/{@code manager} associations {@code
- * AdminEmployeeController#rows} and {@code people/profile.html} read afterward need to already be
- * loaded ({@link com.caderly.caderlyhr.people.EmployeeRepository}'s {@code @EntityGraph}). Every
- * fixture here deliberately assigns a department — the bug never showed up in
- * {@code AdminEmployeeAccessControlTest} because its fixtures never did.
+ * {@code department} throws if accessed once it has left {@link
+ * com.caderly.caderlyhr.people.EmployeeService}'s transaction: {@code spring.jpa.open-in-view:
+ * false} means no Hibernate session survives past that boundary, so the lazy {@code
+ * department}/{@code manager} associations {@code AdminEmployeeController#rows} and {@code
+ * people/profile.html} read afterward need to already be loaded ({@link
+ * com.caderly.caderlyhr.people.EmployeeRepository}'s {@code @EntityGraph}). Every fixture here
+ * deliberately assigns a department — {@code AdminEmployeeAccessControlTest} does not catch this
+ * because its fixtures don't.
  */
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
@@ -103,11 +104,11 @@ class AdminEmployeeControllerTest {
     }
 
     /**
-     * The user-facing half of the {@code create}-with-a-manager fix: the service-level proof lives
-     * in {@code EmployeeServiceTest}, but only a real form POST shows that the Manager select on
-     * the Add Employee offcanvas ({@code people/list.html}) no longer produces a 500. Before the
-     * fix this returned an error page, because {@code create} performed the manager transition
-     * before {@code save()} had assigned the employee an id.
+     * The user-facing half of {@code create}-with-a-manager: the service-level proof lives in
+     * {@code EmployeeServiceTest}, but only a real form POST shows that the Manager select on the
+     * Add Employee offcanvas ({@code people/list.html}) does not produce a 500. {@code create}
+     * must assign the employee's id via {@code save()} before performing the manager transition,
+     * not after.
      */
     @Test
     void createEmployeeWithManager_returnsOkRatherThanServerError() throws Exception {

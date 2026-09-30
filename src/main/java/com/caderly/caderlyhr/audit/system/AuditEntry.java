@@ -42,7 +42,7 @@ public class AuditEntry extends BaseEntity {
     @Column(name = "actor_user_id")
     private @Nullable UUID actorUserId;
 
-    // varchar(30) as of the sub-phase 1.13 migration: "SUPERADMIN_IMPERSONATING" does not fit 20.
+    // varchar(30): "SUPERADMIN_IMPERSONATING" (24 chars) doesn't fit a shorter column.
     @Column(name = "actor_role", length = 30)
     private @Nullable String actorRole;
 

@@ -11,11 +11,11 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.ModelAndView;
 
 /**
- * CLAUDE.md §6 A03 / CURRENT_PHASE.md DoD: an oversize upload must get a clear error, never a raw
- * 500 or the Whitelabel page.
+ * CLAUDE.md §6 A03: an oversize upload must get a clear error, never a raw 500 or the Whitelabel
+ * page.
  *
  * <p>This is a direct unit test of {@link GlobalExceptionHandler#handleMaxUploadSizeExceeded}, not
- * a full MockMvc round trip. Confirmed empirically (see the git history of this file): MockMvc's
+ * a full MockMvc round trip, because MockMvc's
  * default {@code webEnvironment = MOCK} never wires a real {@code MultipartConfigElement} onto the
  * mock request, so {@code MockMultipartHttpServletRequestBuilder} bypasses container-level size
  * enforcement entirely regardless of {@code spring.servlet.multipart.max-file-size} — the

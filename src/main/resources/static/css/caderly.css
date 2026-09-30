@@ -134,8 +134,8 @@ body {
 
 /* Every bar shares this same fixed brand-theme look regardless of leave type — a light tint of
    the brand color plus a bold brand-colored border. Leave types are told apart only by their
-   bold icon glyph (CalendarController.boldIcon), not by color (a reverted earlier per-leave-type
-   color-hash version of this rule is gone on purpose). */
+   bold icon glyph (CalendarController.boldIcon), not by color, so every bar stays visually
+   consistent regardless of type. */
 .calendar-bar {
   height: 1.5rem;
   align-self: center;
