@@ -188,3 +188,11 @@ body {
   border: 2px solid var(--bs-primary);
   color: var(--bs-primary);
 }
+
+/* Home Customize mode (ADR 0021). Controls and hidden widgets only exist while editing. */
+.dashboard-controls { position: absolute; top: .5rem; right: calc(var(--bs-gutter-x) * .5 + .5rem); z-index: 2; display: none; }
+.dashboard-grid.is-editing .dashboard-controls { display: inline-flex; }
+.dashboard-grid:not(.is-editing) [data-hidden="true"] { display: none; }
+.dashboard-grid.is-editing [data-hidden="true"] .card { opacity: .5; }
+.dashboard-grid.is-editing .dashboard-handle { cursor: grab; }
+.dashboard-grid.is-editing [data-widget] .card { outline: 2px dashed var(--bs-border-color); outline-offset: 2px; }

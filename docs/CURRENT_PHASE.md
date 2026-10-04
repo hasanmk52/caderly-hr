@@ -1,11 +1,21 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.14 — Dashboard Customization
-**Branch:** `phase-1.14-dashboard-customize` (not yet created — create it before writing any code)
-**Goal:** Every user (Employee, Manager, Admin) can click **Customize** on the Home dashboard,
-drag their widgets into a new order, hide or re-show widgets, then Save or Cancel — and reset to
-the default layout. The layout is per-user and persists across sessions and devices.
-**Design record:** ADR 0021 (to be written at the start of this phase — see prerequisites below).
+**Working on:** Phase 1.15 — Deployment & Ops
+**Branch:** `phase-1.15-deployment` (not yet created — create it before writing any code)
+**Goal:** MHZ's instance runs on a real VPS: Docker Compose (app + reverse proxy only, Postgres
+native on the host), automatic TLS, nightly backups, and an install guide a solo engineer can
+follow end-to-end without guessing.
+
+## Phase 1.14 — Dashboard Customization (complete)
+
+**Branch:** `phase-1.14-dashboard-customize`
+**Goal:** Every user can Customize the Home dashboard: drag or arrow-button reorder, hide/show,
+Save / Cancel / Reset. Per-user, persisted. **Design record:** ADR 0021.
+**Verified:** `identity.DashboardLayoutResolutionTest` (pure rule), `identity.DashboardLayoutServiceTest`
+(save/reload/reset, cross-tenant and cross-user isolation), `web.DashboardLayoutAccessControlTest`
+(200 per role, anonymous redirected, CSRF required), `e2e.DashboardCustomizeE2ETest` (reorder, hide,
+save, reload, cancel, reset; hidden card carries no `hx-get`), ArchUnit tenant-entity rule
+(default-deny pattern already covers `DashboardLayout`), full `./mvnw verify`.
 
 ## Phase 1.13 — Super Admin Console (complete)
 
@@ -54,77 +64,6 @@ the reasoning for not needing ADR 0003/0004's deferred `BYPASSRLS` work: **ADR 0
 
 ## Read these before doing anything
 
-1. `docs/Caderly_Implementation_Plan.md` — the "1.14 Dashboard Customization" section under
-   Phase 1 — MVP.
-2. `docs/Caderly_PRD.md` — §24.2 ("Widget grid (customizable, MVP presets)"). No FR spells out the
-   mechanics; the Implementation Plan section is the design.
-3. `docs/UI_Guidelines.md` — §8.2 (widget grid, 6-widget cap, 3/2/1 columns), §9 (accessibility —
-   drag needs a keyboard alternative), §13 (htmx rules, no inline JS), §14 (Alpine is the CSP build;
-   complex behaviour goes in `caderly.js`).
-4. `docs/adr/0015-home-dashboard-widgets-and-derived-tasks.md` — why the current six widgets exist.
-5. `CLAUDE.md` — §5 (tenancy contract for the new table), §6 A01/A05 (RBAC, CSP), §12 (new
-   dependency and schema change need approval), §10 ("Adding a new tenant-scoped entity" recipe).
-
-## Prerequisites — do these first, in order
-
-1. Update `docs/UI_Guidelines.md` §8.2 to describe customize mode (it deviates from the fixed grid;
-   CLAUDE.md requires the guideline change to land first).
-2. Ask Hasan to approve the **SortableJS WebJar** as a new Maven dependency (CLAUDE.md §12); add a
-   `sortablejs.version` property in `pom.xml` (verify the exact WebJar coordinate first).
-3. Write ADR 0021: per-user table storage (vs. a column on `app_user`), SortableJS vs. native
-   HTML5 drag, hidden widgets rendered as unloaded placeholders. (ADR 0020 is taken by tenant logo
-   upload.)
-
-## Already in place — do not redo
-
-- **Six htmx-loaded widgets** (`templates/home.html`, `templates/home/widgets.html`, handlers in
-  `web/HomeController`): Book Time Off, My Peers, Time Off Today, My Days Off, Upcoming Holidays,
-  Resources. One dashboard for every role; only the "View all" footers are Admin-gated.
-- **CSRF for htmx** is added to every request by the `htmx:configRequest` listener in `caderly.js`.
-- **Alpine CSP build** is loaded; there is no drag library and no per-user preference storage yet.
-- **`documents.CompanyFile`** (+ `V202608261200__create_document_tables.sql`) is the smallest
-  entity/repository/service/migration/RLS example to mirror for `dashboard_layout`.
-- **`HomeWidgetAccessControlTest`** and `support.RbacTestSupport` are the RBAC test pattern.
-
-## Remaining Phase 1.14 work
-
-- Flyway migration (next version after `V202609301000`): `dashboard_layout` with RLS.
-- `DashboardWidget` enum, `DashboardLayout` entity (`identity` package, `TenantAwareEntity`,
-  audited), repository, `DashboardLayoutService` with the pure resolution rule.
-- `POST /dashboard/layout` and `POST /dashboard/layout/reset` (`hasRole('EMPLOYEE')`, user from the
-  principal only).
-- `home.html` loops over the resolved layout; hidden widgets render as unloaded placeholders.
-- Customize / Save / Cancel / Reset UI and SortableJS wiring in `caderly.js`, plus eye toggle and
-  up/down buttons for keyboard users. Strings in `messages.properties` (`home.customize.*`).
-- Tests: layout resolution unit tests; save/reset integration; RBAC (200 per role + anonymous
-  denied); tenant isolation (cross-tenant and cross-user); ArchUnit entity check; CSP test;
-  Playwright save-and-reload.
-
-## Definition of Done for Phase 1.14
-
-- A user can rearrange and hide their own dashboard widgets; Save persists across reload and
-  sessions; Cancel discards; Reset restores the default; nobody else's layout is affected.
-- `./mvnw verify` green, ArchUnit green, no new exemptions.
-
-## Not in scope for Phase 1.14 — do not start any of this
-
-- A tenant-wide default layout set by Admins (deliberately not built; per-user only).
-- New widgets, or bringing back Company News (Phase 2 item 10).
-- Admin-assigned Tasks (still Phase 2, see Carried forward).
-- Anything from Phase 1.15 (deployment) — infra work stays in its own phase.
-
-## Next: Phase 1.15 — Deployment & Ops
-
-**Branch:** `phase-1.15-deployment` (not yet created — create it before writing any code)
-**Goal:** MHZ's instance runs on a real VPS: Docker Compose (app + reverse proxy only, Postgres
-native on the host), automatic TLS, nightly backups, and an install guide a solo engineer can
-follow end-to-end without guessing.
-
-*(Renumbered from 1.14 when Dashboard Customization was inserted; the content below is unchanged
-apart from the phase number.)*
-
-### Read these before doing anything
-
 1. `docs/Caderly_Implementation_Plan.md` — the "1.15 Deployment & Ops" section under Phase 1 —
    MVP.
 2. `docs/Caderly_PRD.md` — whatever sections cover deployment/ops expectations (backup cadence,
@@ -134,7 +73,7 @@ apart from the phase number.)*
    Postgres), §6 A05 (security headers, actuator exposure, no default passwords — all must hold
    in the shipped Docker image), §6 A08 (Docker base image pinned by digest, not just tag).
 
-### Already in place — do not redo
+## Already in place — do not redo
 
 - **Distroless JRE 25 base image and Docker + docker-compose as the deployment mechanism** are
   already locked in CLAUDE.md §3 — this phase builds the actual `Dockerfile`/`docker-compose.yml`,
@@ -153,9 +92,9 @@ apart from the phase number.)*
   loopback. The Caddyfile this phase writes must satisfy that requirement for the whole app, not
   just the Super Admin console.
 
-### Remaining Phase 1.15 work
+## Remaining Phase 1.15 work
 
-#### Infra
+### Infra
 - Multi-stage `Dockerfile`, distroless JRE 25 base image pinned by digest (CLAUDE.md §6 A08).
 - `docker-compose.yml` with `caderly-app` + `caddy` only — no Postgres service; the app connects
   to the host's native Postgres 17 (`host.docker.internal:5432` or the host's LAN IP).
@@ -172,17 +111,17 @@ apart from the phase number.)*
 - Optional Kubernetes/cloud variant documented separately (same image, external managed Postgres
   — RDS/Cloud SQL/Neon — same env vars, no code change).
 
-#### Tests
+### Tests
 - `docker compose up` on a fresh Debian box (after Postgres is installed + DB created) works
   end-to-end.
 - Restore-from-backup drill documented and run once.
 
-### Definition of Done for Phase 1.15
+## Definition of Done for Phase 1.15
 
 - MHZ's instance runs on a $10/mo Hetzner VPS: Postgres 17 native, Docker running `caderly-app` +
   `caddy`, wildcard TLS working for the chosen domain (e.g. `mhz.caderly.app`).
 
-### Not in scope for Phase 1.15 — do not start any of this
+## Not in scope for Phase 1.15 — do not start any of this
 
 - Any Phase 2 feature work — this phase is infra-only.
 - Kubernetes/cloud-managed-Postgres as the primary deployment target — documented as an optional
@@ -293,13 +232,13 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
 - **`superadmin.SuperAdminTenantController`'s `errorDetail()`/`baseUrl()` helpers duplicate logic**
   already in `web.WebMessages`/`web.RequestTenant`, which aren't visible outside their own package
   (Phase 1.13) — reasonable duplication at this scale, not extracted into a shared seam.
-- **Tenant-wide default dashboard layout is not built** (Phase 1.14). Customization is per-user
+- **Tenant-wide default dashboard layout is not built** (Phase 1.14, ADR 0021). Customization is per-user
   only; an Admin-set company default with per-user override was considered and deliberately left
   out. Revisit only if a pilot tenant asks for it.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to whatever sub-phase comes next (this file's 1.13 → 1.14 update is the template).
+2. Update this file to whatever sub-phase comes next (this file's 1.14 → 1.15 update is the template).
 3. Commit the sub-phase branch and open a PR against `main`.
 4. Do not start the next phase in the same session.

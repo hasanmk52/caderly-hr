@@ -6,6 +6,7 @@ import com.caderly.caderlyhr.calendar.CalendarService.TeamCalendarView;
 import com.caderly.caderlyhr.documents.CompanyFile;
 import com.caderly.caderlyhr.documents.CompanyFileService;
 import com.caderly.caderlyhr.identity.AppUserPrincipal;
+import com.caderly.caderlyhr.identity.DashboardLayoutService;
 import com.caderly.caderlyhr.people.Employee;
 import com.caderly.caderlyhr.people.EmployeeService;
 import com.caderly.caderlyhr.people.PeopleFacade;
@@ -27,9 +28,12 @@ import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Home dashboard (PRD §24.2, UI Guidelines §8.2, ADR 0015): the shell renders the
@@ -48,6 +52,7 @@ class HomeController {
     private final TimeoffFacade timeoff;
     private final CalendarService calendarService;
     private final CompanyFileService companyFiles;
+    private final DashboardLayoutService dashboardLayouts;
     private final Clock clock;
 
     HomeController(
@@ -57,6 +62,7 @@ class HomeController {
             TimeoffFacade timeoff,
             CalendarService calendarService,
             CompanyFileService companyFiles,
+            DashboardLayoutService dashboardLayouts,
             Clock clock) {
         this.employees = employees;
         this.balances = balances;
@@ -64,6 +70,7 @@ class HomeController {
         this.timeoff = timeoff;
         this.calendarService = calendarService;
         this.companyFiles = companyFiles;
+        this.dashboardLayouts = dashboardLayouts;
         this.clock = clock;
     }
 
@@ -79,7 +86,36 @@ class HomeController {
     @PreAuthorize("hasRole('EMPLOYEE')")
     String home(@Nullable @AuthenticationPrincipal AppUserPrincipal principal, Model model) {
         model.addAttribute("firstName", resolveEmployee(principal).map(Employee::firstName).orElse(null));
+        model.addAttribute("slots", principal == null
+                        ? DashboardLayoutService.defaultLayout()
+                        : dashboardLayouts.layoutFor(principal.userId()));
         return "home";
+    }
+
+    /**
+     * Saves the caller's own layout. The user comes from the principal only, never a request
+     * parameter. Replies 200 with {@code HX-Redirect} rather than a Spring redirect: htmx cannot
+     * observe a header on a redirect its XHR already followed (CURRENT_PHASE, ADR 0019 decision H).
+     */
+    @PostMapping("/dashboard/layout")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    ResponseEntity<Void> saveLayout(
+            @Nullable @AuthenticationPrincipal AppUserPrincipal principal,
+            @RequestParam(defaultValue = "") List<String> order,
+            @RequestParam(defaultValue = "") List<String> hidden) {
+        if (principal != null) {
+            dashboardLayouts.save(principal.userId(), order, hidden);
+        }
+        return ResponseEntity.ok().header("HX-Redirect", "/").build();
+    }
+
+    @PostMapping("/dashboard/layout/reset")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    ResponseEntity<Void> resetLayout(@Nullable @AuthenticationPrincipal AppUserPrincipal principal) {
+        if (principal != null) {
+            dashboardLayouts.reset(principal.userId());
+        }
+        return ResponseEntity.ok().header("HX-Redirect", "/").build();
     }
 
     @GetMapping("/widgets/book-time-off")

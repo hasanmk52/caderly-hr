@@ -3,31 +3,51 @@
 <body>
 <th:block th:replace="~{layout :: layout(#{home.title}, ~{::#content})}">
   <div id="content" class="flex-grow-1 p-4">
-    <h1 th:text="${firstName != null} ? #{home.welcome-named(${firstName})} : #{home.welcome-anonymous}">Welcome!</h1>
-    <p class="text-muted mb-4" th:text="#{home.subtitle}">Here's your Caderly HR home.</p>
+    <div class="d-flex justify-content-between align-items-start mb-4 gap-3">
+      <div>
+        <h1 th:text="${firstName != null} ? #{home.welcome-named(${firstName})} : #{home.welcome-anonymous}">Welcome!</h1>
+        <p class="text-muted mb-0" th:text="#{home.subtitle}">Here's your Caderly HR home.</p>
+      </div>
+      <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" data-dashboard-customize>
+        <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i> <span th:text="#{home.customize.button}">Customize</span>
+      </button>
+    </div>
+
+    <div class="alert alert-info d-flex flex-wrap align-items-center gap-2 d-none" data-dashboard-bar>
+      <span class="me-auto" th:text="#{home.customize.hint}">Drag cards to reorder.</span>
+      <button type="button" class="btn btn-primary btn-sm" data-dashboard-save
+              data-save-url="/dashboard/layout" th:text="#{home.customize.save}">Save layout</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-dashboard-cancel
+              th:text="#{home.customize.cancel}">Cancel</button>
+      <button type="button" class="btn btn-outline-danger btn-sm" data-dashboard-reset
+              data-reset-url="/dashboard/layout/reset" th:text="#{home.customize.reset}">Reset to default</button>
+    </div>
 
     <!--/* UI Guidelines §8.2: 3/2/1-column grid, 6 widgets max, each independently htmx-loaded
-           on page load so they fetch in parallel rather than blocking the initial render. */-->
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
-      <div class="col">
-        <div class="card h-100" hx-get="/widgets/book-time-off" hx-trigger="load" hx-swap="outerHTML"></div>
-      </div>
-      <div class="col">
-        <div class="card h-100" hx-get="/widgets/my-peers" hx-trigger="load" hx-swap="outerHTML"></div>
-      </div>
-      <div class="col">
-        <div class="card h-100" hx-get="/widgets/time-off-today" hx-trigger="load" hx-swap="outerHTML"></div>
-      </div>
-      <div class="col">
-        <div class="card h-100" hx-get="/widgets/my-days-off" hx-trigger="load" hx-swap="outerHTML"></div>
-      </div>
-      <div class="col">
-        <div class="card h-100" hx-get="/widgets/upcoming-holidays" hx-trigger="load" hx-swap="outerHTML"></div>
-      </div>
-      <div class="col">
-        <div class="card h-100" hx-get="/widgets/resources" hx-trigger="load" hx-swap="outerHTML"></div>
+           on page load so they fetch in parallel rather than blocking the initial render. The
+           order and hidden set are the user's own (ADR 0021). A hidden widget is a placeholder
+           with no hx-trigger, so it costs no queries, and is only shown in Customize mode. */-->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3 dashboard-grid" data-dashboard-grid>
+      <div class="col position-relative" th:each="slot : ${slots}"
+           th:attr="data-widget=${slot.widget.key}, data-hidden=${slot.hidden}">
+        <div th:unless="${slot.hidden}" class="card h-100" th:hx-get="@{${slot.widget.path}}" hx-trigger="load" hx-swap="outerHTML"></div>
+        <div th:if="${slot.hidden}" class="card h-100">
+          <div class="card-header"><h3 class="card-title h6 mb-0" th:text="#{${slot.widget.titleKey}}">Widget</h3></div>
+          <div class="card-body text-muted small" th:text="#{home.customize.hidden-placeholder}">Hidden.</div>
+        </div>
+        <div class="dashboard-controls btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-light border dashboard-handle" th:title="#{home.customize.drag}"
+                  th:aria-label="#{home.customize.drag}"><i class="bi bi-grip-vertical" aria-hidden="true"></i></button>
+          <button type="button" class="btn btn-light border" data-dashboard-move="-1" th:title="#{home.customize.move-up}"
+                  th:aria-label="#{home.customize.move-up}"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+          <button type="button" class="btn btn-light border" data-dashboard-move="1" th:title="#{home.customize.move-down}"
+                  th:aria-label="#{home.customize.move-down}"><i class="bi bi-arrow-down" aria-hidden="true"></i></button>
+          <button type="button" class="btn btn-light border" data-dashboard-toggle th:title="#{home.customize.toggle-visibility}"
+                  th:aria-label="#{home.customize.toggle-visibility}"><i class="bi bi-eye" aria-hidden="true"></i></button>
+        </div>
       </div>
     </div>
+    <script th:src="@{/webjars/sortablejs/Sortable.min.js}"></script>
   </div>
 </th:block>
 </body>

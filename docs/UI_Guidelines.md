@@ -277,6 +277,12 @@ Destructive actions (delete, terminate): confirm via modal, then show a toast on
 - Every widget is a `card` with title in `card-header`, body content, optional link "View all" in `card-footer`.
 - Widget loading: each widget htmx-loads independently on page load (`hx-get="/widgets/..." hx-trigger="load"`). This parallelizes.
 - Never render more than 6 widgets by default.
+- **Customize mode (per user):** a **Customize** button above the grid enters edit mode. Each card
+  gains a drag handle, an eye toggle (hide/show) and up/down buttons — the buttons are the keyboard
+  alternative to dragging (§9). A bar offers **Save**, **Cancel** (discard, reload) and **Reset**
+  (default order, all visible). The layout is stored per user, not per tenant. Hidden widgets render
+  as dimmed placeholders in edit mode and not at all otherwise; a placeholder never carries
+  `hx-trigger="load"`, so a hidden widget costs no queries.
 
 ### 8.3 People list — view toggle
 - Top-right button group: List · Grid · Org tree.
