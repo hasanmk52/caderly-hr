@@ -15,6 +15,15 @@
       </button>
     </div>
 
+    <div class="alert alert-success py-2" role="status" th:if="${logoUpdated}">
+      <i class="bi bi-check-circle me-1" aria-hidden="true"></i>
+      <span th:text="#{superadmin.tenants.logo.updated}">Logo updated.</span>
+    </div>
+    <div class="alert alert-danger py-2" role="alert" th:if="${logoError}">
+      <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>
+      <span th:text="${logoError}">The logo could not be saved.</span>
+    </div>
+
     <!--/* Deliberately vague on why there was no Admin, mirroring auth/login.html's
            impersonationFailed alert on the tenant side. */-->
     <div class="alert alert-danger py-2" role="alert" th:if="${param.impersonateFailed}">
@@ -77,6 +86,11 @@
                     <i class="bi bi-eye" aria-hidden="true"></i>
                   </button>
                 </form>
+                <button type="button" class="btn btn-outline-secondary btn-sm" th:if="${tenant.status() != 'DELETED'}"
+                        th:aria-label="#{superadmin.tenants.aria.logo}" th:title="#{superadmin.tenants.logo}"
+                        data-bs-toggle="modal" th:attr="data-bs-target='#logoTenant-' + ${tenant.id()}">
+                  <i class="bi bi-image" aria-hidden="true"></i>
+                </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm"
                         th:aria-label="${tenant.status() == 'SUSPENDED'} ? #{superadmin.tenants.aria.reinstate} : #{superadmin.tenants.aria.suspend}"
                         th:title="${tenant.status() == 'SUSPENDED'} ? #{superadmin.tenants.reinstate} : #{superadmin.tenants.suspend}"
@@ -94,6 +108,33 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div th:each="tenant : ${tenantRows}" th:if="${tenant.status() != 'DELETED'}" class="modal fade" tabindex="-1" aria-hidden="true"
+           th:id="'logoTenant-' + ${tenant.id()}">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" th:text="#{superadmin.tenants.logo.title(${tenant.name()})}">Logo</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" th:aria-label="#{common.aria.close}"></button>
+            </div>
+            <form method="post" enctype="multipart/form-data" th:action="@{/superadmin/tenants/{id}/logo(id=${tenant.id()})}">
+              <div class="modal-body">
+                <label class="form-label" th:for="'logo-file-' + ${tenant.id()}" th:text="#{superadmin.tenants.logo.file}">Logo image</label>
+                <input class="form-control" type="file" name="file" required accept="image/png,image/jpeg"
+                       th:id="'logo-file-' + ${tenant.id()}" />
+                <div class="form-text" th:text="#{superadmin.tenants.logo.help}">PNG or JPEG, up to 512 KB. A wide logo with a transparent or white background works best.</div>
+              </div>
+              <div class="modal-footer">
+                <button type="submit" class="btn btn-outline-danger btn-sm me-auto" th:if="${tenant.hasLogo()}"
+                        th:formaction="@{/superadmin/tenants/{id}/logo/remove(id=${tenant.id()})}" formnovalidate
+                        th:text="#{superadmin.tenants.logo.remove}">Remove logo</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" th:text="#{common.action.cancel}">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm" th:text="#{superadmin.tenants.logo.upload}">Upload</button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
 
       <div th:each="tenant : ${tenantRows}" class="modal fade" tabindex="-1" aria-hidden="true"
@@ -170,13 +211,6 @@
                    th:classappend="${#fields.hasErrors('weekendDays')} ? 'is-invalid'" />
             <div class="invalid-feedback" th:if="${#fields.hasErrors('weekendDays')}" th:errors="*{weekendDays}">Invalid weekend days</div>
             <div class="form-text" th:text="#{superadmin.tenants.field.weekend-days-help}">Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64. Default 96 = Saturday and Sunday.</div>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label" for="tenant-logo-url" th:text="#{superadmin.tenants.field.logo-url}">Logo URL</label>
-            <input class="form-control" type="text" id="tenant-logo-url" th:field="*{logoUrl}" maxlength="500"
-                   th:classappend="${#fields.hasErrors('logoUrl')} ? 'is-invalid'" />
-            <div class="invalid-feedback" th:if="${#fields.hasErrors('logoUrl')}" th:errors="*{logoUrl}">Invalid logo URL</div>
           </div>
 
           <div class="mb-3">

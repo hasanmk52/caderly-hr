@@ -14,6 +14,13 @@ server:
         secure: false
 
 spring:
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          # Always revalidate in dev so CSS/JS edits show on the next reload; still cacheable,
+          # so the favicon works (the base 1h policy would hide edits).
+          max-age: 0
   datasource:
     url: jdbc:postgresql://localhost:5432/caderly
     username: ${DB_USER:caderly}

@@ -24,7 +24,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -39,6 +38,10 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tools.jackson.databind.ObjectMapper;
 
@@ -120,7 +123,7 @@ class SuperAdminTenantController {
                         form.name(),
                         form.timezone(),
                         form.weekendDays(),
-                        form.logoUrl(),
+                        null,
                         form.firstAdminEmail(),
                         tenantBaseUrl(form.slug()),
                         currentSuperAdmin().actorId());
@@ -159,6 +162,37 @@ class SuperAdminTenantController {
         recordTenantAudit(id, Action.UPDATE, Map.of("suspended", suspending));
         populateTable(model);
         return "superadmin/tenants :: content";
+    }
+
+    /**
+     * Uploads or replaces a tenant's logo (ADR 0020). A plain multipart form POST that redirects
+     * back with a query flag, like {@link #impersonate}: htmx multipart plumbing buys nothing for a
+     * once-per-tenant action. A rejected file surfaces its own {@code error.*} message.
+     */
+    @PostMapping("/superadmin/tenants/{id}/logo")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    String changeLogo(@PathVariable UUID id, @RequestParam("file") MultipartFile file, RedirectAttributes redirect)
+            throws IOException {
+        requireTenant(id);
+        try {
+            tenants.changeLogo(id, file.getOriginalFilename() == null ? "" : file.getOriginalFilename(), file.getBytes());
+        } catch (CaderlyException exception) {
+            redirect.addFlashAttribute("logoError", errorDetail(exception));
+            return "redirect:/superadmin/tenants";
+        }
+        recordTenantAudit(id, Action.UPDATE, Map.of("logo", "changed"));
+        redirect.addFlashAttribute("logoUpdated", true);
+        return "redirect:/superadmin/tenants";
+    }
+
+    @PostMapping("/superadmin/tenants/{id}/logo/remove")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    String removeLogo(@PathVariable UUID id, RedirectAttributes redirect) {
+        requireTenant(id);
+        tenants.clearLogo(id);
+        recordTenantAudit(id, Action.UPDATE, Map.of("logo", "removed"));
+        redirect.addFlashAttribute("logoUpdated", true);
+        return "redirect:/superadmin/tenants";
     }
 
     /** Same fragment-response convention as {@link #toggleSuspend} — see its Javadoc. */
@@ -239,7 +273,7 @@ class SuperAdminTenantController {
             TenantContext.clear();
         }
         String status = tenant.deletedAt() != null ? "DELETED" : tenant.suspended() ? "SUSPENDED" : "ACTIVE";
-        return new TenantRow(tenant.id(), tenant.slug(), tenant.name(), status, employeeCount);
+        return new TenantRow(tenant.id(), tenant.slug(), tenant.name(), status, employeeCount, tenant.hasLogo());
     }
 
     private TenantAdminView requireTenant(UUID id) {
@@ -278,10 +312,10 @@ class SuperAdminTenantController {
     }
 
     private static TenantCreateForm blankForm() {
-        return new TenantCreateForm("", "", "UTC", 96, null, "");
+        return new TenantCreateForm("", "", "UTC", 96, "");
     }
 
-    record TenantRow(UUID id, String slug, String name, String status, long employeeCount) {}
+    record TenantRow(UUID id, String slug, String name, String status, long employeeCount, boolean hasLogo) {}
 
     record TenantCreateForm(
             @NotBlank(message = "{validation.tenant-create-form.slug.required}")
@@ -299,7 +333,6 @@ class SuperAdminTenantController {
             @Min(value = 0, message = "{validation.tenant-create-form.weekend-days.invalid}")
                     @Max(value = 127, message = "{validation.tenant-create-form.weekend-days.invalid}")
                     int weekendDays,
-            @Nullable @Size(max = 500, message = "{validation.tenant-create-form.logo-url.too-long}") String logoUrl,
             @NotBlank(message = "{validation.tenant-create-form.first-admin-email.required}")
                     @Email(message = "{validation.tenant-create-form.first-admin-email.invalid}")
                     String firstAdminEmail) {}

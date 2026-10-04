@@ -1,9 +1,11 @@
 package com.caderly.caderlyhr.tenant;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -83,6 +85,36 @@ class TenantResolutionFilterTest {
     }
 
     @Test
+    void home_whenSuspendedTenant_rendersABrandedPageThatNamesNoTenant() throws Exception {
+        Tenant suspended = seedTenantIfAbsent("frozen2", "Frozen Two Co");
+        suspended.suspend();
+        TenantContext.runAsSystem("test: suspend tenant", () -> tenantRepository.save(suspended));
+        tenantService.evictCache();
+
+        // The filter runs before the security chain, so it cannot use the normal layout (it needs a
+        // CSRF token); the page must still load the app's own stylesheets and favicon, carry copy
+        // from messages.properties, and not echo the tenant's name or slug.
+        mockMvc
+                .perform(get(URI.create("http://frozen2.localhost/")))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentTypeCompatibleWith("text/html"))
+                .andExpect(content().string(containsString("Temporarily unavailable")))
+                .andExpect(content().string(containsString("/css/caderly.css")))
+                .andExpect(content().string(containsString("/favicon.ico")))
+                .andExpect(content().string(not(containsString("Frozen Two"))))
+                .andExpect(content().string(not(containsString("frozen2"))));
+    }
+
+    @Test
+    void home_whenUnknownTenant_rendersTheBrandedNotFoundPage() throws Exception {
+        mockMvc
+                .perform(get(URI.create("http://nope.localhost/")))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(containsString("Page not found")))
+                .andExpect(content().string(containsString("/css/caderly.css")));
+    }
+
+    @Test
     void actuatorHealth_withoutTenant_returns200() throws Exception {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
     }
@@ -93,6 +125,17 @@ class TenantResolutionFilterTest {
         // caderly.js to attach the CSRF header to every htmx request — if this 404s, every
         // suspend/reinstate/delete action there 403s while the page itself still renders fine.
         mockMvc.perform(get("/js/caderly.js")).andExpect(status().isOk());
+    }
+
+    @Test
+    void favicon_isCacheableNotNoStore() throws Exception {
+        // Spring Security adds `no-store` to any response without its own Cache-Control, and a
+        // no-store favicon is not kept by the browser — the tab shows no icon.
+        mockMvc
+                .perform(get("/favicon.ico"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", containsString("max-age")))
+                .andExpect(header().string("Cache-Control", not(containsString("no-store"))));
     }
 
     @Test

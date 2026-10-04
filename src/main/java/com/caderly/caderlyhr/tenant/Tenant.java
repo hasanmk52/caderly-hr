@@ -34,6 +34,15 @@ public class Tenant {
     @Column(name = "logo_url", length = 500)
     private @Nullable String logoUrl;
 
+    @Column(name = "logo_storage_key", length = 255)
+    private @Nullable String logoStorageKey;
+
+    @Column(name = "logo_content_type", length = 50)
+    private @Nullable String logoContentType;
+
+    @Column(name = "logo_version", length = 16)
+    private @Nullable String logoVersion;
+
     @Column(name = "timezone", nullable = false, length = 50)
     private String timezone;
 
@@ -132,6 +141,18 @@ public class Tenant {
         this.deletedAt = when;
     }
 
+    public void changeLogo(String storageKey, String contentType, String version) {
+        this.logoStorageKey = storageKey;
+        this.logoContentType = contentType;
+        this.logoVersion = version;
+    }
+
+    public void clearLogo() {
+        this.logoStorageKey = null;
+        this.logoContentType = null;
+        this.logoVersion = null;
+    }
+
     public void updateNotificationSettings(
             boolean holidayReminder, boolean documentExpiry, boolean birthday, boolean workAnniversary) {
         this.notifyHolidayReminder = holidayReminder;
@@ -170,6 +191,18 @@ public class Tenant {
 
     public @Nullable String getLogoUrl() {
         return logoUrl;
+    }
+
+    public @Nullable String getLogoStorageKey() {
+        return logoStorageKey;
+    }
+
+    public @Nullable String getLogoContentType() {
+        return logoContentType;
+    }
+
+    public @Nullable String getLogoVersion() {
+        return logoVersion;
     }
 
     public String getTimezone() {

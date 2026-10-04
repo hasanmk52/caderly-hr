@@ -5,7 +5,7 @@
     <div class="caderly-bare-card">
 
       <div class="text-center mb-4">
-        <h1 class="h4 mb-1" th:text="${tenant != null} ? ${tenant.name} : #{common.brand-name}">Caderly</h1>
+        <h1 th:replace="~{fragments/tenant-brand :: auth-heading}">Caderly</h1>
         <p class="text-muted small mb-0" th:text="#{auth.accept-invite.subtitle}">Welcome — set a password to get started</p>
       </div>
 

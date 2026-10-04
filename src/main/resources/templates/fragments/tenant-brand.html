@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/* Auth-page heading (ADR 0020). With an uploaded logo the image is the heading: its alt text
+       is the tenant name, so the <h1> still has an accessible name. Without one, the tenant name
+       (or the Caderly brand on a tenant-less path) renders as text, as before. */-->
+<h1 th:fragment="auth-heading" class="h4 mb-1">
+  <img th:if="${tenant != null and tenant.logoVersion != null}"
+       th:src="@{/tenant-logo(v=${tenant.logoVersion})}" th:alt="${tenant.name}"
+       class="caderly-tenant-logo caderly-tenant-logo--auth" />
+  <th:block th:unless="${tenant != null and tenant.logoVersion != null}"
+            th:text="${tenant != null} ? ${tenant.name} : #{common.brand-name}">Caderly</th:block>
+</h1>
+</body>
+</html>

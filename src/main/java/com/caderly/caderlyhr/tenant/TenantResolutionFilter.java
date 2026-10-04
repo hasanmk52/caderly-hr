@@ -6,11 +6,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.MDC;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.HtmlUtils;
 
 /**
  * First filter in the chain (PRD §20.3): resolves the tenant from the Host subdomain, populates
@@ -38,10 +42,12 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
 
     private final TenantFacade tenants;
     private final String baseDomain;
+    private final MessageSource messages;
 
-    public TenantResolutionFilter(TenantFacade tenants, String baseDomain) {
+    public TenantResolutionFilter(TenantFacade tenants, String baseDomain, MessageSource messages) {
         this.tenants = tenants;
         this.baseDomain = baseDomain;
+        this.messages = messages;
     }
 
     @Override
@@ -80,16 +86,16 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
         try {
             String slug = extractSlug(request.getServerName());
             if (slug == null) {
-                deny(response, HttpServletResponse.SC_NOT_FOUND, "Unknown tenant");
+                denyNotFound(response);
                 return;
             }
             Optional<TenantSummary> tenant = tenants.bySlug(slug);
             if (tenant.isEmpty()) {
-                deny(response, HttpServletResponse.SC_NOT_FOUND, "Unknown tenant");
+                denyNotFound(response);
                 return;
             }
             if (tenant.get().suspended()) {
-                deny(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Tenant suspended");
+                denySuspended(response);
                 return;
             }
             TenantContext.set(tenant.get().id());
@@ -109,14 +115,71 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
         return supplied == null || supplied.isBlank() ? UUID.randomUUID().toString() : supplied;
     }
 
-    // Writes the generic denial page directly (PRD §20.3) instead of sendError: an
-    // error dispatch to /error would be intercepted by the security chain (403) since
-    // this filter runs before it. The message is fixed and generic on purpose — it must
-    // not leak whether a slug exists.
-    private void deny(HttpServletResponse response, int status, String message) throws IOException {
+    private void denyNotFound(HttpServletResponse response) throws IOException {
+        deny(
+                response,
+                HttpServletResponse.SC_NOT_FOUND,
+                "error-page.404.title",
+                "error-page.404.detail",
+                "<p class=\"display-5 fw-semibold text-primary mb-1\">404</p>");
+    }
+
+    private void denySuspended(HttpServletResponse response) throws IOException {
+        deny(
+                response,
+                HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                "error-page.tenant-suspended.title",
+                "error-page.tenant-suspended.detail",
+                "<i class=\"bi bi-pause-circle text-warning fs-1 d-block mb-3\" aria-hidden=\"true\"></i>");
+    }
+
+    // Writes the denial page directly (PRD §20.3) instead of sendError: an error dispatch to
+    // /error would be intercepted by the security chain (403) since this filter runs before it.
+    // That ordering also means no CSRF token or Thymeleaf layout is available, so the page is
+    // assembled here from the app's own public stylesheets. The copy is fixed and generic on
+    // purpose — it must not leak whether a slug exists, and never echoes the tenant's name.
+    private void deny(HttpServletResponse response, int status, String titleKey, String detailKey, String leadHtml)
+            throws IOException {
+        Locale locale = LocaleContextHolder.getLocale();
+        String title = HtmlUtils.htmlEscape(messages.getMessage(titleKey, null, locale));
+        String detail = HtmlUtils.htmlEscape(messages.getMessage(detailKey, null, locale));
+        String appName = HtmlUtils.htmlEscape(messages.getMessage("common.app-name", null, locale));
         response.setStatus(status);
         response.setContentType("text/html;charset=UTF-8");
-        response.getWriter().write("<!DOCTYPE html><html><body><h1>" + message + "</h1></body></html>");
+        response.getWriter()
+                .write(
+                        """
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                          <meta charset="UTF-8" />
+                          <meta name="viewport" content="width=device-width, initial-scale=1" />
+                          <title>%1$s · %2$s</title>
+                          <link rel="icon" href="/favicon.ico" sizes="any" />
+                          <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32" />
+                          <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16" />
+                          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+                          <link rel="stylesheet" href="/webjars/bootstrap/css/bootstrap.min.css" />
+                          <link rel="stylesheet" href="/webjars/bootstrap-icons/font/bootstrap-icons.min.css" />
+                          <link rel="stylesheet" href="/css/caderly.css" />
+                          <link rel="stylesheet" href="/css/theme-overrides.css" />
+                        </head>
+                        <body class="caderly-bare-body">
+                          <main class="caderly-bare-main">
+                            <div class="caderly-bare-card">
+                              <div class="card shadow-sm">
+                                <div class="card-body p-4 text-center">
+                                  %3$s
+                                  <h1 class="h4 mb-2">%1$s</h1>
+                                  <p class="text-muted mb-0">%4$s</p>
+                                </div>
+                              </div>
+                            </div>
+                          </main>
+                        </body>
+                        </html>
+                        """
+                                .formatted(title, appName, leadHtml, detail));
     }
 
     private @Nullable String extractSlug(String host) {
