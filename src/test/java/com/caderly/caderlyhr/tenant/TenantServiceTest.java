@@ -173,4 +173,40 @@ class TenantServiceTest {
         return TenantContext.runAsSystem(
                 "test: read tenant row directly", () -> tenantRepository.findById(tenantId).orElseThrow());
     }
+
+    @Test
+    void currentBranding_withAnUploadedLogo_returnsItsAbsoluteTenantSubdomainUrl() throws Exception {
+        String slug = uniqueSlug();
+        UUID tenantId = tenantFacade.createTenant(slug, "Acme Inc", "UTC", 96, "https://legacy.example/a.png");
+        tenantFacade.changeLogo(tenantId, "logo.png", pngBytes());
+        TenantContext.set(tenantId);
+
+        String logoUrl = tenantFacade.currentBranding().logoUrl();
+
+        // Uploaded logo wins over the legacy free-text URL.
+        assertThat(logoUrl).startsWith("https://" + slug + ".localhost/tenant-logo?v=");
+    }
+
+    @Test
+    void currentBranding_withOnlyTheLegacyUrl_keepsReturningIt() {
+        UUID tenantId = tenantFacade.createTenant(uniqueSlug(), "Acme Inc", "UTC", 96, "https://legacy.example/a.png");
+        TenantContext.set(tenantId);
+
+        assertThat(tenantFacade.currentBranding().logoUrl()).isEqualTo("https://legacy.example/a.png");
+    }
+
+    @Test
+    void currentBranding_withNoLogoAtAll_returnsNull() {
+        UUID tenantId = tenantFacade.createTenant(uniqueSlug(), "Acme Inc", "UTC", 96, null);
+        TenantContext.set(tenantId);
+
+        assertThat(tenantFacade.currentBranding().logoUrl()).isNull();
+    }
+
+    private static byte[] pngBytes() throws java.io.IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(
+                new java.awt.image.BufferedImage(8, 8, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", out);
+        return out.toByteArray();
+    }
 }

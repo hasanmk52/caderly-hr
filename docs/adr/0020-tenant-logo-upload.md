@@ -32,8 +32,12 @@ logo could never have shown in the app.
 ## Consequences
 
 - Deviates from PRD FR-12.2's "logo URL" wording. The additive migration is `V202609301000`.
-- Email headers do not yet show an uploaded logo: email needs an absolute, tenant-subdomain address,
-  and the email layer has no tenant base URL today. A follow-up can build one from
-  `caderly.base-domain` and switch `TenantBranding` over.
+- Email headers show the uploaded logo. `TenantFacade.currentBranding()` builds the absolute
+  `<scheme>://<slug>.<base-domain>[:port]/tenant-logo?v=...` address from config
+  (`caderly.public-scheme`, `caderly.public-port`), not from the request, because mail is also
+  enqueued on scheduler threads. The legacy `logo_url` is only a fallback. Mail clients fetch the
+  image from outside the app: fine in production, but a `*.localhost` address only loads in
+  Mailpit through the developer's own browser, and some clients hide remote images until the
+  reader allows them (the `alt` text, the tenant name, shows meanwhile).
 - Replacing a logo deletes the previous object after the row points at the new one; a crash in
   between leaves an orphaned file, never a broken logo.

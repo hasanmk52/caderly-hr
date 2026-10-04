@@ -35,6 +35,9 @@ spring:
     port: ${SMTP_PORT:1025}
 
 caderly:
+  # Dev serves plain HTTP on *.localhost:8080, so the logo address in an email points there.
+  public-scheme: http
+  public-port: 8080
   email:
     from: ${CADERLY_EMAIL_FROM:no-reply@caderly.local}
   people:

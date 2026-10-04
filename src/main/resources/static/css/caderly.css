@@ -94,21 +94,23 @@ body {
 }
 
 .caderly-tenant-logo--topbar {
-  height: 32px;
-  max-width: 160px;
+  height: auto;
+  max-width: 120px;
+  max-height: 40px;
 }
 
 /* Phones: the wordmark text is hidden (topbar.html) and the logo narrows so mark + logo +
    "Book time off" + avatar fit in one row without wrapping. */
 @media (max-width: 575.98px) {
   .caderly-tenant-logo--topbar {
-    max-width: 112px;
+    max-width: 96px;
   }
 }
 
 .caderly-tenant-logo--auth {
-  height: 48px;
-  max-width: 100%;
+  height: auto;
+  max-width: min(200px, 100%);
+  max-height: 60px;
   margin: 0 auto 1rem;
 }
 
