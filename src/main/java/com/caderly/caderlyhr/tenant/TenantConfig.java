@@ -5,6 +5,7 @@ import org.hibernate.cfg.MultiTenancySettings;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -15,9 +16,11 @@ class TenantConfig {
 
     @Bean
     FilterRegistrationBean<TenantResolutionFilter> tenantResolutionFilterRegistration(
-            TenantFacade tenants, @Value("${caderly.base-domain:localhost}") String baseDomain) {
+            TenantFacade tenants,
+            @Value("${caderly.base-domain:localhost}") String baseDomain,
+            MessageSource messages) {
         var registration =
-                new FilterRegistrationBean<>(new TenantResolutionFilter(tenants, baseDomain));
+                new FilterRegistrationBean<>(new TenantResolutionFilter(tenants, baseDomain, messages));
         // First in the chain (PRD §20.3): tenant must be resolved before security or MVC run.
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return registration;

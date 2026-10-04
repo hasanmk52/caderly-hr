@@ -364,10 +364,18 @@ Design mobile-first for Employee-facing pages (profile, book time off, calendar)
 
 ## 12. Tenant branding hooks
 
-One thing varies per tenant: the **logo** — `<img src="{{tenant.logoUrl}}">` in the top-bar, height
-32 px, falling back to text ("Caderly" + tenant name) when unset (the fallback is designed, not
-tolerated — it is what most tenants show for a long time). The same logo-or-wordmark rule applies
-inside `templates/email/_layout.html`'s header.
+One thing varies per tenant: the **logo**, uploaded by the Super Admin as a PNG or JPEG (ADR 0020)
+and served same-origin from `/tenant-logo`. It is a guest on the Caderly brand, not a replacement:
+
+- **Top bar:** Caderly mark + "Caderly", a thin divider, then the tenant logo as an `<img>`, height
+  32 px, `max-width` 160 px, `object-fit: contain`, alt text = tenant name. It replaces only the
+  tenant *name* text.
+- **Auth pages** (login, forgot/reset password, accept invite): the logo is the `<h1>` content,
+  height 48 px, centered; the alt text is the tenant name.
+- **Fallback:** with no uploaded logo, the tenant name renders as text in both places (the fallback is
+  designed, not tolerated — it is what most tenants show for a long time).
+- The same logo-or-wordmark rule applies inside `templates/email/_layout.html`'s header (still driven by
+  the legacy `logo_url` until email gets an absolute logo address).
 
 There is no per-tenant primary color (ADR 0016, sub-phase 1.10) — one Caderly brand color for every
 tenant, in the app and in email. Nothing else varies per tenant: no per-tenant font, layout, or icon

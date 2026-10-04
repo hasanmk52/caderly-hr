@@ -5,9 +5,11 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -37,6 +39,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -95,6 +98,27 @@ class SuperAdminTenantControllerTest {
         mockMvc
                 .perform(get(URI.create("http://localhost/superadmin/tenants")).session(session))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void list_asSuperAdmin_offersASignOutFormThatLogsOutOfThisRealm() throws Exception {
+        MockHttpSession session = superAdminSession();
+
+        mockMvc
+                .perform(get(URI.create("http://localhost/superadmin/tenants")).session(session))
+                .andExpect(content().string(containsString("action=\"/superadmin/logout\"")));
+
+        mockMvc
+                .perform(post(URI.create("http://localhost/superadmin/logout")).session(session).with(csrf()))
+                .andExpect(redirectedUrl("/superadmin/login?loggedOut"));
+    }
+
+    @Test
+    void loginPage_whenUnauthenticated_hasNoSignOutForm() throws Exception {
+        mockMvc
+                .perform(get(URI.create("http://localhost/superadmin/login")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("/superadmin/logout"))));
     }
 
     @Test
@@ -287,6 +311,78 @@ class SuperAdminTenantControllerTest {
         // subdomain with a token query parameter (see the success case above) — landing back on
         // this console's own tenants page instead is only possible if mint() was never called.
         assertThat(result.getResponse().getRedirectedUrl()).isEqualTo("/superadmin/tenants?impersonateFailed");
+    }
+
+    @Test
+    void changeLogo_asSuperAdmin_storesTheLogoAndAuditsIt() throws Exception {
+        MockHttpSession session = superAdminSession();
+        UUID tenantId = seedTenant(uniqueSlug());
+
+        mockMvc
+                .perform(
+                        multipart(URI.create("http://localhost/superadmin/tenants/" + tenantId + "/logo"))
+                                .file(new MockMultipartFile("file", "logo.png", "image/png", pngBytes()))
+                                .session(session)
+                                .with(csrf()))
+                .andExpect(redirectedUrl("/superadmin/tenants"))
+                .andExpect(flash().attribute("logoUpdated", true));
+
+        assertThat(findTenantById(tenantId).getLogoVersion()).isNotNull();
+        assertThat(onlyTenantAuditRow(tenantId, Action.UPDATE).afterJson()).contains("changed");
+    }
+
+    @Test
+    void changeLogo_withAnSvgRenamedToPng_isRejectedAndStoresNothing() throws Exception {
+        MockHttpSession session = superAdminSession();
+        UUID tenantId = seedTenant(uniqueSlug());
+
+        mockMvc
+                .perform(
+                        multipart(URI.create("http://localhost/superadmin/tenants/" + tenantId + "/logo"))
+                                .file(new MockMultipartFile("file", "logo.png", "image/png", "<svg/>".getBytes()))
+                                .session(session)
+                                .with(csrf()))
+                .andExpect(redirectedUrl("/superadmin/tenants"))
+                .andExpect(flash().attributeExists("logoError"));
+
+        assertThat(findTenantById(tenantId).getLogoVersion()).isNull();
+    }
+
+    @Test
+    void removeLogo_asSuperAdmin_clearsIt() throws Exception {
+        MockHttpSession session = superAdminSession();
+        UUID tenantId = seedTenant(uniqueSlug());
+        tenantFacade.changeLogo(tenantId, "logo.png", pngBytes());
+
+        mockMvc
+                .perform(
+                        post(URI.create("http://localhost/superadmin/tenants/" + tenantId + "/logo/remove"))
+                                .session(session)
+                                .with(csrf()))
+                .andExpect(redirectedUrl("/superadmin/tenants"));
+
+        assertThat(findTenantById(tenantId).getLogoVersion()).isNull();
+    }
+
+    @Test
+    void changeLogo_whenUnauthenticated_redirectsToSuperAdminLogin() throws Exception {
+        UUID tenantId = seedTenant(uniqueSlug());
+
+        mockMvc
+                .perform(
+                        multipart(URI.create("http://localhost/superadmin/tenants/" + tenantId + "/logo"))
+                                .file(new MockMultipartFile("file", "logo.png", "image/png", pngBytes()))
+                                .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/superadmin/login"));
+
+        assertThat(findTenantById(tenantId).getLogoVersion()).isNull();
+    }
+
+    private static byte[] pngBytes() throws Exception {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(8, 8, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", out);
+        return out.toByteArray();
     }
 
     private MockHttpServletRequestBuilder createRequest(MockHttpSession session, String slug, String adminEmail) {

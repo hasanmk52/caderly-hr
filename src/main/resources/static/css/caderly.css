@@ -82,6 +82,43 @@ body {
   max-width: 26rem;
 }
 
+/* Tenant logo (UI Guidelines §12, ADR 0020): a guest on the Caderly brand, always contained
+   in a fixed-height box so any aspect ratio a tenant uploads stays neat. */
+.caderly-tenant-logo {
+  display: block;
+  width: auto;
+  object-fit: contain;
+  /* JPEGs and many PNGs carry an opaque white background; multiply makes white take on the
+     page color so the logo's box never shows as a patch. */
+  mix-blend-mode: multiply;
+}
+
+.caderly-tenant-logo--topbar {
+  height: 32px;
+  max-width: 160px;
+}
+
+/* Phones: the wordmark text is hidden (topbar.html) and the logo narrows so mark + logo +
+   "Book time off" + avatar fit in one row without wrapping. */
+@media (max-width: 575.98px) {
+  .caderly-tenant-logo--topbar {
+    max-width: 112px;
+  }
+}
+
+.caderly-tenant-logo--auth {
+  height: 48px;
+  max-width: 100%;
+  margin: 0 auto 1rem;
+}
+
+.caderly-topbar-divider {
+  align-self: center;
+  width: 1px;
+  height: 24px;
+  background: var(--bs-border-color);
+}
+
 /* File upload dropzone (UI Guidelines §8.7): Files page + profile Documents tab.
    Uses Bootstrap's own CSS vars, not hardcoded colors, so a tenant's re-themed
    --bs-primary flows into the drag-active state automatically. */

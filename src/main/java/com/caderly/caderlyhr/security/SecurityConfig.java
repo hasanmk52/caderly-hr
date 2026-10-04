@@ -219,6 +219,9 @@ class SecurityConfig {
                                                 "/js/**",
                                                 "/img/**",
                                                 "/fonts/**",
+                                                // The login page shows the tenant's logo before any
+                                                // session exists (ADR 0020); tenant-scoped by subdomain.
+                                                "/tenant-logo",
                                                 "/favicon.ico",
                                                 "/favicon-16x16.png",
                                                 "/favicon-32x32.png",

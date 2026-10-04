@@ -94,10 +94,38 @@ public interface TenantFacade {
      */
     Optional<TenantAdminView> find(UUID tenantId);
 
+    /**
+     * Stores an uploaded logo for a tenant (Super Admin). Validates extension, size and magic
+     * bytes (PNG/JPEG only), replaces any previous logo, and evicts the {@link #bySlug} cache so
+     * the new logo shows immediately.
+     *
+     * @throws com.caderly.caderlyhr.common.ValidationException if the file is not an acceptable logo.
+     * @throws com.caderly.caderlyhr.common.NotFoundException if {@code tenantId} doesn't exist.
+     */
+    void changeLogo(UUID tenantId, String filename, byte[] content);
+
+    /**
+     * Removes a tenant's uploaded logo, if any (idempotent).
+     *
+     * @throws com.caderly.caderlyhr.common.NotFoundException if {@code tenantId} doesn't exist.
+     */
+    void clearLogo(UUID tenantId);
+
+    /** The current tenant's uploaded logo bytes, or empty if it has none. */
+    Optional<TenantLogo> currentLogo();
+
+    record TenantLogo(String contentType, byte[] content, String version) {}
+
     record TenantBranding(String name, @Nullable String logoUrl) {}
 
     record TenantAdminView(
-            UUID id, String slug, String name, boolean suspended, @Nullable Instant deletedAt, Instant createdAt) {}
+            UUID id,
+            String slug,
+            String name,
+            boolean suspended,
+            boolean hasLogo,
+            @Nullable Instant deletedAt,
+            Instant createdAt) {}
 
     record NotificationSettings(
             boolean holidayReminder, boolean documentExpiry, boolean birthday, boolean workAnniversary) {}

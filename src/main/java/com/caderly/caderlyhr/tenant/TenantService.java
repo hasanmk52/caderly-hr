@@ -2,11 +2,19 @@ package com.caderly.caderlyhr.tenant;
 
 import com.caderly.caderlyhr.common.ConflictException;
 import com.caderly.caderlyhr.common.NotFoundException;
+import com.caderly.caderlyhr.storage.FileStorage;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,13 +45,17 @@ public class TenantService implements TenantFacade {
 
     private final TenantRepository repository;
     private final Clock clock;
+    private final FileStorage storage;
+    private final TenantLogoValidator logoValidator;
 
     private final Cache<String, Optional<TenantSummary>> bySlug =
             Caffeine.newBuilder().maximumSize(CACHE_MAX_SIZE).expireAfterWrite(CACHE_TTL).build();
 
-    TenantService(TenantRepository repository, Clock clock) {
+    TenantService(TenantRepository repository, Clock clock, FileStorage storage, TenantLogoValidator logoValidator) {
         this.repository = repository;
         this.clock = clock;
+        this.storage = storage;
+        this.logoValidator = logoValidator;
     }
 
     @Override
@@ -75,6 +87,76 @@ public class TenantService implements TenantFacade {
     public TenantBranding currentBranding() {
         Tenant tenant = requireCurrent();
         return new TenantBranding(tenant.getName(), tenant.getLogoUrl());
+    }
+
+    /**
+     * Super Admin write, so it runs under {@code runAsSystem} and, like {@link #createTenant}, is
+     * not {@code @Transactional} at this level. The previous object is deleted only after the row
+     * points at the new one, so a failure in between leaves a working logo, at worst an orphan file.
+     */
+    @Override
+    public void changeLogo(UUID tenantId, String filename, byte[] content) {
+        String contentType = logoValidator.validate(filename, content);
+        String version = sha256Prefix(content);
+        String newKey = tenantId + "/logo-" + UUID.randomUUID();
+        storage.store(newKey, new ByteArrayInputStream(content), content.length, contentType);
+        String previousKey =
+                TenantContext.runAsSystem(
+                        "superadmin: change logo of tenant " + tenantId,
+                        () -> {
+                            Tenant tenant = findByIdOrThrow(tenantId);
+                            String previous = tenant.getLogoStorageKey();
+                            tenant.changeLogo(newKey, contentType, version);
+                            repository.save(tenant);
+                            return previous;
+                        });
+        evictCache();
+        if (previousKey != null) {
+            storage.delete(previousKey);
+        }
+    }
+
+    @Override
+    public void clearLogo(UUID tenantId) {
+        String previousKey =
+                TenantContext.runAsSystem(
+                        "superadmin: clear logo of tenant " + tenantId,
+                        () -> {
+                            Tenant tenant = findByIdOrThrow(tenantId);
+                            String previous = tenant.getLogoStorageKey();
+                            tenant.clearLogo();
+                            repository.save(tenant);
+                            return previous;
+                        });
+        evictCache();
+        if (previousKey != null) {
+            storage.delete(previousKey);
+        }
+    }
+
+    @Override
+    public Optional<TenantLogo> currentLogo() {
+        Tenant tenant = requireCurrent();
+        String key = tenant.getLogoStorageKey();
+        String contentType = tenant.getLogoContentType();
+        String version = tenant.getLogoVersion();
+        if (key == null || contentType == null || version == null) {
+            return Optional.empty();
+        }
+        try (InputStream in = storage.open(key)) {
+            return Optional.of(new TenantLogo(contentType, in.readAllBytes(), version));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not read logo for tenant " + tenant.getId(), e);
+        }
+    }
+
+    private static String sha256Prefix(byte[] content) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(content);
+            return HexFormat.of().formatHex(digest, 0, 6);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is guaranteed by every JRE", e);
+        }
     }
 
     @Override
@@ -200,6 +282,7 @@ public class TenantService implements TenantFacade {
                 tenant.getSlug(),
                 tenant.getName(),
                 tenant.isSuspended(),
+                tenant.getLogoVersion() != null,
                 tenant.getDeletedAt(),
                 Objects.requireNonNull(tenant.getCreatedAt()));
     }

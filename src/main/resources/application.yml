@@ -36,6 +36,14 @@ spring:
       include-exception: false
       include-message: never
       include-binding-errors: never
+    resources:
+      cache:
+        cachecontrol:
+          # Static assets (favicons, css, js, fonts) carry their own Cache-Control. Without one,
+          # Spring Security stamps `no-store` on them, which stops browsers keeping the favicon
+          # (the tab icon never appears) and re-downloads every stylesheet on every page.
+          max-age: 1h
+          cache-public: true
   messages:
     # Boot only auto-configures a MessageSource when the no-suffix default bundle exists
     # (src/main/resources/messages.properties) — writing `basename: messages` here is
