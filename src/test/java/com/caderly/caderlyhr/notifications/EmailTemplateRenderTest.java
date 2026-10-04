@@ -23,6 +23,7 @@ class EmailTemplateRenderTest extends TenantIsolationTestBase {
     private static final String UNRESOLVED_MESSAGE_MARKER = "??";
 
     @Autowired private EmailTemplateService templates;
+    @Autowired private com.caderly.caderlyhr.tenant.TenantFacade tenants;
 
     @ParameterizedTest
     @EnumSource(EmailEvent.class)
@@ -65,6 +66,25 @@ class EmailTemplateRenderTest extends TenantIsolationTestBase {
 
         assertThat(html).doesNotContain("<img");
         assertThat(html).contains("Tenant A");
+    }
+
+    @Test
+    void render_whenTheTenantHasAnUploadedLogo_embedsItsAbsolutePublicUrl() throws Exception {
+        // Mail clients fetch the image from outside the app, so the address must be absolute and
+        // tenant-subdomain-qualified — a relative /tenant-logo would resolve against nothing.
+        tenants.changeLogo(tenantA, "logo.png", png());
+
+        String html = asTenant(tenantA, () -> templates.render(EmailEvent.INVITE, modelFor(EmailEvent.INVITE)));
+
+        assertThat(html).containsPattern("<img src=\"https://tenant-a-[a-z0-9]+\\.localhost/tenant-logo\\?v=[0-9a-f]{12}\"");
+        assertThat(html).contains("alt=\"Tenant A\"");
+    }
+
+    private static byte[] png() throws java.io.IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(
+                new java.awt.image.BufferedImage(8, 8, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", out);
+        return out.toByteArray();
     }
 
     private static Map<String, Object> modelFor(EmailEvent event) {

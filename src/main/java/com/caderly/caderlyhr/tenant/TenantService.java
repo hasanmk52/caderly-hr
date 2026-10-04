@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,15 +48,28 @@ public class TenantService implements TenantFacade {
     private final Clock clock;
     private final FileStorage storage;
     private final TenantLogoValidator logoValidator;
+    private final String baseDomain;
+    private final String publicScheme;
+    private final String publicPort;
 
     private final Cache<String, Optional<TenantSummary>> bySlug =
             Caffeine.newBuilder().maximumSize(CACHE_MAX_SIZE).expireAfterWrite(CACHE_TTL).build();
 
-    TenantService(TenantRepository repository, Clock clock, FileStorage storage, TenantLogoValidator logoValidator) {
+    TenantService(
+            TenantRepository repository,
+            Clock clock,
+            FileStorage storage,
+            TenantLogoValidator logoValidator,
+            @Value("${caderly.base-domain:localhost}") String baseDomain,
+            @Value("${caderly.public-scheme:https}") String publicScheme,
+            @Value("${caderly.public-port:}") String publicPort) {
         this.repository = repository;
         this.clock = clock;
         this.storage = storage;
         this.logoValidator = logoValidator;
+        this.baseDomain = baseDomain;
+        this.publicScheme = publicScheme;
+        this.publicPort = publicPort;
     }
 
     @Override
@@ -86,7 +100,22 @@ public class TenantService implements TenantFacade {
     @Override
     public TenantBranding currentBranding() {
         Tenant tenant = requireCurrent();
-        return new TenantBranding(tenant.getName(), tenant.getLogoUrl());
+        return new TenantBranding(tenant.getName(), emailLogoUrl(tenant));
+    }
+
+    /**
+     * Mail clients fetch the logo from outside the app, so the address must be absolute and
+     * qualified by the tenant's own subdomain ({@code /tenant-logo} resolves its tenant from the
+     * host). Built from config rather than the request: mail is also enqueued on scheduler threads
+     * with no request to read a host from. The legacy free-text URL is only a fallback.
+     */
+    private @Nullable String emailLogoUrl(Tenant tenant) {
+        String version = tenant.getLogoVersion();
+        if (version == null) {
+            return tenant.getLogoUrl();
+        }
+        String port = publicPort.isBlank() ? "" : ":" + publicPort;
+        return publicScheme + "://" + tenant.getSlug() + "." + baseDomain + port + "/tenant-logo?v=" + version;
     }
 
     /**

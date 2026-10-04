@@ -368,14 +368,14 @@ One thing varies per tenant: the **logo**, uploaded by the Super Admin as a PNG 
 and served same-origin from `/tenant-logo`. It is a guest on the Caderly brand, not a replacement:
 
 - **Top bar:** Caderly mark + "Caderly", a thin divider, then the tenant logo as an `<img>`, height
-  32 px, `max-width` 160 px, `object-fit: contain`, alt text = tenant name. It replaces only the
+  auto-sized inside a 120 x 40 px box (`max-width` 120, `max-height` 40, 96 px wide on phones), `object-fit: contain`, alt text = tenant name. It replaces only the
   tenant *name* text.
 - **Auth pages** (login, forgot/reset password, accept invite): the logo is the `<h1>` content,
-  height 48 px, centered; the alt text is the tenant name.
+  auto-sized inside a 200 x 60 px box, centered; the alt text is the tenant name.
 - **Fallback:** with no uploaded logo, the tenant name renders as text in both places (the fallback is
   designed, not tolerated — it is what most tenants show for a long time).
-- The same logo-or-wordmark rule applies inside `templates/email/_layout.html`'s header (still driven by
-  the legacy `logo_url` until email gets an absolute logo address).
+- The same logo-or-wordmark rule applies inside `templates/email/_layout.html`'s header (20 px tall), using the
+  absolute `/tenant-logo` address on the tenant's subdomain (ADR 0020).
 
 There is no per-tenant primary color (ADR 0016, sub-phase 1.10) — one Caderly brand color for every
 tenant, in the app and in email. Nothing else varies per tenant: no per-tenant font, layout, or icon

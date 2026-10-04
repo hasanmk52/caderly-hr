@@ -88,6 +88,10 @@ spring:
 # in dev). Prod profile overrides via CADERLY_BASE_DOMAIN / caderly.base-domain.
 caderly:
   base-domain: localhost
+  # How a tenant's own origin is spelled when no request is at hand (e.g. the logo address baked
+  # into an email at enqueue time, which mail clients fetch from outside the app).
+  public-scheme: https
+  public-port:
   email:
     # No default: a wrong From address silently lands mail in spam, so an unset value
     # should stop startup rather than be guessed (CLAUDE.md §6 A05 - no defaults in yml).
