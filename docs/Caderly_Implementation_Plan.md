@@ -416,7 +416,39 @@ Bootstrap the project skeleton, CI, and local dev experience so the first featur
 
 ---
 
-### 1.14 Deployment & Ops (1 week)
+### 1.14 Dashboard Customization (0.5 week)
+
+**Features:** A **Customize** mode on the Home dashboard (PRD §24.2, "Widget grid (customizable, MVP presets)"). Every user — Employee, Manager, Admin alike — can reorder and hide/show their own widgets, then Save or Cancel, and reset to the default layout. Per-user only; no tenant-wide default layout.
+
+**DB changes:** new tenant-scoped `dashboard_layout` table (`user_id` unique FK to `app_user`, `widget_order`, `hidden_widgets`), RLS per CLAUDE.md §5. Keyed on user, not employee, so accounts without an Employee record work too.
+
+**Backend:**
+- `DashboardWidget` enum (key, htmx path, title message key) as the single whitelist of valid widget keys, in default order.
+- `DashboardLayout` entity (`identity` package, extends `TenantAwareEntity`, audited) + repository + `DashboardLayoutService` with a pure resolution rule: stored layout + registry → ordered list; unknown/duplicate keys dropped, widgets missing from storage appended visible at the end, no row → registry default.
+- `POST /dashboard/layout` (save) and `POST /dashboard/layout/reset`, both `@PreAuthorize("hasRole('EMPLOYEE')")`. The user always comes from the principal, never a request parameter.
+
+**Frontend:**
+- `home.html` loops over the resolved layout instead of hard-coding six columns. Hidden widgets render as unloaded placeholders (no `hx-trigger="load"`), so they cost no queries.
+- Edit mode in plain DOM in `caderly.js` (Alpine here is the CSP build; UI Guidelines §13/§14 forbid inline JS): drag handle via SortableJS (WebJar, served from `'self'`, CSP unchanged), eye toggle, and up/down buttons as the keyboard-accessible alternative (UI Guidelines §9). Save posts via htmx (CSRF via the existing `htmx:configRequest` listener); Cancel reloads `/`.
+- Strings via `messages.properties` (`home.customize.*`).
+
+**Prerequisites at phase start (in order):** update `docs/UI_Guidelines.md` §8.2 first (customize mode deviates from the fixed grid); get explicit approval for the SortableJS dependency (CLAUDE.md §12) and add its `sortablejs.version` property; write ADR 0021 (per-user table storage, SortableJS choice, hidden widgets not loaded).
+
+**Testing:**
+- Unit: layout resolution (default, unknown/duplicate keys, new widget appended, all hidden).
+- Integration: save then reload returns the saved order; reset restores default.
+- RBAC: 200 per role and anonymous denied on both endpoints (pattern: `HomeWidgetAccessControlTest`).
+- Tenant isolation: tenant B never sees or overwrites tenant A's layout; user A cannot alter user B's layout in the same tenant.
+- ArchUnit: `DashboardLayout` extends `TenantAwareEntity`; CSP/headers test still green.
+- Playwright E2E: enter Customize, move a card (up/down button for determinism), hide one, Save, reload, confirm persistence; Reset restores default.
+
+**DoD:** A user can rearrange and hide their own dashboard widgets, Save persists across reload and sessions, Cancel discards, Reset restores default; nobody else's layout is affected.
+
+**Complexity:** S. **Depends on:** 1.9.
+
+---
+
+### 1.15 Deployment & Ops (1 week)
 
 **Features:** Debian install guide, Docker Compose file (app + reverse proxy only — Postgres is native on the host), backup, TLS.
 
@@ -646,7 +678,8 @@ Why in this order?
 - **1.3 → 1.4** in order because employees need departments.
 - **1.5 → 1.6** because leave depends on types + balances existing.
 - **1.10, 1.11** intentionally cheap and near end — they wrap existing features rather than create new ones.
-- **1.14 (deploy)** last because you don't want to iterate on infra with no product to test it.
+- **1.14 (dashboard customization)** slots in after the 1.10–1.13 wrap-up phases because it only rearranges the 1.9 widgets that already exist.
+- **1.15 (deploy)** last because you don't want to iterate on infra with no product to test it.
 - **Phase 1.5** inserted before Phase 2 to lock security and enable real MHZ migration.
 - **Phase 2** adds depth once the base is stable and you have real MHZ usage feedback.
 - **Phase 3** is your explicitly-flagged priority module.
