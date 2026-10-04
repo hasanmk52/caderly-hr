@@ -222,4 +222,78 @@
       showToast(button.getAttribute("data-copied-message") || "Copied");
     });
   });
+
+  // Home Customize mode (ADR 0021). Plain DOM, not Alpine: the CSP build cannot run compound
+  // expressions, and drag/reorder needs imperative node moves anyway. The saved layout is just
+  // the DOM order plus each column's data-hidden flag.
+  var dashboardSortable = null;
+
+  function dashboardGrid() {
+    return document.querySelector("[data-dashboard-grid]");
+  }
+
+  function setDashboardEditing(editing) {
+    var grid = dashboardGrid();
+    if (!grid) {
+      return;
+    }
+    grid.classList.toggle("is-editing", editing);
+    document.querySelector("[data-dashboard-bar]").classList.toggle("d-none", !editing);
+    document.querySelector("[data-dashboard-customize]").classList.toggle("d-none", editing);
+    if (editing && !dashboardSortable && window.Sortable) {
+      dashboardSortable = window.Sortable.create(grid, {
+        draggable: "[data-widget]",
+        handle: ".dashboard-handle",
+        animation: 150,
+      });
+    }
+  }
+
+  function saveDashboardLayout(button) {
+    var columns = Array.prototype.slice.call(dashboardGrid().querySelectorAll("[data-widget]"));
+    htmx.ajax("POST", button.getAttribute("data-save-url"), {
+      swap: "none",
+      values: {
+        order: columns.map(function (c) { return c.getAttribute("data-widget"); }),
+        hidden: columns
+          .filter(function (c) { return c.getAttribute("data-hidden") === "true"; })
+          .map(function (c) { return c.getAttribute("data-widget"); }),
+      },
+    });
+  }
+
+  document.body.addEventListener("click", function (event) {
+    var grid = dashboardGrid();
+    if (!grid) {
+      return;
+    }
+    var target = event.target;
+    if (target.closest("[data-dashboard-customize]")) {
+      setDashboardEditing(true);
+    } else if (target.closest("[data-dashboard-cancel]")) {
+      window.location.reload();
+    } else if (target.closest("[data-dashboard-save]")) {
+      saveDashboardLayout(target.closest("[data-dashboard-save]"));
+    } else if (target.closest("[data-dashboard-reset]")) {
+      htmx.ajax("POST", target.closest("[data-dashboard-reset]").getAttribute("data-reset-url"), { swap: "none" });
+    } else if (target.closest("[data-dashboard-toggle]")) {
+      var column = target.closest("[data-widget]");
+      var hidden = column.getAttribute("data-hidden") === "true";
+      column.setAttribute("data-hidden", hidden ? "false" : "true");
+      column.querySelector("[data-dashboard-toggle] i").className = hidden ? "bi bi-eye" : "bi bi-eye-slash";
+    } else if (target.closest("[data-dashboard-move]")) {
+      var moveButton = target.closest("[data-dashboard-move]");
+      var col = moveButton.closest("[data-widget]");
+      var sibling = moveButton.getAttribute("data-dashboard-move") === "-1" ? col.previousElementSibling : col.nextElementSibling;
+      if (sibling) {
+        if (moveButton.getAttribute("data-dashboard-move") === "-1") {
+          grid.insertBefore(col, sibling);
+        } else {
+          grid.insertBefore(sibling, col);
+        }
+        // Moving a node drops focus in some browsers; a keyboard user must keep their place.
+        moveButton.focus();
+      }
+    }
+  });
 })();
