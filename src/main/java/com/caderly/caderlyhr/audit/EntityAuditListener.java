@@ -168,6 +168,11 @@ public class EntityAuditListener {
             var request = servletAttrs.getRequest();
             ip = ClientIpResolver.resolve(request);
             userAgent = request.getHeader("User-Agent");
+            // Client-controlled; audit_entry.user_agent is varchar(500) and an over-length value
+            // would roll back the business write that triggered the audit (e.g. an account lock).
+            if (userAgent != null && userAgent.length() > 500) {
+                userAgent = userAgent.substring(0, 500);
+            }
         }
         String requestId = MDC.get(MdcKeys.REQUEST_ID);
 

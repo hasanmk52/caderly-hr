@@ -47,17 +47,24 @@ public class LoginAuditService {
             @Nullable String ip,
             @Nullable String userAgent) {
         String requestId = MDC.get(MdcKeys.REQUEST_ID);
+        // Every value here can originate from the client. An over-length one makes the insert
+        // throw, and for a failed login that happens before the lockout count is evaluated — so
+        // the column widths below (login_audit DDL) are enforced here, not left to the database.
         logins.save(
                 new LoginAudit(
                         tenantId,
                         userId,
                         clock.instant(),
-                        emailAttempted,
+                        truncate(emailAttempted, 255),
                         success,
                         failureReason,
-                        ip,
-                        userAgent,
-                        requestId));
+                        truncate(ip, 45),
+                        truncate(userAgent, 500),
+                        truncate(requestId, 50)));
+    }
+
+    private static @Nullable String truncate(@Nullable String value, int maxLength) {
+        return value == null || value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 
     /**

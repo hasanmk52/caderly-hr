@@ -344,6 +344,59 @@ class AuthenticationFlowTest {
                 .andExpect(redirectedUrl("/login?rateLimited"));
     }
 
+    @Test
+    void login_afterFiveFailuresSentWithOversizedHeaders_stillLocksTheAccount() throws Exception {
+        // Attacker-controlled X-Request-Id / User-Agent longer than login_audit's varchar(50) /
+        // varchar(500) columns must not make the audit insert throw ahead of the lockout count.
+        String longRequestId = "r".repeat(200);
+        String longUserAgent = "u".repeat(900);
+        for (int attempt = 0; attempt < 5; attempt++) {
+            mockMvc
+                    .perform(
+                            loginRequest(slugA, emailInA, "WrongPassword" + attempt)
+                                    .header("X-Request-Id", longRequestId)
+                                    .header("User-Agent", longUserAgent))
+                    .andExpect(redirectedUrl("/login?error"));
+        }
+
+        AppUser locked = asTenant(tenantIdOf(slugA), () -> users.findByEmail(emailInA)).orElseThrow();
+        assertThat(locked.status()).isEqualTo(UserStatus.LOCKED);
+    }
+
+    @Test
+    void login_whenRequestIdHeaderIsNotAWellFormedId_isReplacedNotEchoed() throws Exception {
+        String supplied = "bad id with spaces and \u00e9 " + "x".repeat(100);
+
+        String echoed =
+                mockMvc
+                        .perform(loginRequest(slugA, emailInA, PASSWORD).header("X-Request-Id", supplied))
+                        .andReturn()
+                        .getResponse()
+                        .getHeader("X-Request-Id");
+
+        assertThat(echoed).isNotEqualTo(supplied).matches("[A-Za-z0-9-]{1,36}");
+    }
+
+    @Test
+    void login_postedToAPercentEncodedPath_isStillRateLimited() throws Exception {
+        // /%6cogin decodes to /login for the container and the security chain; the limiter must
+        // judge the same decoded path or the 10/min/IP cap is skippable.
+        for (int attempt = 0; attempt < 10; attempt++) {
+            mockMvc.perform(encodedLoginRequest("spray-" + attempt + "@example.test"));
+        }
+
+        mockMvc
+                .perform(encodedLoginRequest("spray-final@example.test"))
+                .andExpect(redirectedUrl("/login?rateLimited"));
+    }
+
+    private MockHttpServletRequestBuilder encodedLoginRequest(String email) {
+        return post(URI.create("http://" + slugA + ".localhost/%6cogin"))
+                .param("email", email)
+                .param("password", "Whatever123")
+                .with(csrf());
+    }
+
     private MockHttpServletRequestBuilder loginRequest(String slug, String email, String password) {
         return post(URI.create("http://" + slug + ".localhost/login"))
                 .param("email", email)
