@@ -166,6 +166,57 @@ class InviteAndResetServiceTest extends TenantIsolationTestBase {
     }
 
     @Test
+    void acceptInvite_afterTheInvitedUserWasDisabled_isRejectedAndLeavesThemDisabled() {
+        // A terminated employee must not be able to redeem the invite they were sent before
+        // termination: BR-11 says a terminated person cannot log in.
+        String email = uniqueEmail();
+        UUID userId =
+                asTenant(
+                        tenantA,
+                        () -> invites.invite(email, Set.of(Role.EMPLOYEE), BASE_URL, TENANT_NAME));
+        String rawToken = tokenFromLastEmailTo(email);
+        asTenant(
+                tenantA,
+                () -> {
+                    AppUser invited = users.findById(userId).orElseThrow();
+                    invited.disable();
+                    users.save(invited);
+                });
+
+        assertThatThrownBy(() -> asTenant(tenantA, () -> invites.acceptInvite(rawToken, GOOD_PASSWORD)))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("invalid or has expired");
+
+        AppUser after = asTenant(tenantA, () -> users.findById(userId)).orElseThrow();
+        assertThat(after.status()).isEqualTo(UserStatus.DISABLED);
+        assertThat(after.passwordHash()).isNull();
+    }
+
+    @Test
+    void acceptInvite_whenTheUserIsNoLongerInvitedButStillHoldsTheToken_isRejected() {
+        // Second line of defence independent of disable(): any non-INVITED status that keeps the
+        // token hash (here LOCKED) must not be flipped to ACTIVE by redeeming it.
+        String email = uniqueEmail();
+        UUID userId =
+                asTenant(
+                        tenantA,
+                        () -> invites.invite(email, Set.of(Role.EMPLOYEE), BASE_URL, TENANT_NAME));
+        String rawToken = tokenFromLastEmailTo(email);
+        asTenant(
+                tenantA,
+                () -> {
+                    AppUser invited = users.findById(userId).orElseThrow();
+                    invited.lock(clock.instant().plus(Duration.ofHours(1)));
+                    users.save(invited);
+                });
+
+        assertThatThrownBy(() -> asTenant(tenantA, () -> invites.acceptInvite(rawToken, GOOD_PASSWORD)))
+                .isInstanceOf(ValidationException.class);
+        assertThat(asTenant(tenantA, () -> users.findById(userId)).orElseThrow().status())
+                .isEqualTo(UserStatus.LOCKED);
+    }
+
+    @Test
     void acceptInvite_withAnUnknownToken_isRejected() {
         assertThatThrownBy(
                         () -> asTenant(tenantA, () -> invites.acceptInvite("not-a-real-token", GOOD_PASSWORD)))

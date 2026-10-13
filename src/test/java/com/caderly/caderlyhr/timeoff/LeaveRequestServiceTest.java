@@ -968,4 +968,183 @@ class LeaveRequestServiceTest extends TenantIsolationTestBase {
                                 .findByEmployeeIdAndLeaveTypeIdAndYear(employeeId, leaveTypeId, today().getYear())
                                 .orElseThrow());
     }
+
+    // --- Concurrency: decisions on one request, and overlapping bookings (BR-15) ---
+
+    private static final int RACE_ROUNDS = 8;
+
+    @Test
+    void approveVersusReject_onTheSamePendingRequest_exactlyOneWinsAndBalanceMatches() throws Exception {
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("20"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        for (int round = 0; round < RACE_ROUNDS; round++) {
+            LeaveRequest request = bookOneDay(report, type, nextWeekday().plusWeeks(round));
+            BigDecimal usedBefore = requireBalance(report.requireId(), type.requireId()).used();
+
+            List<String> outcomes =
+                    race(
+                            () ->
+                                    leaveRequestService.approve(
+                                            request.requireId(),
+                                            manager.userId(),
+                                            manager.requireId(),
+                                            manager.fullName(),
+                                            false,
+                                            null),
+                            () ->
+                                    leaveRequestService.reject(
+                                            request.requireId(),
+                                            manager.userId(),
+                                            manager.requireId(),
+                                            manager.fullName(),
+                                            false,
+                                            null));
+
+            assertThat(outcomes).as("round %d", round).containsOnlyOnce("OK");
+            assertBalanceReflectsFinalStatus(request, report, type, usedBefore);
+        }
+    }
+
+    @Test
+    void approveVersusCancel_onTheSamePendingRequest_exactlyOneWinsAndBalanceMatches() throws Exception {
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("20"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        for (int round = 0; round < RACE_ROUNDS; round++) {
+            LeaveRequest request = bookOneDay(report, type, nextWeekday().plusWeeks(round));
+            BigDecimal usedBefore = requireBalance(report.requireId(), type.requireId()).used();
+
+            List<String> outcomes =
+                    race(
+                            () ->
+                                    leaveRequestService.approve(
+                                            request.requireId(),
+                                            manager.userId(),
+                                            manager.requireId(),
+                                            manager.fullName(),
+                                            false,
+                                            null),
+                            () ->
+                                    leaveRequestService.cancel(
+                                            request.requireId(), report.userId(), report.requireId(), false));
+
+            // approve-then-cancel is a legal sequence (the cancel of an APPROVED request credits
+            // the balance back), so either both succeed or one is refused; what must hold is that
+            // the balance agrees with whatever status the request ended in.
+            assertThat(outcomes).as("round %d", round).contains("OK");
+            assertBalanceReflectsFinalStatus(request, report, type, usedBefore);
+        }
+    }
+
+    @Test
+    void approve_twoDifferentRequestsOnTheSameBalanceAtOnce_bothSucceedAndUsedIsTheSum() throws Exception {
+        LeaveType type = asTenant(tenantA, () -> createLeaveType("20"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        for (int round = 0; round < RACE_ROUNDS; round += 2) {
+            LeaveRequest first = bookOneDay(report, type, nextWeekday().plusWeeks(round));
+            LeaveRequest second = bookOneDay(report, type, nextWeekday().plusWeeks(round + 1));
+            BigDecimal usedBefore = requireBalance(report.requireId(), type.requireId()).used();
+
+            List<String> outcomes =
+                    race(
+                            () ->
+                                    leaveRequestService.approve(
+                                            first.requireId(),
+                                            manager.userId(),
+                                            manager.requireId(),
+                                            manager.fullName(),
+                                            false,
+                                            null),
+                            () ->
+                                    leaveRequestService.approve(
+                                            second.requireId(),
+                                            manager.userId(),
+                                            manager.requireId(),
+                                            manager.fullName(),
+                                            false,
+                                            null));
+
+            assertThat(outcomes).as("round %d", round).containsExactly("OK", "OK");
+            assertThat(requireBalance(report.requireId(), type.requireId()).used())
+                    .isEqualByComparingTo(usedBefore.add(new BigDecimal("2.00")));
+        }
+    }
+
+    @Test
+    void book_overlappingDatesUnderDifferentLeaveTypesAtOnce_onlyOneSucceeds() throws Exception {
+        // The balance lock is per (employee, leave type, year), so bookings under different types
+        // never serialize on it; the BR-15 overlap check must be serialized per employee instead.
+        LeaveType vacation = asTenant(tenantA, () -> createLeaveType("20", "Vacation"));
+        LeaveType sick = asTenant(tenantA, () -> createLeaveType("20", "Sick"));
+        Employee manager = asTenant(tenantA, () -> createEmployee("Mgr", "One", null));
+        Employee report = asTenant(tenantA, () -> createEmployee("Rep", "One", manager.requireId()));
+
+        for (int round = 0; round < RACE_ROUNDS; round++) {
+            LocalDate day = nextWeekday().plusWeeks(round);
+
+            List<String> outcomes =
+                    race(
+                            () ->
+                                    leaveRequestService.book(
+                                            report.requireId(), vacation.requireId(), day, day, false, false, null, BASE_URL),
+                            () ->
+                                    leaveRequestService.book(
+                                            report.requireId(), sick.requireId(), day, day, false, false, null, BASE_URL));
+
+            assertThat(outcomes).as("round %d", round).containsOnlyOnce("OK");
+            assertThat(outcomes).as("round %d", round).contains("LEAVE_OVERLAPPING_REQUEST");
+        }
+    }
+
+    private void assertBalanceReflectsFinalStatus(
+            LeaveRequest request, Employee report, LeaveType type, BigDecimal usedBefore) {
+        LeaveRequest finalState =
+                asTenant(tenantA, () -> leaveRequestRepository.findById(request.requireId()).orElseThrow());
+        BigDecimal expectedUsed =
+                finalState.status() == LeaveRequestStatus.APPROVED
+                        ? usedBefore.add(finalState.durationDays())
+                        : usedBefore;
+        assertThat(requireBalance(report.requireId(), type.requireId()).used())
+                .as("balance after request ended %s", finalState.status())
+                .isEqualByComparingTo(expectedUsed);
+    }
+
+    /**
+     * Runs both actions in tenant A at the same instant and reports each as {@code "OK"} or the
+     * thrown exception's error code (or simple class name when it has none).
+     */
+    private List<String> race(Runnable first, Runnable second) throws Exception {
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch go = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<String> a = pool.submit(raced(first, ready, go));
+            Future<String> b = pool.submit(raced(second, ready, go));
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            return List.of(a.get(30, TimeUnit.SECONDS), b.get(30, TimeUnit.SECONDS));
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private Callable<String> raced(Runnable action, CountDownLatch ready, CountDownLatch go) {
+        return () -> {
+            ready.countDown();
+            go.await();
+            try {
+                asTenant(tenantA, action);
+                return "OK";
+            } catch (com.caderly.caderlyhr.common.CaderlyException e) {
+                return e.errorCode();
+            } catch (RuntimeException e) {
+                return e.getClass().getSimpleName();
+            }
+        };
+    }
 }

@@ -110,9 +110,11 @@ public class LeaveRequestService {
                     "LEAVE_BOOKING_WINDOW_EXCEEDED", "Leave can only be booked up to 12 months ahead");
         }
 
-        // BR-15: fail fast, before taking the balance row lock below, on a booking that
-        // conflicts with this employee's own other active (pending/approved) requests —
-        // regardless of leave type.
+        // BR-15: a booking that conflicts with this employee's own other active (pending/approved)
+        // requests is refused regardless of leave type. The balance lock below is per leave type,
+        // so the per-employee lock has to come first or two bookings under different types could
+        // both pass this check.
+        leaveRequests.lockEmployeeBookings("leave-booking:" + employeeId);
         if (leaveRequests.existsOverlapping(employeeId, ACTIVE_STATUSES, start, end)) {
             throw new ValidationException(
                     "LEAVE_OVERLAPPING_REQUEST",
@@ -354,9 +356,10 @@ public class LeaveRequestService {
         return leaveRequests.findAllByDeciderIdOrderByDecidedAtDesc(deciderUserId);
     }
 
+    /** Row-locked, for the decision paths that change status and balance together. */
     private LeaveRequest requireRequest(UUID requestId) {
         return leaveRequests
-                .findById(requestId)
+                .findForUpdateById(requestId)
                 .orElseThrow(() -> new NotFoundException("LEAVE_REQUEST_NOT_FOUND", "Leave request not found"));
     }
 

@@ -7,7 +7,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -24,6 +26,30 @@ public interface LeaveRequestRepository extends TenantAwareRepository<LeaveReque
     @Override
     Optional<LeaveRequest> findById(UUID id);
 
+    /**
+     * Row-locked load for approve/reject/cancel: a second decision on the same request blocks
+     * here until the first commits, then reads the committed status and is refused by {@link
+     * LeaveRequestStateMachine} instead of overwriting it. Deliberately no {@code @EntityGraph}:
+     * a fetch join would make {@code FOR UPDATE} lock the shared {@code leave_type} row too and
+     * serialize every request of that type. {@code leaveType} loads lazily inside the caller's
+     * transaction.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM LeaveRequest r WHERE r.id = :id")
+    Optional<LeaveRequest> findForUpdateById(@Param("id") UUID id);
+
+    /**
+     * Transaction-scoped advisory lock keyed on one employee. The overlap check (BR-15) spans
+     * leave types, but the balance row lock is per type, so only this serializes two concurrent
+     * bookings by the same employee. Released automatically at commit/rollback.
+     */
+    @Query(
+            value =
+                    "SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(CAST(:key AS text), 0)))"
+                            + " AS locked",
+            nativeQuery = true)
+    int lockEmployeeBookings(@Param("key") String key);
+
     @EntityGraph(attributePaths = "leaveType")
     List<LeaveRequest> findAllByEmployeeIdOrderBySubmittedAtDesc(UUID employeeId);
 
@@ -33,8 +59,12 @@ public interface LeaveRequestRepository extends TenantAwareRepository<LeaveReque
     @EntityGraph(attributePaths = "leaveType")
     List<LeaveRequest> findAllByDeciderIdOrderByDecidedAtDesc(UUID deciderId);
 
-    /** Termination cascade: an employee's still-actionable requests from the effective date on. */
-    @EntityGraph(attributePaths = "leaveType")
+    /**
+     * Termination cascade: an employee's still-actionable requests from the effective date on,
+     * row-locked (no {@code @EntityGraph}, same reason as {@link #findForUpdateById}) so the
+     * cascade cannot interleave with an in-flight approval of one of them.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<LeaveRequest> findAllByEmployeeIdAndStatusInAndStartDateGreaterThanEqual(
             UUID employeeId, List<LeaveRequestStatus> statuses, LocalDate startDate);
 

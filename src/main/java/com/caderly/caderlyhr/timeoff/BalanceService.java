@@ -149,7 +149,7 @@ public class BalanceService {
     /** Booking approval debits the balance (PRD §12.4 step 5). Called by {@code LeaveRequestService}. */
     @Transactional
     public void bookUsed(UUID employeeId, UUID leaveTypeId, int year, BigDecimal amount) {
-        requireBalance(employeeId, leaveTypeId, year).recordUsage(amount);
+        requireBalanceForUpdate(employeeId, leaveTypeId, year).recordUsage(amount);
     }
 
     /**
@@ -158,7 +158,21 @@ public class BalanceService {
      */
     @Transactional
     public void releaseUsed(UUID employeeId, UUID leaveTypeId, int year, BigDecimal amount) {
-        requireBalance(employeeId, leaveTypeId, year).releaseUsage(amount);
+        requireBalanceForUpdate(employeeId, leaveTypeId, year).releaseUsage(amount);
+    }
+
+    /**
+     * Locked, so two approvals/cancellations touching one balance serialize instead of one losing
+     * an optimistic-lock race and surfacing as a server error.
+     */
+    private LeaveBalance requireBalanceForUpdate(UUID employeeId, UUID leaveTypeId, int year) {
+        return balances
+                .findForUpdateByEmployeeIdAndLeaveTypeIdAndYear(employeeId, leaveTypeId, year)
+                .orElseThrow(
+                        () ->
+                                new NotFoundException(
+                                        "LEAVE_BALANCE_NOT_FOUND",
+                                        "No " + year + " balance found for this employee/leave type"));
     }
 
     private LeaveBalance requireBalance(UUID employeeId, UUID leaveTypeId, int year) {
