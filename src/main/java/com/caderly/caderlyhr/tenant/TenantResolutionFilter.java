@@ -64,7 +64,6 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return path.startsWith("/actuator")
                 || path.startsWith("/superadmin")
-                || path.startsWith("/bootui")
                 || path.startsWith("/webjars/")
                 || path.startsWith("/css/")
                 || path.startsWith("/js/")

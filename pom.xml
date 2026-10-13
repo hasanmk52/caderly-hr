@@ -49,7 +49,6 @@
 		<jacoco.version>0.8.13</jacoco.version>
 		<spotbugs-plugin.version>4.9.3.0</spotbugs-plugin.version>
 		<pmd-plugin.version>3.28.0</pmd-plugin.version>
-		<bootui.version>1.14.1</bootui.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -175,11 +174,6 @@
 			<artifactId>spring-boot-devtools</artifactId>
 			<scope>runtime</scope>
 			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>com.julien-dubois.bootui</groupId>
-			<artifactId>bootui-spring-boot-starter</artifactId>
-			<version>${bootui.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.postgresql</groupId>
