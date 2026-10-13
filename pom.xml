@@ -276,6 +276,13 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<!-- Only affects spring-boot:run, never the packaged jar: dev must be asked for
+					     explicitly everywhere else (SPRING_PROFILES_ACTIVE=dev). -->
+					<profiles>
+						<profile>dev</profile>
+					</profiles>
+				</configuration>
 			</plugin>
 
 			<!-- Coverage report on verify. Threshold is declared (see jacoco.line.coverage
