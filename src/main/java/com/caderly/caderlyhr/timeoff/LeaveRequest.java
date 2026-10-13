@@ -25,9 +25,10 @@ import org.jspecify.annotations.Nullable;
  * which points these at {@code app_user}, not {@code employee}).
  *
  * <p>No public setters (CLAUDE.md §10): every mutation is a named transition, each first checked
- * by {@link LeaveRequestStateMachine}. No optimistic-locking {@code @Version} here (unlike {@link
- * LeaveBalance}) — PRD §21's schema for this table has no version column, and the balance row is
- * the one multiple concurrent actions actually race on.
+ * by {@link LeaveRequestStateMachine}. No {@code @Version} here (PRD §21's schema for this table
+ * has no version column); concurrent decisions are serialized by loading the row {@code FOR UPDATE}
+ * ({@link LeaveRequestRepository#findForUpdateById}), so a stale transition is refused by the
+ * state machine rather than overwriting the winner.
  */
 @Entity
 @EntityListeners(EntityAuditListener.class)
