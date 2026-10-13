@@ -19,6 +19,7 @@ Multi-tenant HRIS and Leave Management SaaS. See `docs/Caderly_PRD.md` for the p
    export $(grep -v '^#' .env | xargs)
    ./mvnw spring-boot:run
    ```
+   `spring-boot:run` activates the `dev` profile for you. Anywhere else (IDE run config, a packaged jar) set `SPRING_PROFILES_ACTIVE=dev` explicitly; there is deliberately no default profile.
 7. Seed a dev tenant (tenant provisioning is SQL-only for now, per the implementation plan):
    ```
    psql caderly -c "INSERT INTO caderly_hr.tenant (slug, name) VALUES ('mhzgroup', 'MHZ Group');"

@@ -69,7 +69,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        String path = request.getRequestURI();
+        // Decoded, because the security chain matches decoded: a raw-URI comparison would let
+        // /%6cogin through the limiter and still land on the login filter.
+        String path = RequestPathResolver.decodedPath(request);
         if (!allowed(request, path)) {
             // Redirect rather than a bare 429: these are browser form posts, and the user needs
             // the page back with an explanation. ?rateLimited is what the template renders on.
@@ -86,15 +88,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         // Its own key prefix, so a tenant-login flood cannot exhaust the Super Admin console's
         // budget (or hide behind it) — the two realms share the rate, never the counter.
-        //
-        // Matched on the decoded path, unlike the two tenant branches around it. The Super Admin
-        // chain is selected by securityMatcher("/superadmin/**"), which matches decoded, so
-        // /%73uperadmin/login reaches the login filter while a raw-URI comparison here does not
-        // see it — an unlimited password oracle on the highest-privilege account in the system.
-        // The tenant branches keep comparing the raw URI on purpose — tenant login paths are not
-        // gated behind a decoded-path security matcher the way /superadmin/** is, so there is no
-        // matching bypass to close there (SuperAdminIpAllowlistFilter's Javadoc has the same note).
-        if (superAdminLoginPath.equals(RequestPathResolver.decodedPath(request))) {
+        if (superAdminLoginPath.equals(path)) {
             return consume("superadmin-login:" + ClientIpResolver.resolve(request), LOGIN_LIMIT);
         }
         if (forgotPasswordPath.equals(path)) {

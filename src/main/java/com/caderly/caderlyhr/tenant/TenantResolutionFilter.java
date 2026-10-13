@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.MDC;
 import org.springframework.context.MessageSource;
@@ -39,6 +40,7 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
 
     /** Echoed back so a client (or an operator reading a bug report) can correlate their own logs. */
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
+    private static final Pattern VALID_REQUEST_ID = Pattern.compile("[A-Za-z0-9-]{1,36}");
 
     private final TenantFacade tenants;
     private final String baseDomain;
@@ -64,7 +66,6 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return path.startsWith("/actuator")
                 || path.startsWith("/superadmin")
-                || path.startsWith("/bootui")
                 || path.startsWith("/webjars/")
                 || path.startsWith("/css/")
                 || path.startsWith("/js/")
@@ -109,10 +110,16 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
         }
     }
 
-    /** A caller-supplied id is trusted only as a correlation label, never as anything security-relevant. */
+    /**
+     * A caller-supplied id is trusted only as a correlation label, never as anything
+     * security-relevant, and only when it is shaped like one: it lands in a response header, the
+     * logs and a bounded database column, so anything else is replaced rather than echoed.
+     */
     private static String resolveRequestId(HttpServletRequest request) {
         String supplied = request.getHeader(REQUEST_ID_HEADER);
-        return supplied == null || supplied.isBlank() ? UUID.randomUUID().toString() : supplied;
+        return supplied != null && VALID_REQUEST_ID.matcher(supplied).matches()
+                ? supplied
+                : UUID.randomUUID().toString();
     }
 
     private void denyNotFound(HttpServletResponse response) throws IOException {

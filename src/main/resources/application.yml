@@ -53,8 +53,6 @@ spring:
     # No silent fallback to the JVM's default locale: an unset/unmapped key must resolve
     # through messages.properties or fail loud, never guess based on server locale.
     fallback-to-system-locale: false
-  profiles:
-    active: dev
   data:
     jpa:
       repositories:
