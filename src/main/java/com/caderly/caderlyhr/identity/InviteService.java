@@ -108,7 +108,10 @@ public class InviteService {
 
         AppUser user =
                 users.findByInviteTokenHash(tokenHash)
-                        .filter(candidate -> candidate.hasValidInvite(now))
+                        .filter(
+                                candidate ->
+                                        candidate.status() == UserStatus.INVITED
+                                                && candidate.hasValidInvite(now))
                         .orElseThrow(
                                 () ->
                                         // One message for "no such token", "already used", and "expired".

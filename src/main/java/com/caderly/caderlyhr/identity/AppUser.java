@@ -178,6 +178,10 @@ public class AppUser extends TenantAwareEntity {
 
     public void disable() {
         this.status = UserStatus.DISABLED;
+        // A pending invite must die with the account; otherwise redeeming it would flip the
+        // status back to ACTIVE for someone who was disabled or terminated in the meantime.
+        this.inviteTokenHash = null;
+        this.inviteExpiresAt = null;
     }
 
     /**

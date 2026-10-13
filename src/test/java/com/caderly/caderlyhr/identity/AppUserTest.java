@@ -87,6 +87,18 @@ class AppUserTest {
     }
 
     @Test
+    void disable_whenInviteStillPending_voidsTheInviteSoItCannotBeRedeemedLater() {
+        AppUser user =
+                AppUser.invited("new@example.test", "token-hash", T0.plus(24, ChronoUnit.HOURS));
+
+        user.disable();
+
+        assertThat(user.status()).isEqualTo(UserStatus.DISABLED);
+        assertThat(user.inviteTokenHash()).isNull();
+        assertThat(user.hasValidInvite(T0)).isFalse();
+    }
+
+    @Test
     void hasValidInvite_whenPastExpiry_returnsFalse() {
         AppUser user =
                 AppUser.invited("new@example.test", "token-hash", T0.plus(24, ChronoUnit.HOURS));
