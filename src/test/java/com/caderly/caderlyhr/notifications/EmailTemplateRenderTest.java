@@ -95,6 +95,12 @@ class EmailTemplateRenderTest extends TenantIsolationTestBase {
 
         return switch (event) {
             case INVITE -> Map.of("acceptUrl", "https://acme.localhost/accept-invite?token=abc");
+            case SIGNUP_VERIFY ->
+                    Map.of(
+                            "verifyUrl", "https://localhost/signup/verify?token=abc",
+                            "companyName", "Acme Trading LLC",
+                            "adminName", "Aisha Rahman",
+                            "workspaceHost", "acme.localhost");
             case PASSWORD_RESET -> Map.of("resetUrl", "https://acme.localhost/reset-password?token=abc");
             case LEAVE_REQUESTED ->
                     Map.of(

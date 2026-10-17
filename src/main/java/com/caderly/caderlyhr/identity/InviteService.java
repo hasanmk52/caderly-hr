@@ -67,6 +67,17 @@ public class InviteService {
      */
     @Transactional
     public UUID invite(String email, Set<Role> roles, String appBaseUrl, String tenantName) {
+        return issueInvite(email, roles, appBaseUrl, tenantName).userId();
+    }
+
+    /**
+     * {@link #invite} that also hands back the accept link, for self-serve sign-up: the person who
+     * just confirmed their email is redirected straight to it instead of waiting for the invite
+     * email, which is still queued as a fallback (ADR 0022 decision C). The link is a live
+     * credential — callers must use it for that one redirect and never log or store it.
+     */
+    @Transactional
+    public IssuedInvite issueInvite(String email, Set<Role> roles, String appBaseUrl, String tenantName) {
         String normalisedEmail = normalise(email);
         if (roles.isEmpty()) {
             throw new ValidationException("USER_ROLES_REQUIRED", "Pick at least one role");
@@ -85,15 +96,21 @@ public class InviteService {
         roles.forEach(user::grant);
         AppUser saved = users.save(user);
 
-        emailOutbox.enqueue(
-                EmailEvent.INVITE,
-                normalisedEmail,
-                Map.of("acceptUrl", acceptUrl(appBaseUrl, rawToken)),
-                tenantName);
+        String acceptUrl = acceptUrl(appBaseUrl, rawToken);
+        emailOutbox.enqueue(EmailEvent.INVITE, normalisedEmail, Map.of("acceptUrl", acceptUrl), tenantName);
 
         // The token is never logged — it is a live credential until redeemed.
         log.info("Invited {} with roles {}", normalisedEmail, roles);
-        return saved.requireId();
+        return new IssuedInvite(saved.requireId(), acceptUrl);
+    }
+
+    /** The invited user and their single-use accept link. */
+    public record IssuedInvite(UUID userId, String acceptUrl) {
+        @Override
+        public String toString() {
+            // The link carries the raw token; keep it out of any accidental log line.
+            return "IssuedInvite[userId=" + userId + "]";
+        }
     }
 
     /**

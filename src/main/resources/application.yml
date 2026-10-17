@@ -128,6 +128,17 @@ caderly:
     # PRD §6.7 FR-7.3. Below the servlet's spring.servlet.multipart.max-file-size so an oversize
     # upload fails inside UploadValidator with a friendly inline message, not a raw 413 (ADR 0012).
     max-file-size: 25MB
+  signup:
+    # Self-serve sign-up on the public site (ADR 0022). Off unless CADERLY_SIGNUP_ENABLED=true:
+    # it stays closed until the Terms/Privacy/DPA drafts have been reviewed, and this one flag
+    # closes it again if the form is ever abused. Links already sent keep working when it's off.
+    enabled: ${CADERLY_SIGNUP_ENABLED:false}
+    # Employees a self-serve workspace may hold (tenant.seat_limit, ADR 0022 decision F).
+    seat-limit: 50
+    cleanup-job:
+      enabled: true
+      # Hourly: expired holds release their address within the hour.
+      cron: "0 15 * * * *"
   superadmin:
     # Blank defaults are deliberate here, unlike caderly.email.from or caderly.people.encryption-key
     # above: there is no safe default Super Admin password to fall back to, but every environment

@@ -23,6 +23,12 @@ management:
 
 caderly:
   base-domain: localhost
+  signup:
+    # Open in tests; SignupServiceTest flips it per case to cover the closed state.
+    enabled: true
+    cleanup-job:
+      # Tests call SignupService.purgeExpired() directly at a known moment.
+      enabled: false
   email:
     from: no-reply@caderly.test
     dispatcher:

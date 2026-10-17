@@ -35,6 +35,9 @@ spring:
     port: ${SMTP_PORT:1025}
 
 caderly:
+  signup:
+    # Open in dev so the public site's sign-up can be tried end to end at http://localhost:8080.
+    enabled: true
   # Dev serves plain HTTP on *.localhost:8080, so the logo address in an email points there.
   public-scheme: http
   public-port: 8080

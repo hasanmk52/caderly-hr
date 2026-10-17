@@ -12,6 +12,8 @@ import org.jspecify.annotations.Nullable;
  */
 public enum EmailEvent {
     INVITE("invite", null),
+    /** Self-serve sign-up's confirmation link (ADR 0022). System mail: sent before any tenant exists. */
+    SIGNUP_VERIFY("signup-verify", null),
     PASSWORD_RESET("password-reset", null),
     LEAVE_REQUESTED("leave-requested", null),
     LEAVE_APPROVED("leave-approved", null),

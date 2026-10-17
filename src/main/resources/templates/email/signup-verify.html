@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body th:replace="~{email/_layout :: page(~{::content})}">
+<td th:fragment="content" style="padding:28px;">
+  <h1 th:replace="~{email/_components :: heading(#{email.signup-verify.body.heading(${workspaceHost})})}"></h1>
+  <p style="margin:0 0 4px;" th:text="#{email.signup-verify.body.greeting(${adminName})}">Hi Aisha,</p>
+  <p style="margin:0 0 4px;" th:text="#{email.signup-verify.body.message(${workspaceHost}, ${companyName})}">
+    Open this link to create acme.caderly.app for Acme Trading LLC. You'll choose your password next.
+  </p>
+  <table th:replace="~{email/_components :: cta(${verifyUrl}, #{email.signup-verify.body.cta(${workspaceHost})})}"></table>
+  <!--/* Bare URL for clients that strip the button. SignupE2ETest reads the token from this href. */-->
+  <p style="margin:16px 0 0;font-size:13px;color:#5F6675;" th:text="#{email.common.paste-link}">
+    Or paste this link into your browser:
+  </p>
+  <p style="margin:2px 0 0;font-size:13px;word-break:break-all;">
+    <a th:href="${verifyUrl}" th:text="${verifyUrl}" style="color:#0F5568;">https://caderly.app/signup/verify?token=…</a>
+  </p>
+  <p style="margin:16px 0 0;font-size:13px;color:#5F6675;" th:text="#{email.signup-verify.body.expiry}">
+    The link works once, for 24 hours.
+  </p>
+  <p style="margin:8px 0 0;font-size:13px;color:#5F6675;" th:text="#{email.signup-verify.body.ignore}">
+    Didn't sign up? Ignore this email. Nothing is created unless the link is opened.
+  </p>
+</td>
+</body>
+</html>
