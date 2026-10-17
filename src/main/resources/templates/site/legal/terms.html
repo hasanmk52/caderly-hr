@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.legal.terms.title}, #{site.home.description}, ~{::main})}">
+<body>
+<!--/* Legal document, not UI strings: kept whole in English here rather than in messages.properties
+       (ADR 0022 decision G). A future locale gets its own reviewed translation of the document. */-->
+<main id="main">
+  <div class="draft-banner" role="note" th:text="#{site.legal.draft-banner}">Draft under legal review.</div>
+  <article class="legal">
+    <h1 th:text="#{site.legal.terms.title}">Title</h1>
+    <p class="small-muted" th:text="#{site.legal.last-updated}">Last updated: [date of publishing]</p>
+<p>These terms are an agreement between Hasan Kagalwala of [Your city, country] ("we", "us") and the organisation that creates a Caderly workspace ("you", "the Customer"). The person who signs up confirms they are allowed to accept these terms for that organisation.</p>
+<h2>1. What Caderly is</h2>
+<p>Caderly is web-based HR software for employee records, leave, a team calendar, documents, reports and an audit log. Each Customer gets a separate workspace at its own address on caderly.app.</p>
+<h2>2. Who can use it</h2>
+<p>Caderly is for organisations, not personal use. The person who signs up must be at least 18. People your Admins invite (your "Users") may use the workspace under these terms. You are responsible for what your Users do in it.</p>
+<h2>3. Your account</h2>
+<ul>
+<li>Your first Admin confirms their email before the workspace is created. Keep sign-in details confidential.</li>
+<li>Workspace addresses are first come, first served. We may refuse or reclaim an address that is misleading, infringes someone's rights, or is reserved for us.</li>
+<li>Tell us at [Contact email] if you think your account has been accessed without permission.</li>
+</ul>
+<h2>4. The free plan</h2>
+<ul>
+<li>Caderly is free. There are no fees and we don't collect payment details.</li>
+<li>A workspace can hold up to 50 employee records. We may raise the limit on request.</li>
+<li>If we ever introduce paid plans, we'll give you at least 60 days' notice. Nothing you already use will start costing money without your agreement.</li>
+</ul>
+<h2>5. Your data</h2>
+<ul>
+<li>Everything you or your Users put into Caderly ("Customer Data") belongs to you.</li>
+<li>You give us permission to store, process and display Customer Data only to provide Caderly to you. Our <a href="/dpa">Data Processing Agreement</a> governs how we handle any personal data in it and forms part of these terms.</li>
+<li>You are responsible for having a lawful basis to put your employees' personal data into Caderly, and for telling them you use it.</li>
+<li>We don't sell Customer Data, use it for advertising, or use it to train AI models.</li>
+</ul>
+<h2>6. Acceptable use</h2>
+<p>You agree not to:</p>
+<ul>
+<li>break the law or other people's rights through Caderly;</li>
+<li>upload malware or try to gain access to another Customer's workspace;</li>
+<li>probe, scan or load-test the service without our written permission;</li>
+<li>resell Caderly, or use it to build a competing product;</li>
+<li>sign up automatically or create workspaces in bulk.</li>
+</ul>
+<h2>7. Availability and support</h2>
+<p>We work to keep Caderly available, but it's a free service run by an individual. It comes with no uptime guarantee and no set support hours. We may change or remove features. If a change materially reduces what Caderly does, we'll tell your Admins by email first.</p>
+<h2>8. Suspension and ending the service</h2>
+<ul>
+<li><strong>You</strong> can close your workspace at any time by emailing [Contact email] from an Admin address.</li>
+<li><strong>We</strong> can suspend a workspace immediately if it breaks section 6 or puts other Customers at risk. We can close any workspace with 30 days' notice.</li>
+<li><strong>When a workspace closes</strong>, sign-in stops straight away. You have 30 days to ask for an export of your data. After that, Customer Data is permanently deleted, and backups containing it age out within a further 30 days.</li>
+<li>If we stop running Caderly altogether, we'll give at least 90 days' notice and offer an export.</li>
+</ul>
+<h2>9. Security</h2>
+<p>We protect Customer Data as described in the Data Processing Agreement. We'll tell you without undue delay if a security incident affects your data.</p>
+<h2>10. Disclaimers</h2>
+<p>Caderly is provided "as is" and "as available". Caderly calculates leave from the rules your Admins set up. You are responsible for checking that those rules match your policies and the law that applies to you. Caderly does not give legal, payroll or HR advice.</p>
+<h2>11. Limit of liability</h2>
+<p>To the extent the law allows, we are not liable for indirect or consequential loss, lost profits or lost data. Our total liability for any claim relating to Caderly is limited to USD 100. Nothing here limits liability that cannot be limited by law, such as for fraud.</p>
+<h2>12. Changes to these terms</h2>
+<p>We'll post changes on this page and email your Admins at least 30 days before material changes take effect. If you keep using Caderly after that, you accept the new terms.</p>
+<h2>13. Law and disputes</h2>
+<p>These terms are governed by [Governing law]. We'll try to settle any dispute informally first. If that fails, it goes to the courts of [jurisdiction].</p>
+<h2>14. Contact</h2>
+<p>Hasan Kagalwala, [Postal address], [Contact email]</p>
+  </article>
+</main>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="layout(title, description, content)">
+<!--/* Shell for the public site on the base domain (ADR 0022). Not the app shell: no sidebar, no
+       Bootstrap, its own site.css. Scripts are 'self' only, per SecurityHeaders' CSP. */-->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title th:text="${title}">Caderly</title>
+  <meta name="description" th:content="${description}" />
+  <link rel="icon" th:href="@{/favicon.ico}" sizes="any" />
+  <link rel="icon" type="image/png" th:href="@{/favicon-32x32.png}" sizes="32x32" />
+  <link rel="icon" type="image/png" th:href="@{/favicon-16x16.png}" sizes="16x16" />
+  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}" />
+  <link rel="preload" th:href="@{/fonts/ibm-plex-sans-latin-600-normal.woff2}" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" th:href="@{/css/site.css}" />
+  <script th:src="@{/js/site.js}" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main" th:text="#{site.nav.skip}">Skip to content</a>
+
+<header class="site-header">
+  <nav class="wrap site-nav" th:aria-label="#{site.nav.label}">
+    <a class="brand" th:href="@{/}">
+      <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><path d="M40 13H21A8 8 0 0 0 13 21V43A8 8 0 0 0 21 51H48" fill="none" stroke="#0F5568" stroke-width="10" stroke-linecap="butt" stroke-linejoin="round"></path><rect x="41" y="26" width="12" height="12" rx="2" fill="#0F5568"></rect></svg>
+      <span class="brand-name" th:text="#{common.app-name}">Caderly</span>
+    </a>
+    <ul class="nav-links">
+      <li><a th:href="@{/#features}" th:text="#{site.nav.features}">Features</a></li>
+      <li><a th:href="@{/#arithmetic}" th:text="#{site.nav.how}">How it works</a></li>
+      <li><a th:href="@{/#security}" th:text="#{site.nav.security}">Security</a></li>
+      <li><a th:href="@{/#pricing}" th:text="#{site.nav.pricing}">Pricing</a></li>
+      <li><a th:href="@{/#faq}" th:text="#{site.nav.faq}">FAQ</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a class="login" th:href="@{/login}" th:text="#{site.nav.login}">Log in</a>
+      <a class="btn btn-primary" th:href="@{/signup}" th:text="#{site.cta.start-free}">Start free</a>
+    </div>
+  </nav>
+</header>
+
+<main id="main" th:replace="${content}"></main>
+
+<footer class="site-footer">
+  <div class="wrap footer-main">
+    <div class="footer-brand">
+      <a class="brand" th:href="@{/}">
+        <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><path d="M40 13H21A8 8 0 0 0 13 21V43A8 8 0 0 0 21 51H48" fill="none" stroke="#6FBDD1" stroke-width="10" stroke-linecap="butt" stroke-linejoin="round"></path><rect x="41" y="26" width="12" height="12" rx="2" fill="#6FBDD1"></rect></svg>
+        <span class="brand-name" th:text="#{common.app-name}">Caderly</span>
+      </a>
+      <span th:text="#{site.footer.tagline}">Policy clarity, without the gatekeeping.</span>
+      <a class="btn" th:href="@{/signup}" th:text="#{site.cta.start-free}">Start free</a>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <span class="head" th:text="#{site.footer.product}">Product</span>
+        <a th:href="@{/#features}" th:text="#{site.nav.features}">Features</a>
+        <a th:href="@{/#arithmetic}" th:text="#{site.nav.how}">How it works</a>
+        <a th:href="@{/#security}" th:text="#{site.nav.security}">Security</a>
+        <a th:href="@{/#pricing}" th:text="#{site.nav.pricing}">Pricing</a>
+      </div>
+      <div class="footer-col">
+        <span class="head" th:text="#{site.footer.account}">Account</span>
+        <a th:href="@{/signup}" th:text="#{site.cta.start-free}">Start free</a>
+        <a th:href="@{/login}" th:text="#{site.nav.login}">Log in</a>
+        <a th:href="@{/#faq}" th:text="#{site.nav.faq}">FAQ</a>
+      </div>
+      <div class="footer-col">
+        <span class="head" th:text="#{site.footer.legal}">Legal</span>
+        <a th:href="'mailto:' + #{site.contact-email}" th:text="#{site.footer.contact}">Contact</a>
+        <a th:href="@{/terms}" th:text="#{site.legal.terms.title}">Terms of Service</a>
+        <a th:href="@{/privacy}" th:text="#{site.legal.privacy.title}">Privacy Policy</a>
+        <a th:href="@{/dpa}" th:text="#{site.legal.dpa.title}">Data Processing Agreement</a>
+      </div>
+    </div>
+  </div>
+  <div class="wrap footer-base" th:text="#{site.footer.copyright}">© 2026 Hasan Kagalwala</div>
+</footer>
+</body>
+</html>

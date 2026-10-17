@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.legal.privacy.title}, #{site.home.description}, ~{::main})}">
+<body>
+<!--/* Legal document, not UI strings: kept whole in English here rather than in messages.properties
+       (ADR 0022 decision G). A future locale gets its own reviewed translation of the document. */-->
+<main id="main">
+  <div class="draft-banner" role="note" th:text="#{site.legal.draft-banner}">Draft under legal review.</div>
+  <article class="legal">
+    <h1 th:text="#{site.legal.privacy.title}">Title</h1>
+    <p class="small-muted" th:text="#{site.legal.last-updated}">Last updated: [date of publishing]</p>
+<p>This policy covers the personal data Caderly collects for itself: from people who visit caderly.app, sign up, or sign in. Hasan Kagalwala is responsible for that data.</p>
+<p>Employee data your company puts into its workspace is different. Your employer decides what goes in and why, and we only process it on their behalf under our <a href="/dpa">Data Processing Agreement</a>. If you have a question about that data, ask your employer first.</p>
+<h2>What we collect, and why</h2>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Examples</th>
+<th>Why we need it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sign-up details</td>
+<td>Name, work email, company name, workspace address, time zone, weekend days</td>
+<td>To create the workspace and confirm the email address is real</td>
+</tr>
+<tr>
+<td>Account details</td>
+<td>Email, hashed password (we never see or store it in readable form), role</td>
+<td>To let you sign in and decide what you can see</td>
+</tr>
+<tr>
+<td>Sign-in and security records</td>
+<td>IP address, browser, time of sign-in, failed attempts, changes made</td>
+<td>To keep accounts safe, lock out repeated wrong passwords, and keep the audit log your Admins rely on</td>
+</tr>
+<tr>
+<td>Messages to us</td>
+<td>Emails to [Contact email]</td>
+<td>To answer you</td>
+</tr>
+</tbody>
+</table>
+<p>We don't use advertising trackers, analytics cookies or third-party marketing tools. Caderly sets one essential cookie that keeps you signed in, and it is deleted when you sign out or your session ends.</p>
+<h2>Who we share it with</h2>
+<p>We share it with no one except the services needed to run Caderly:</p>
+<ul>
+<li>[Server location / hosting]: stores the service and its backups.</li>
+<li>[Email provider]: delivers sign-up, invite, password-reset and notification emails.</li>
+</ul>
+<p>We also disclose data if the law requires it. We don't sell personal data.</p>
+<h2>Where it is stored</h2>
+<p>On our server in [Server location]. If that is outside your country, we protect the transfer as described in the Data Processing Agreement.</p>
+<h2>How long we keep it</h2>
+<ul>
+<li>A sign-up whose email isn't confirmed within 24 hours is deleted.</li>
+<li>Account details are kept while the workspace exists.</li>
+<li>Sign-in and security records: at least 1 year, then deleted.</li>
+<li>When a workspace closes, its data is deleted after 30 days, and backups age out within a further 30 days.</li>
+</ul>
+<h2>How we protect it</h2>
+<p>Traffic is encrypted with HTTPS. Passwords are hashed with BCrypt. Sensitive employee fields are encrypted in the database. Each company's data is kept separate both in the application and by row-level security in the database. 5 wrong passwords lock an account for 15 minutes. Backups run every night.</p>
+<h2>Your rights</h2>
+<p>You can ask to see, correct, export or delete the personal data we hold about you, or object to how we use it. Email [Contact email]. We'll reply within 30 days. If your question is about employee data in your company's workspace, we'll pass it to your employer and help them respond. You can also complain to your local data protection authority, such as the UAE Data Office.</p>
+<h2>Children</h2>
+<p>Caderly is for organisations and isn't meant for anyone under 18.</p>
+<h2>Changes</h2>
+<p>We'll post changes here and email workspace Admins about material ones.</p>
+<h2>Contact</h2>
+<p>Hasan Kagalwala, [Postal address], [Contact email]</p>
+  </article>
+</main>
+</body>
+</html>

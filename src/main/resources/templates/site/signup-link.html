@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.signup-link.title}, #{site.home.description}, ~{::main})}">
+<body>
+<main id="main" class="auth-page">
+  <div class="auth-main">
+    <div class="auth-card" role="status">
+      <th:block th:if="${problem == 'taken'}">
+        <h1 th:text="#{site.signup-link.taken.heading}">That address was taken</h1>
+        <p class="sub" style="margin:0" th:text="#{site.signup-link.taken.body(${workspaceHost})}">Someone else claimed acme.caderly.app before your link was opened. Nothing was created.</p>
+      </th:block>
+      <th:block th:unless="${problem == 'taken'}">
+        <h1 th:text="#{site.signup-link.invalid.heading}">This link has expired or was already used</h1>
+        <p class="sub" style="margin:0" th:text="#{site.signup-link.invalid.body}">Links work once, for 24 hours. If you already set a password, sign in from the Log in page.</p>
+      </th:block>
+      <a class="btn btn-primary btn-lg btn-block" th:href="@{/signup}" th:text="#{site.signup-link.start-again}">Start again</a>
+      <a class="centered" th:href="@{/login}" th:text="#{site.nav.login}">Log in</a>
+    </div>
+  </div>
+</main>
+</body>
+</html>

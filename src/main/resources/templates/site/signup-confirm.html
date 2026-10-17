@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.signup-confirm.title}, #{site.home.description}, ~{::main})}">
+<body>
+<main id="main" class="auth-page">
+  <div class="auth-main">
+    <div class="auth-card">
+      <h1 th:text="#{site.signup-confirm.heading}">Create your workspace</h1>
+      <p class="sub" style="margin:0" th:text="#{site.signup-confirm.body(${pending.companyName()}, ${pending.workspaceHost()})}">Acme Trading will get acme.caderly.app. Next you'll set your password.</p>
+      <!--/* A button, not an automatic redirect: mail scanners open links too (ADR 0022 decision C). */-->
+      <form th:action="@{/signup/verify}" method="post">
+        <input type="hidden" name="token" th:value="${token}" />
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="confirm-signup" th:text="#{site.signup-confirm.submit}">Create workspace</button>
+      </form>
+    </div>
+  </div>
+</main>
+</body>
+</html>

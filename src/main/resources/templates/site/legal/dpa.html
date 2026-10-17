@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.legal.dpa.title}, #{site.home.description}, ~{::main})}">
+<body>
+<!--/* Legal document, not UI strings: kept whole in English here rather than in messages.properties
+       (ADR 0022 decision G). A future locale gets its own reviewed translation of the document. */-->
+<main id="main">
+  <div class="draft-banner" role="note" th:text="#{site.legal.draft-banner}">Draft under legal review.</div>
+  <article class="legal">
+    <h1 th:text="#{site.legal.dpa.title}">Title</h1>
+    <p class="small-muted" th:text="#{site.legal.last-updated}">Last updated: [date of publishing]</p>
+<p>This agreement forms part of the <a href="/terms">Terms of Service</a>. It applies whenever Caderly processes personal data that the Customer puts into its workspace. The Customer is the <strong>controller</strong>: it decides what data goes in and why. Hasan Kagalwala is the <strong>processor</strong>: he processes the data only to run Caderly for the Customer.</p>
+<h2>1. Scope of processing</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Purpose</td>
+<td>Providing the Caderly HR service: records, leave, calendar, documents, reports, audit log, email notifications</td>
+</tr>
+<tr>
+<td>People concerned</td>
+<td>The Customer's employees, contractors, interns and invited Users</td>
+</tr>
+<tr>
+<td>Types of data</td>
+<td>Name, work and personal contact details, date of birth, gender, marital status, nationality and citizenship, address, job and employment details, manager, leave requests and balances, compensation and bonus (Admins only), uploaded documents such as IDs, sign-in and audit records</td>
+</tr>
+<tr>
+<td>Sensitive data</td>
+<td>None is required. If the Customer uploads it (for example a medical note with sick leave), the Customer is responsible for having a legal basis</td>
+</tr>
+<tr>
+<td>Duration</td>
+<td>While the workspace exists, plus the deletion periods in section 8</td>
+</tr>
+</tbody>
+</table>
+<h2>2. Instructions</h2>
+<p>We process Customer personal data only on the Customer's documented instructions. These Terms, and the way the Customer's Admins configure and use Caderly, are those instructions. If we think an instruction breaks data protection law, we'll say so. We won't use the data for any other purpose, including advertising, profiling or AI training.</p>
+<h2>3. Confidentiality and support access</h2>
+<p>Only Hasan Kagalwala has administrative access to the service, and he is bound by confidentiality. We only access a workspace's contents when the Customer asks for support, or when it's needed to keep the service secure. Every support session is recorded in the Customer's own audit log under a separate support role.</p>
+<h2>4. Security measures</h2>
+<ul>
+<li>HTTPS for all traffic. Passwords hashed with BCrypt.</li>
+<li>Sensitive employee fields encrypted in the database. The keys are kept apart from the data.</li>
+<li>Each Customer's data is separated in the application and again by row-level security in the database. Automated tests check this separation.</li>
+<li>Account lockout after 5 failed sign-ins for 15 minutes. Sessions end immediately on password change, role change or termination.</li>
+<li>Audit log of every change and sign-in, visible to the Customer's Admins.</li>
+<li>The admin console can only be reached from allow-listed network addresses.</li>
+<li>Nightly database backups, kept for 30 days.</li>
+</ul>
+<h2>5. Sub-processors</h2>
+<p>The Customer authorises these sub-processors:</p>
+<table>
+<thead>
+<tr>
+<th>Sub-processor</th>
+<th>What it does</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>[Hosting / data centre provider]</td>
+<td>Hosts the server and backups</td>
+<td>[Server location]</td>
+</tr>
+<tr>
+<td>[Email provider]</td>
+<td>Sends emails to Users</td>
+<td>[Location]</td>
+</tr>
+</tbody>
+</table>
+<p>We'll email Admins at least 30 days before adding or replacing a sub-processor. The Customer may object on reasonable data protection grounds. If we can't resolve the objection, the Customer may close its workspace. Each sub-processor is bound by data protection terms at least as protective as these.</p>
+<h2>6. International transfers</h2>
+<p>Customer data is stored in [Server location]. Where that is outside the Customer's country, including transfers out of the UAE under Federal Decree-Law 45 of 2021, the parties agree that these clauses act as the contractual safeguards for the transfer. The protections in this agreement travel with the data wherever it is processed.</p>
+<h2>7. Personal data breaches</h2>
+<p>We'll notify the Customer's Admins without undue delay, and in any case within 48 hours of becoming aware of a breach affecting their data. That leaves the Customer time to meet its own regulator deadlines, such as the 72 hours commonly applied in the UAE. The notice will include what happened, what data and how many people are affected, what we've done to contain it, and a contact for questions. We'll keep the Customer updated as we learn more.</p>
+<h2>8. Deletion and return</h2>
+<ul>
+<li>The Customer can export its reports to CSV at any time, and can ask us for a full export.</li>
+<li>When a workspace closes, access stops immediately. Customer data is permanently deleted after 30 days, and backups containing it age out within a further 30 days.</li>
+<li>Within the workspace, the Customer's retention settings apply. For example, terminated employees' records are kept 7 years by default.</li>
+<li>We'll confirm deletion in writing on request.</li>
+</ul>
+<h2>9. Helping the Customer</h2>
+<p>We'll help the Customer, as far as Caderly reasonably allows, to answer employees' requests to access, correct or delete their data. We'll also help with impact assessments and regulator enquiries. If a person contacts us directly about Customer data, we'll pass the request to the Customer and won't answer it ourselves unless told to.</p>
+<h2>10. Audits</h2>
+<p>On reasonable written request, once a year, we'll answer a security questionnaire and provide the information needed to show we comply with this agreement.</p>
+<h2>11. Order of precedence</h2>
+<p>If this agreement conflicts with the Terms of Service on personal data, this agreement wins.</p>
+  </article>
+</main>
+</body>
+</html>

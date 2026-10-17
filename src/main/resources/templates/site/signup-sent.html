@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.signup-sent.title}, #{site.home.description}, ~{::main})}">
+<body>
+<main id="main" class="auth-page">
+  <div class="auth-main">
+    <div class="auth-card">
+      <div class="icon-badge" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0F5568" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3.5 6l8.5 7 8.5-7"></path></svg>
+      </div>
+      <h1 th:text="#{site.signup-sent.heading}">Check your email</h1>
+      <!--/* The flash attributes are gone on a reload; the page still makes sense without them. */-->
+      <p class="sub" style="margin:0" th:if="${sentTo != null}"
+         th:text="#{site.signup-sent.body(${sentTo}, ${workspaceHost})}">We sent a link to aisha@acme.com. Open it to create acme.caderly.app.</p>
+      <p class="sub" style="margin:0" th:unless="${sentTo != null}" th:text="#{site.signup-sent.body-generic}">We sent a confirmation link to the address you entered.</p>
+      <div class="facts">
+        <div class="line"><span class="k" th:text="#{site.signup-sent.valid-for}">Link works for</span><span class="v" th:text="#{site.signup-sent.valid-for-value}">24 hours</span></div>
+        <div class="line" th:if="${workspaceHost != null}"><span class="k" th:text="#{site.signup-sent.held}">Address held for you</span><span class="v" th:text="${workspaceHost}">acme.caderly.app</span></div>
+        <span class="small-muted" th:text="#{site.signup-sent.release}">If the link isn't opened by then, the address is released and nothing is kept.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <strong th:text="#{site.signup-sent.no-email}">No email after a few minutes?</strong>
+        <ul style="margin:0;padding-left:20px;color:#4A5160">
+          <li th:text="#{site.signup-sent.check-spam}">Look in spam or promotions.</li>
+          <li><span th:text="#{site.signup-sent.typo}">Typo in the address?</span> <a th:href="@{/signup}" th:text="#{site.signup-sent.start-again}">Start again</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

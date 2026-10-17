@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.signup.title}, #{site.home.description}, ~{::main})}">
+<body>
+<main id="main" class="auth-page">
+  <!--/* TalentHR's "All set in seconds" pattern: one card over a blurred glimpse of the product. */-->
+  <div class="auth-backdrop" aria-hidden="true">
+    <div class="side"></div>
+    <div class="board"><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile low span2"></div><div class="tile low"></div></div>
+  </div>
+  <div class="auth-veil" aria-hidden="true"></div>
+
+  <div class="auth-main">
+    <div class="auth-card">
+
+      <th:block th:unless="${signupOpen}">
+        <h1 th:text="#{site.signup.closed.heading}">New workspaces are paused</h1>
+        <p class="sub" style="margin:0">
+          <span th:text="#{site.signup.closed.body}">Existing workspaces aren't affected. Write to</span>
+          <a th:href="'mailto:' + #{site.contact-email}" th:text="#{site.contact-email}">support@caderly.app</a>
+        </p>
+      </th:block>
+
+      <th:block th:if="${signupOpen}">
+        <h1 th:text="#{site.signup.heading}">Create your free workspace</h1>
+        <p class="sub" th:text="#{site.signup.sub}">Up to 50 employees. No credit card.</p>
+
+        <div class="alert alert-warn" role="alert" th:if="${param.rateLimited}" th:text="#{site.signup.rate-limited}">Too many sign-ups from here. Try again in an hour.</div>
+        <div class="alert alert-warn" role="alert" th:if="${pageError}" th:text="${pageError}">Error</div>
+
+        <form th:action="@{/signup}" th:object="${form}" method="post" novalidate
+              id="signup-form" th:attr="data-has-errors=${#fields.hasErrors('*')},data-base-domain=${baseDomain}"
+              style="display:flex;flex-direction:column;gap:20px">
+
+          <div class="field" th:classappend="${#fields.hasErrors('adminEmail')} ? 'invalid'">
+            <label for="adminEmail" th:text="#{site.signup.email.label}">Work email</label>
+            <input type="email" id="adminEmail" th:field="*{adminEmail}" autocomplete="email" required
+                   th:placeholder="#{site.signup.email.placeholder}" aria-describedby="adminEmail-error" />
+            <span class="error" id="adminEmail-error" th:if="${#fields.hasErrors('adminEmail')}" th:errors="*{adminEmail}">Error</span>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-lg btn-block" id="signup-continue" hidden th:text="#{site.signup.continue}">Continue</button>
+
+          <div class="js-step2" id="signup-step2">
+            <div class="field" th:classappend="${#fields.hasErrors('companyName')} ? 'invalid'">
+              <label for="companyName" th:text="#{site.signup.company.label}">Company name</label>
+              <input type="text" id="companyName" th:field="*{companyName}" autocomplete="organization" required
+                     th:placeholder="#{site.signup.company.placeholder}" />
+              <span class="error" th:if="${#fields.hasErrors('companyName')}" th:errors="*{companyName}">Error</span>
+            </div>
+
+            <div class="field" th:classappend="${#fields.hasErrors('slug')} ? 'invalid'">
+              <label for="slug" th:text="#{site.signup.address.label}">Workspace address</label>
+              <div class="addr">
+                <input type="text" id="slug" th:field="*{slug}" autocapitalize="none" spellcheck="false" required
+                       maxlength="50" th:placeholder="#{site.signup.address.placeholder}" aria-describedby="slug-status" />
+                <span class="suffix" th:text="'.' + ${baseDomain}">.caderly.app</span>
+              </div>
+              <span id="slug-status" class="addr-status" aria-live="polite"
+                    th:classappend="${#fields.hasErrors('slug')} ? 'no'"
+                    th:text="${#fields.hasErrors('slug')} ? ${#strings.listJoin(#fields.errors('slug'), ' ')} : #{site.signup.address.hint}">Lowercase letters, numbers and hyphens.</span>
+            </div>
+
+            <div class="row-2">
+              <div class="field" th:classappend="${#fields.hasErrors('adminName')} ? 'invalid'">
+                <label for="adminName" th:text="#{site.signup.name.label}">Your name</label>
+                <input type="text" id="adminName" th:field="*{adminName}" autocomplete="name" required />
+                <span class="error" th:if="${#fields.hasErrors('adminName')}" th:errors="*{adminName}">Error</span>
+              </div>
+              <div class="field" th:classappend="${#fields.hasErrors('timezone')} ? 'invalid'">
+                <label for="timezone" th:text="#{site.signup.timezone.label}">Time zone</label>
+                <select id="timezone" th:field="*{timezone}">
+                  <option th:each="zone : ${timeZones}" th:value="${zone}" th:text="${zone}">Asia/Dubai</option>
+                </select>
+                <span class="error" th:if="${#fields.hasErrors('timezone')}" th:errors="*{timezone}">Error</span>
+              </div>
+            </div>
+
+            <fieldset class="field">
+              <legend th:text="#{site.signup.weekend.label}">Weekend</legend>
+              <div class="choices">
+                <label th:each="w : ${weekends}">
+                  <input type="radio" th:field="*{weekend}" th:value="${w.name()}" />
+                  <span th:text="#{${w.messageKey()}}">Sat–Sun</span>
+                </label>
+              </div>
+              <span class="hint" th:text="#{site.signup.weekend.hint}">Leave durations skip these days.</span>
+            </fieldset>
+
+            <!--/* Honeypot (ADR 0022 decision E): hidden from people and assistive tech. */-->
+            <div class="honeypot" aria-hidden="true">
+              <label for="website">Website</label>
+              <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
+            </div>
+
+            <div class="field" th:classappend="${#fields.hasErrors('acceptTerms')} ? 'invalid'">
+              <label class="check">
+                <input type="checkbox" th:field="*{acceptTerms}" />
+                <span>
+                  <span th:text="#{site.signup.terms.prefix}">I agree to the</span>
+                  <a th:href="@{/terms}" target="_blank" th:text="#{site.legal.terms.title}">Terms of Service</a>,
+                  <a th:href="@{/privacy}" target="_blank" th:text="#{site.legal.privacy.title}">Privacy Policy</a>
+                  <span th:text="#{site.signup.terms.and}">and</span>
+                  <a th:href="@{/dpa}" target="_blank" th:text="#{site.legal.dpa.title}">Data Processing Agreement</a>.
+                </span>
+              </label>
+              <span class="error" th:if="${#fields.hasErrors('acceptTerms')}" th:errors="*{acceptTerms}">Error</span>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-block" th:text="#{site.signup.submit}">Create workspace</button>
+            <p class="small-muted centered" style="margin:-6px 0 0" th:text="#{site.signup.after}">We'll email you a link to confirm.</p>
+          </div>
+        </form>
+
+        <div class="divider"></div>
+        <p class="small-muted centered" style="margin:0">
+          <span th:text="#{site.signup.have-workspace}">Already have a workspace?</span>
+          <a th:href="@{/login}" style="font-weight:600" th:text="#{site.nav.login}">Log in</a>
+        </p>
+      </th:block>
+    </div>
+  </div>
+</main>
+</body>
+</html>

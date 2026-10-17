@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.login.title}, #{site.home.description}, ~{::main})}">
+<body>
+<main id="main" class="auth-page">
+  <div class="auth-main">
+    <div class="auth-card">
+      <h1 th:text="#{site.login.heading}">Log in</h1>
+      <p class="sub" th:text="#{site.login.sub}">Each company has its own address. Enter yours and we'll take you to its sign-in page.</p>
+      <!--/* GET, not POST: this only builds a URL, and a bookmarkable form needs no CSRF token. */-->
+      <form th:action="@{/login/go}" method="get" style="display:flex;flex-direction:column;gap:16px">
+        <div class="field" th:classappend="${invalidWorkspace} ? 'invalid'">
+          <label for="workspace" th:text="#{site.login.workspace.label}">Workspace address</label>
+          <div class="addr">
+            <input type="text" id="workspace" name="workspace" th:value="${workspace}" autocapitalize="none" spellcheck="false"
+                   required maxlength="80" th:placeholder="#{site.login.workspace.placeholder}" aria-describedby="workspace-error" />
+            <span class="suffix" th:text="'.' + ${baseDomain}">.caderly.app</span>
+          </div>
+          <span class="error" id="workspace-error" th:if="${invalidWorkspace}" th:text="#{site.login.workspace.invalid}">That isn't a workspace address.</span>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg btn-block" th:text="#{site.login.submit}">Go to sign-in page</button>
+      </form>
+      <div class="divider"></div>
+      <p class="small-muted centered" style="margin:0" th:text="#{site.login.forgot}">Don't know your address? Ask whoever invited you, or look for it in your invite email.</p>
+      <p class="small-muted centered" style="margin:0">
+        <span th:text="#{site.login.new}">New to Caderly?</span>
+        <a th:href="@{/signup}" style="font-weight:600" th:text="#{site.login.create}">Create a workspace</a>
+      </p>
+    </div>
+  </div>
+</main>
+</body>
+</html>
