@@ -61,9 +61,10 @@ com.caderly.caderlyhr
 ├── reports         # Report services
 ├── storage         # FileStorage interface + Local + S3 impls
 ├── security        # SecurityConfig, TotpService
-├── web             # Thymeleaf controllers (server-rendered)
+├── web             # Thymeleaf controllers (server-rendered), incl. the public site (@PublicSiteController)
 ├── api             # REST controllers under /api/v1
 ├── superadmin      # Cross-tenant console (separate security realm)
+├── signup          # Self-serve workspace sign-up: PendingSignup, SignupService (ADR 0022)
 └── common          # BaseEntity, TenantAwareEntity, exceptions, utils
 ```
 

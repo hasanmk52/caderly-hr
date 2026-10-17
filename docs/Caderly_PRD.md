@@ -54,7 +54,9 @@ To be the HR system a small-to-mid-sized company actually enjoys using — fast,
 - Attendance / clock-in-out / shift management.
 - Applicant Tracking System (ATS).
 - Learning Management System (LMS).
-- Public marketing site + self-serve billing.
+- Self-serve billing (paid plans, Stripe). The public site and free self-serve sign-up moved into
+  Phase 1 (Implementation Plan 1.15, ADR 0022); v1 is free to use, capped at 50 employees per
+  self-serve workspace.
 - Custom domains per tenant (subdomains only in MVP).
 - Native mobile app (mobile-responsive web is enough).
 - Multi-currency payroll.
@@ -244,7 +246,8 @@ Grouped by module. Detailed acceptance criteria in §10.
 17. Leave balance & utilization reports (CSV export)
 18. Headcount report
 19. iCal calendar feed (self)
-20. Docker deploy + Debian install guide
+20. Public site + free self-serve workspace sign-up with email verification (ADR 0022)
+21. Docker deploy + Debian install guide
 
 **Phase 2:**
 - TOTP MFA (mandatory for Admin)
@@ -267,7 +270,7 @@ Grouped by module. Detailed acceptance criteria in §10.
 **Phase 4:**
 - Recruitment / ATS module
 - Learning Management module
-- Marketing site + self-serve billing (Stripe)
+- Self-serve billing (Stripe) on top of the Phase 1 public site
 - Native mobile app
 
 ---

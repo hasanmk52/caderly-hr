@@ -1,10 +1,32 @@
 # Current Sub-Phase
 
-**Working on:** Phase 1.15 — Deployment & Ops
-**Branch:** `phase-1.15-deployment` (not yet created — create it before writing any code)
+**Working on:** Phase 1.16 — Deployment & Ops
+**Branch:** `phase-1.16-deployment` (not yet created — create it before writing any code)
 **Goal:** MHZ's instance runs on a real VPS: Docker Compose (app + reverse proxy only, Postgres
-native on the host), automatic TLS, nightly backups, and an install guide a solo engineer can
-follow end-to-end without guessing.
+native on the host), automatic TLS for the apex, `www` and every tenant subdomain, nightly backups,
+and an install guide a solo engineer can follow end-to-end without guessing.
+
+## Phase 1.15 — Public Site & Self-Serve Sign-up (complete)
+
+**Branch:** `phase-1.15-public-site`
+**Goal:** The base domain serves a marketing site (home, sign-up, find-your-workspace, Terms,
+Privacy, DPA), and a visitor can create a free workspace without the Super Admin: verify their
+email, and the tenant + first Admin are provisioned automatically. **Design record:** ADR 0022.
+**Verified:** `tenant.SlugPolicyTest` (format, length, reserved list), `signup.SignupServiceTest`
+(start → email queued, verify → tenant + Admin invite, expired/used/unknown links, address taken
+between start and verify, same-email restart, purge), `signup.SignupServiceClosedTest` (kill
+switch), `web.PublicSiteAccessControlTest` (site pages open on the base domain only, tenant routes
+404 there even when signed in, `/login` on a tenant host is still the tenant form, CSRF, honeypot,
+rate limit, reserved address, terms box, `/login/go` open-redirect guard),
+`tenant.TenantResolutionFilterTest` (apex and `www` tagged as the public site, tenant hosts not),
+`people.EmployeeSeatLimitTest` (cap enforced, terminated employees free a seat, other tenants and
+NULL limits unaffected), `superadmin.SuperAdminTenantControllerTest` (console refuses reserved
+slugs), `notifications.EmailTemplateRenderTest` (`signup-verify`), ArchUnit, full suite.
+
+**Before turning sign-up on in production:** `CADERLY_SIGNUP_ENABLED` defaults to `false`. The
+Terms, Privacy Policy and DPA ship as drafts behind a visible "draft" banner, with placeholders
+(legal entity, address, governing law) still to fill. Have them reviewed, fill the placeholders,
+remove the banner, then set the flag.
 
 ## Phase 1.14 — Dashboard Customization (complete)
 
@@ -64,7 +86,7 @@ the reasoning for not needing ADR 0003/0004's deferred `BYPASSRLS` work: **ADR 0
 
 ## Read these before doing anything
 
-1. `docs/Caderly_Implementation_Plan.md` — the "1.15 Deployment & Ops" section under Phase 1 —
+1. `docs/Caderly_Implementation_Plan.md` — the "1.16 Deployment & Ops" section under Phase 1 —
    MVP.
 2. `docs/Caderly_PRD.md` — whatever sections cover deployment/ops expectations (backup cadence,
    TLS, the "PostgreSQL is external" architecture decision already locked in CLAUDE.md §3).
@@ -92,13 +114,15 @@ the reasoning for not needing ADR 0003/0004's deferred `BYPASSRLS` work: **ADR 0
   loopback. The Caddyfile this phase writes must satisfy that requirement for the whole app, not
   just the Super Admin console.
 
-## Remaining Phase 1.15 work
+## Remaining Phase 1.16 work
 
 ### Infra
 - Multi-stage `Dockerfile`, distroless JRE 25 base image pinned by digest (CLAUDE.md §6 A08).
 - `docker-compose.yml` with `caderly-app` + `caddy` only — no Postgres service; the app connects
   to the host's native Postgres 17 (`host.docker.internal:5432` or the host's LAN IP).
-- `Caddyfile` with automatic TLS for `*.caderly.app` (or the chosen domain).
+- `Caddyfile` with automatic TLS for `*.caderly.app`, the apex `caderly.app` and `www.caderly.app`
+  (or the chosen domain). The apex and `www` must reach the app with their own `Host` header: the
+  public site is chosen by host (ADR 0022 decision A).
 - Nightly `pg_dump` cron on the host, uploaded off-site to S3.
 - `.env.example` documenting every env var this app already reads (DB URL/user/password, SMTP,
   encryption key, Super Admin bootstrap credentials, IP allowlist) — no new secrets, just
@@ -107,7 +131,9 @@ the reasoning for not needing ADR 0003/0004's deferred `BYPASSRLS` work: **ADR 0
   `pg_hba.conf` for local + Docker-bridge access, then `docker compose up -d`.
 - Prometheus scrape endpoint (via the already-present Actuator, exposed per CLAUDE.md §6 A05's
   management-port + auth rule).
-- Wildcard DNS setup guide.
+- Wildcard DNS setup guide, including the apex and `www` records.
+- `.env.example` and `INSTALL.md` cover `CADERLY_SIGNUP_ENABLED` (off by default; see the Phase
+  1.15 note above).
 - Optional Kubernetes/cloud variant documented separately (same image, external managed Postgres
   — RDS/Cloud SQL/Neon — same env vars, no code change).
 
@@ -116,12 +142,13 @@ the reasoning for not needing ADR 0003/0004's deferred `BYPASSRLS` work: **ADR 0
   end-to-end.
 - Restore-from-backup drill documented and run once.
 
-## Definition of Done for Phase 1.15
+## Definition of Done for Phase 1.16
 
 - MHZ's instance runs on a $10/mo Hetzner VPS: Postgres 17 native, Docker running `caderly-app` +
-  `caddy`, wildcard TLS working for the chosen domain (e.g. `mhz.caderly.app`).
+  `caddy`, wildcard TLS working for the chosen domain (e.g. `mhz.caderly.app`), and the public site
+  answering on the apex and `www`.
 
-## Not in scope for Phase 1.15 — do not start any of this
+## Not in scope for Phase 1.16 — do not start any of this
 
 - Any Phase 2 feature work — this phase is infra-only.
 - Kubernetes/cloud-managed-Postgres as the primary deployment target — documented as an optional
@@ -235,10 +262,19 @@ These were accepted deviations, not oversights. Do not silently "fix" them; they
 - **Tenant-wide default dashboard layout is not built** (Phase 1.14, ADR 0021). Customization is per-user
   only; an Admin-set company default with per-user override was considered and deliberately left
   out. Revisit only if a pilot tenant asks for it.
+- **No CAPTCHA on sign-up, and disposable-email domains are not blocked** (Phase 1.15, ADR 0022
+  decision E). Email verification, per-IP and per-email rate limits, the honeypot and the kill
+  switch are the controls. Add a CAPTCHA (which needs a CSP change and a third-party script) only
+  if real sign-up abuse appears.
+- **The seat limit has no editor in the Super Admin console** (Phase 1.15, ADR 0022 decision F).
+  Self-serve workspaces get `caderly.signup.seat-limit` (50); console-created tenants get NULL (no
+  cap). Raising one workspace's cap is a one-line SQL update until a console field is worth building.
+- **The legal pages are drafts** (Phase 1.15, ADR 0022 decision G) — see the note under the Phase
+  1.15 heading above. Their text lives in the templates, not `messages.properties`, by design.
 
 ## When you finish
 
 1. Confirm every DoD item above with a specific test or command result — do not claim done from vibes.
-2. Update this file to whatever sub-phase comes next (this file's 1.14 → 1.15 update is the template).
+2. Update this file to whatever sub-phase comes next (this file's 1.15 → 1.16 update is the template).
 3. Commit the sub-phase branch and open a PR against `main`.
 4. Do not start the next phase in the same session.

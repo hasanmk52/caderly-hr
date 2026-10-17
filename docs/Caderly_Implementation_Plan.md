@@ -448,19 +448,46 @@ Bootstrap the project skeleton, CI, and local dev experience so the first featur
 
 ---
 
-### 1.15 Deployment & Ops (1 week)
+### 1.15 Public Site & Self-Serve Sign-up (1 week)
+
+**Features:** A marketing site on the base domain (`caderly.app` and `www.caderly.app`): home page describing only what is built, a free self-serve sign-up, a find-your-workspace sign-in, and Terms / Privacy / DPA pages. Sign-up creates a tenant and its first Admin without the Super Admin, after the visitor verifies their email. Free; no billing (PRD §3.3). **Design record:** ADR 0022.
+
+**DB changes:** `tenant.seat_limit` (nullable int; NULL = no cap). New system table `pending_signup` (no RLS: it exists before any tenant does) holding the hashed verification token, 24-hour expiry.
+
+**Backend:**
+- `TenantResolutionFilter` tags base-domain and `www` requests as the public site instead of 404ing them; tenant subdomains are unchanged.
+- A third security chain, host-matched, at `@Order(50)`: the site's own pages are open, everything else on the base domain is denied as a 404.
+- `@PublicSiteController` + a custom request condition so the site's `/` and `/login` coexist with the tenant app's.
+- `SlugPolicy`: format, 3-character minimum for self-serve, reserved list (applies to the Super Admin console too).
+- `signup` package: `SignupService` (start → email via the outbox; verify → `TenantProvisioningService.provisionSelfServe` → redirect to the first Admin's accept-invite link), hourly cleanup job.
+- Abuse controls: email verification, rate limits (5 sign-ups/hour/IP, 3/day/email, 60 address checks/min/IP), honeypot field, `CADERLY_SIGNUP_ENABLED` kill switch (off by default), 50-employee seat cap enforced in `EmployeeService.create`.
+
+**Frontend:** `site-layout.html` + `site/*` templates, `site.css` / `site.js` served from `'self'` (CSP unchanged). Live address-availability check. Strings in `messages.properties` (`site.*`); the legal texts are the one exception (ADR 0022 decision G) and ship behind a "draft" banner.
+
+**Testing:**
+- Unit: `SlugPolicy`; kill switch.
+- Integration: start/verify happy path, expired/used/unknown token, address taken between start and verify, restart with the same email, purge; seat limit per tenant.
+- Access control: site pages open on the base domain, tenant routes 404 there (also when signed in), site pages absent on tenant hosts, CSRF, honeypot, rate limit, open-redirect guard on `/login/go`.
+
+**DoD:** A visitor can create a workspace from the base domain, confirm by email, set a password and land in their new tenant as Admin — with sign-up switchable off, rate-limited and capped at 50 employees, and no tenant route reachable on the base domain.
+
+**Complexity:** M. **Depends on:** 1.13.
+
+---
+
+### 1.16 Deployment & Ops (1 week)
 
 **Features:** Debian install guide, Docker Compose file (app + reverse proxy only — Postgres is native on the host), backup, TLS.
 
 **Tasks:**
 - Multi-stage Dockerfile with distroless JRE 25.
 - `docker-compose.yml` with `caderly-app` + `caddy` only. Postgres is installed natively on the Debian host via `apt install postgresql-17`. The app connects to `host.docker.internal:5432` (or the host's LAN IP) — documented in `INSTALL.md`.
-- Caddyfile with automatic TLS for `*.caderly.app`.
+- Caddyfile with automatic TLS for `*.caderly.app`, the apex and `www` (the public site, 1.15).
 - Nightly `pg_dump` cron on the host, upload to off-site S3.
 - `.env.example` documented (DB URL, DB user, DB password, SMTP, encryption key, etc. — no DB service inside compose).
 - `INSTALL.md` for MHZ Debian VPS: install Java tooling only if needed for admin scripts, install Postgres 17 via apt, create `caderly` role + `caderly` database, `pg_hba.conf` config for local + Docker bridge access, then `docker compose up -d`.
 - Prometheus scrape endpoint.
-- Wildcard DNS setup guide.
+- Wildcard DNS setup guide, including apex and `www` records.
 - Optional Kubernetes / cloud variant documented separately: same image, external managed Postgres (RDS / Cloud SQL / Neon), same env vars — no code change.
 
 **Testing:**
@@ -679,7 +706,7 @@ Why in this order?
 - **1.5 → 1.6** because leave depends on types + balances existing.
 - **1.10, 1.11** intentionally cheap and near end — they wrap existing features rather than create new ones.
 - **1.14 (dashboard customization)** slots in after the 1.10–1.13 wrap-up phases because it only rearranges the 1.9 widgets that already exist.
-- **1.15 (deploy)** last because you don't want to iterate on infra with no product to test it.
+- **1.16 (deploy)** last because you don't want to iterate on infra with no product to test it.
 - **Phase 1.5** inserted before Phase 2 to lock security and enable real MHZ migration.
 - **Phase 2** adds depth once the base is stable and you have real MHZ usage feedback.
 - **Phase 3** is your explicitly-flagged priority module.

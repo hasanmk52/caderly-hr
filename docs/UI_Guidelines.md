@@ -442,4 +442,26 @@ If you can't answer these in one line each, don't write the template yet.
 
 ---
 
+## 17. Public site (base domain)
+
+The marketing site, sign-up and legal pages on `caderly.app` / `www.caderly.app` (ADR 0022) are a
+deliberate exception to §1–§14: they are a brochure, not an app screen, and they follow the
+structure of a conventional SaaS landing page rather than the sidebar/topbar shell.
+
+- **Layout:** `templates/site-layout.html` only. Never mix the tenant `layout.html` (sidebar,
+  topbar, Bootstrap JS) into a site page, or site styles into an app page.
+- **Styles:** `static/css/site.css`, standalone, no Bootstrap. It reuses the Caderly Design System
+  tokens (brand teal, ink scale, IBM Plex Sans for text, IBM Plex Mono for figures) declared at its
+  `:root`. New colours or type sizes go into those tokens first, same rule as §16 question 3.
+- **Script:** `static/js/site.js`, plain DOM, progressive enhancement only — every form works with
+  JavaScript off. No htmx or Alpine on the site. No inline script or `on*` attributes (CSP
+  `script-src 'self'`).
+- **Images:** `static/img/site/*.webp`, real photography; explicit `width`/`height` to avoid layout
+  shift, `loading="lazy"` below the fold.
+- **Copy:** only features that are built. Strings via `#{site.*}`; the legal texts are the one
+  exception (ADR 0022 decision G).
+- **Motion:** decorative animations are wrapped in `prefers-reduced-motion: no-preference`.
+
+---
+
 *End of UI Guidelines — v1.0*
