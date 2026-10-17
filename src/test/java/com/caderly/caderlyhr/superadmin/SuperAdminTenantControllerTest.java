@@ -208,6 +208,26 @@ class SuperAdminTenantControllerTest {
         assertThat(matching).isEqualTo(1);
     }
 
+    /** ADR 0022 decision D: the reserved list binds the console too, not only self-serve sign-up. */
+    @Test
+    void create_withAReservedSlug_reRendersTheFormWithTheReasonAndCreatesNothing() throws Exception {
+        MockHttpSession session = superAdminSession();
+
+        mockMvc.perform(createRequest(session, "www", uniqueEmail()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("reserved for Caderly itself")));
+
+        long matching =
+                asSystem(
+                        () ->
+                                transactions.execute(
+                                        status ->
+                                                tenantRepository.findAll().stream()
+                                                        .filter(t -> t.getSlug().equals("www"))
+                                                        .count()));
+        assertThat(matching).isZero();
+    }
+
     /**
      * Proves the fragment response, not just the underlying state change: a real htmx PATCH
      * never follows a redirect (there is none), and the response body it receives is the

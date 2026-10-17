@@ -232,18 +232,41 @@ public class TenantService implements TenantFacade {
      */
     @Override
     public UUID createTenant(String slug, String name, String timezone, int weekendDays, @Nullable String logoUrl) {
+        return createTenant(slug, name, timezone, weekendDays, logoUrl, null);
+    }
+
+    @Override
+    public UUID createTenant(
+            String slug,
+            String name,
+            String timezone,
+            int weekendDays,
+            @Nullable String logoUrl,
+            @Nullable Integer seatLimit) {
         UUID tenantId =
                 TenantContext.runAsSystem(
-                        "superadmin: create tenant " + slug,
+                        "create tenant " + slug,
                         () -> {
                             if (repository.existsBySlug(slug)) {
                                 throw new ConflictException(
                                         "TENANT_SLUG_TAKEN", "A tenant with that slug already exists");
                             }
-                            return repository.save(new Tenant(slug, name, timezone, weekendDays, logoUrl)).getId();
+                            Tenant tenant = new Tenant(slug, name, timezone, weekendDays, logoUrl);
+                            tenant.changeSeatLimit(seatLimit);
+                            return repository.save(tenant).getId();
                         });
         evictCache();
         return Objects.requireNonNull(tenantId);
+    }
+
+    @Override
+    public boolean isSlugTaken(String slug) {
+        return TenantContext.runAsSystem("check slug availability " + slug, () -> repository.existsBySlug(slug));
+    }
+
+    @Override
+    public Optional<Integer> currentSeatLimit() {
+        return Optional.ofNullable(requireCurrent().getSeatLimit());
     }
 
     @Override

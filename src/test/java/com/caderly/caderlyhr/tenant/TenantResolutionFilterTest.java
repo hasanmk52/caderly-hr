@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.caderly.caderlyhr.TestcontainersConfiguration;
@@ -68,8 +69,27 @@ class TenantResolutionFilterTest {
     }
 
     @Test
-    void home_whenNoSubdomain_returns404() throws Exception {
-        mockMvc.perform(get(URI.create("http://localhost/"))).andExpect(status().isNotFound());
+    void home_whenBaseDomain_servesThePublicSiteWithoutResolvingATenant() throws Exception {
+        // ADR 0022 decision A: the bare base domain is the public site, not an unknown tenant.
+        mockMvc.perform(get(URI.create("http://localhost/")))
+                .andExpect(status().isOk())
+                .andExpect(request().attribute(TenantResolutionFilter.PUBLIC_SITE_ATTRIBUTE, true))
+                .andExpect(request().attribute(TenantResolutionFilter.TENANT_ATTRIBUTE, (Object) null));
+    }
+
+    @Test
+    void home_whenWwwOnTheBaseDomain_servesThePublicSiteToo() throws Exception {
+        mockMvc.perform(get(URI.create("http://www.localhost/")))
+                .andExpect(status().isOk())
+                .andExpect(request().attribute(TenantResolutionFilter.PUBLIC_SITE_ATTRIBUTE, true));
+    }
+
+    @Test
+    void home_whenTenantSubdomain_isNotMarkedAsThePublicSite() throws Exception {
+        seedTenantIfAbsent("mhzgroup", "MHZ Group");
+
+        mockMvc.perform(get(URI.create("http://mhzgroup.localhost/")))
+                .andExpect(request().attribute(TenantResolutionFilter.PUBLIC_SITE_ATTRIBUTE, (Object) null));
     }
 
     @Test

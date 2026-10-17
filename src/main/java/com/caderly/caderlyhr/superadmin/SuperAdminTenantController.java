@@ -8,6 +8,7 @@ import com.caderly.caderlyhr.identity.ImpersonationService;
 import com.caderly.caderlyhr.identity.ImpersonationService.AdminAccount;
 import com.caderly.caderlyhr.people.PeopleFacade;
 import com.caderly.caderlyhr.security.SecurityPaths;
+import com.caderly.caderlyhr.tenant.SlugPolicy;
 import com.caderly.caderlyhr.tenant.TenantContext;
 import com.caderly.caderlyhr.tenant.TenantFacade;
 import com.caderly.caderlyhr.tenant.TenantFacade.TenantAdminView;
@@ -116,6 +117,15 @@ class SuperAdminTenantController {
     @PostMapping("/superadmin/tenants")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     String create(@Valid @ModelAttribute("tenantForm") TenantCreateForm form, BindingResult binding, Model model) {
+        // The reserved list is shared with self-serve sign-up (ADR 0022 decision D), so an address
+        // the public form refuses cannot be handed out from here by accident either.
+        if (!binding.hasFieldErrors("slug") && SlugPolicy.isReserved(form.slug())) {
+            binding.rejectValue(
+                    "slug",
+                    "TENANT_SLUG_RESERVED",
+                    messages.getMessage(
+                            "validation.tenant-create-form.slug.reserved", null, LocaleContextHolder.getLocale()));
+        }
         if (!binding.hasErrors()) {
             try {
                 provisioning.provision(

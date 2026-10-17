@@ -89,6 +89,52 @@ public class TenantProvisioningService {
         return tenantId;
     }
 
+    /**
+     * Self-serve sign-up's provisioning (ADR 0022 decision C): the same create-tenant-then-invite
+     * sequence as {@link #provision}, with a seat limit, and returning the first Admin's accept link
+     * so the caller can redirect straight to it. The invite email is still queued as a fallback.
+     *
+     * <p>Audited as {@code SELF_SIGNUP}, with the confirmed sign-up's id standing in for the actor:
+     * there is no user yet, and the sign-up row is the record of who asked.
+     *
+     * @throws com.caderly.caderlyhr.common.ConflictException if {@code slug} was taken meanwhile.
+     */
+    public SelfServeWorkspace provisionSelfServe(
+            String slug,
+            String name,
+            String timezone,
+            int weekendDays,
+            int seatLimit,
+            String firstAdminEmail,
+            String appBaseUrl,
+            UUID signupId) {
+        UUID tenantId = tenants.createTenant(slug, name, timezone, weekendDays, null, seatLimit);
+
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("slug", slug);
+        after.put("name", name);
+        after.put("seatLimit", seatLimit);
+        auditListener.recordManualEvent(
+                tenantId, signupId, "SELF_SIGNUP", "Tenant", tenantId.toString(), Action.CREATE, toJson(after));
+
+        TenantContext.set(tenantId);
+        try {
+            InviteService.IssuedInvite invite =
+                    invites.issueInvite(firstAdminEmail, Set.of(Role.ADMIN), appBaseUrl, name);
+            return new SelfServeWorkspace(tenantId, invite.acceptUrl());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /** A freshly provisioned self-serve workspace and its first Admin's single-use accept link. */
+    public record SelfServeWorkspace(UUID tenantId, String acceptUrl) {
+        @Override
+        public String toString() {
+            return "SelfServeWorkspace[tenantId=" + tenantId + "]";
+        }
+    }
+
     private String toJson(Map<String, Object> payload) {
         return mapper.writeValueAsString(payload);
     }

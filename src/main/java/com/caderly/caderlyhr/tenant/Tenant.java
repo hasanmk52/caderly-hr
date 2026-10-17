@@ -82,6 +82,13 @@ public class Tenant {
     @Column(name = "deleted_at")
     private @Nullable Instant deletedAt;
 
+    /**
+     * Maximum non-terminated employees (ADR 0022 decision F). {@code null} means no limit, which
+     * every Super-Admin-created tenant keeps; only self-serve sign-up sets one.
+     */
+    @Column(name = "seat_limit")
+    private @Nullable Integer seatLimit;
+
     protected Tenant() {
         // JPA only
         this.slug = "";
@@ -126,6 +133,14 @@ public class Tenant {
         this.notifyDocumentExpiry = true;
         this.notifyBirthday = false;
         this.notifyWorkAnniversary = false;
+    }
+
+    /** {@code null} removes the limit. */
+    public void changeSeatLimit(@Nullable Integer limit) {
+        if (limit != null && limit <= 0) {
+            throw new IllegalArgumentException("Seat limit must be positive");
+        }
+        this.seatLimit = limit;
     }
 
     public void suspend() {
@@ -223,6 +238,10 @@ public class Tenant {
 
     public @Nullable Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public @Nullable Integer getSeatLimit() {
+        return seatLimit;
     }
 
     public @Nullable Instant getDeletedAt() {

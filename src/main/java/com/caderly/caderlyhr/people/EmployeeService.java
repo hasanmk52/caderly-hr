@@ -11,6 +11,7 @@ import com.caderly.caderlyhr.identity.Role;
 import com.caderly.caderlyhr.org.Department;
 import com.caderly.caderlyhr.org.OrgFacade;
 import com.caderly.caderlyhr.security.SessionRevoker;
+import com.caderly.caderlyhr.tenant.TenantFacade;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -53,6 +54,7 @@ public class EmployeeService {
     private final SessionRevoker sessionRevoker;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final TenantFacade tenants;
 
     EmployeeService(
             EmployeeRepository employees,
@@ -68,7 +70,8 @@ public class EmployeeService {
             OrgFacade orgFacade,
             SessionRevoker sessionRevoker,
             Clock clock,
-            ApplicationEventPublisher events) {
+            ApplicationEventPublisher events,
+            TenantFacade tenants) {
         this.employees = employees;
         this.statusHistory = statusHistory;
         this.managerHistory = managerHistory;
@@ -83,6 +86,7 @@ public class EmployeeService {
         this.sessionRevoker = sessionRevoker;
         this.clock = clock;
         this.events = events;
+        this.tenants = tenants;
     }
 
     @Transactional(readOnly = true)
@@ -141,6 +145,22 @@ public class EmployeeService {
         return List.copyOf(missing);
     }
 
+    /**
+     * Self-serve workspaces are capped (ADR 0022 decision F). Terminated employees free their seat;
+     * invited ones hold it, because an invite is a hire the Admin has already decided on.
+     */
+    private void requireSeatAvailable() {
+        tenants.currentSeatLimit()
+                .ifPresent(
+                        limit -> {
+                            if (employees.countByStatusNot(EmployeeStatus.TERMINATED) >= limit) {
+                                throw new ValidationException(
+                                        "EMPLOYEE_SEAT_LIMIT_REACHED",
+                                        "This workspace has reached its limit of " + limit + " employees");
+                            }
+                        });
+    }
+
     private static boolean isBlank(@Nullable String value) {
         return value == null || value.isBlank();
     }
@@ -151,6 +171,7 @@ public class EmployeeService {
      */
     @Transactional
     public Employee create(EmployeeForms.CreateEmployee form, String appBaseUrl, String tenantName) {
+        requireSeatAvailable();
         if (employees.existsByEmailIgnoreCase(form.email())) {
             throw new ConflictException(
                     "EMPLOYEE_EMAIL_TAKEN", "An employee with that email already exists");

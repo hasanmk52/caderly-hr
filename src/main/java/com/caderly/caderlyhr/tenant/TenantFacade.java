@@ -64,6 +64,30 @@ public interface TenantFacade {
     UUID createTenant(String slug, String name, String timezone, int weekendDays, @Nullable String logoUrl);
 
     /**
+     * {@link #createTenant(String, String, String, int, String)} with a seat limit, for self-serve
+     * sign-up (ADR 0022 decision F). {@code null} means no limit.
+     */
+    UUID createTenant(
+            String slug,
+            String name,
+            String timezone,
+            int weekendDays,
+            @Nullable String logoUrl,
+            @Nullable Integer seatLimit);
+
+    /**
+     * Whether any tenant — active, suspended or soft-deleted — already owns this slug. Uncached:
+     * sign-up asks this right before holding an address and must not trust a 60-second-old answer.
+     */
+    boolean isSlugTaken(String slug);
+
+    /**
+     * The current tenant's maximum number of non-terminated employees, or empty for no limit
+     * (ADR 0022 decision F).
+     */
+    Optional<Integer> currentSeatLimit();
+
+    /**
      * @throws com.caderly.caderlyhr.common.NotFoundException if {@code tenantId} doesn't exist.
      */
     void suspend(UUID tenantId);

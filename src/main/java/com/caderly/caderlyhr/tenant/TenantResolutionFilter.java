@@ -28,6 +28,11 @@ import org.springframework.web.util.HtmlUtils;
  * empty {@link TenantContext} as a result, which is why every database call reachable from {@code
  * superadmin} has to go through {@link TenantContext#runAsSystem}.
  *
+ * <p>The base domain itself, and {@code www.} + base domain, are the public site (ADR 0022 decision
+ * A): no tenant is resolved, {@link #PUBLIC_SITE_ATTRIBUTE} is set instead, and the public-site
+ * security chain takes the request from there. Host, not path, because both surfaces own {@code /}
+ * and {@code /login}.
+ *
  * <p>Also the request-id/tenant-id half of CLAUDE.md §6 A09's MDC correlation (ADR 0017) — it is
  * already the first filter in the chain, so a request id generated here covers everything
  * downstream, including the 404/503 denials below that never reach a resolved tenant at all.
@@ -37,6 +42,9 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
 
     /** Request attribute carrying the resolved {@link TenantSummary} for the web layer. */
     public static final String TENANT_ATTRIBUTE = TenantResolutionFilter.class.getName() + ".TENANT";
+
+    /** Request attribute marking a base-domain request, i.e. the public site (ADR 0022). */
+    public static final String PUBLIC_SITE_ATTRIBUTE = TenantResolutionFilter.class.getName() + ".PUBLIC_SITE";
 
     /** Echoed back so a client (or an operator reading a bug report) can correlate their own logs. */
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
@@ -70,6 +78,7 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
                 || path.startsWith("/css/")
                 || path.startsWith("/js/")
                 || path.startsWith("/fonts/")
+                || path.startsWith("/img/")
                 || path.equals("/favicon.ico")
                 || path.equals("/favicon-32x32.png")
                 || path.equals("/favicon-16x16.png")
@@ -85,6 +94,13 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
         MDC.put(MdcKeys.REQUEST_ID, requestId);
         response.setHeader(REQUEST_ID_HEADER, requestId);
         try {
+            if (isPublicSiteHost(request.getServerName())) {
+                // No TenantContext on purpose: nothing served here reads tenant data, and the
+                // public-site chain denies every route that might (ADR 0022 decisions A and B).
+                request.setAttribute(PUBLIC_SITE_ATTRIBUTE, Boolean.TRUE);
+                filterChain.doFilter(request, response);
+                return;
+            }
             String slug = extractSlug(request.getServerName());
             if (slug == null) {
                 denyNotFound(response);
@@ -187,6 +203,15 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
                         </html>
                         """
                                 .formatted(title, appName, leadHtml, detail));
+    }
+
+    /** Whether the request was marked as a public-site request by this filter. */
+    public static boolean isPublicSite(HttpServletRequest request) {
+        return Boolean.TRUE.equals(request.getAttribute(PUBLIC_SITE_ATTRIBUTE));
+    }
+
+    private boolean isPublicSiteHost(String host) {
+        return host.equalsIgnoreCase(baseDomain) || host.equalsIgnoreCase("www." + baseDomain);
     }
 
     private @Nullable String extractSlug(String host) {
