@@ -35,5 +35,14 @@ public final class SecurityPaths {
     /** Ends a support session and returns the browser to this realm's login page (PRD FR-1.8). */
     public static final String END_IMPERSONATION_PATH = "/end-impersonation";
 
+    /** Public-site sign-up form post (ADR 0022). Rate-limited per IP and per email. */
+    public static final String SIGNUP_PATH = "/signup";
+
+    /** The confirmation link from the sign-up email: GET shows the page, POST spends the link. */
+    public static final String SIGNUP_VERIFY_PATH = "/signup/verify";
+
+    /** Public-site address-availability check (ADR 0022). Rate-limited per IP. */
+    public static final String SIGNUP_CHECK_ADDRESS_PATH = "/signup/check-address";
+
     private SecurityPaths() {}
 }

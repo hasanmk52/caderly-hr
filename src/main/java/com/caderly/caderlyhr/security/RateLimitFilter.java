@@ -20,9 +20,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Throttles the three endpoints an attacker would hammer (PRD §19.7): tenant login at 10/min per
- * IP, Super Admin login at the same rate on its own counter, and password-reset requests at 3/hour
- * per email address.
+ * Throttles the endpoints an attacker would hammer (PRD §19.7): tenant login at 10/min per IP,
+ * Super Admin login at the same rate on its own counter, password-reset requests at 3/hour per
+ * email address, and the public site's sign-up form and address check (ADR 0022 decision E).
  *
  * <p>The login limit is also what keeps a distributed attack bounded: lockout is keyed on (email +
  * IP) as of ADR 0017 (superseding ADR 0006 decision B), so one IP spraying many different accounts
@@ -40,6 +40,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final Bandwidth RESET_LIMIT = perWindow(3, Duration.ofHours(1));
 
+    /**
+     * ADR 0022 decision E: sign-up sends an email to an address a stranger typed, so it is bounded
+     * per sender IP and, tighter, per recipient — the form must not become a way to flood an inbox.
+     */
+    private static final Bandwidth SIGNUP_IP_LIMIT = perWindow(5, Duration.ofHours(1));
+
+    private static final Bandwidth SIGNUP_EMAIL_LIMIT = perWindow(3, Duration.ofDays(1));
+
+    /** Generous enough for typing, tight enough to make enumerating addresses slow. */
+    private static final Bandwidth ADDRESS_CHECK_LIMIT = perWindow(60, Duration.ofMinutes(1));
+
     private final String loginPath;
     private final String forgotPasswordPath;
     private final String superAdminLoginPath;
@@ -47,10 +58,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /**
      * Buckets expire well after their refill window so an idle key cannot pin memory, while an
      * actively-attacking key keeps its (by then empty) bucket alive. Bounded size caps the damage
-     * from a spray across many distinct keys.
+     * from a spray across many distinct keys. Longer than a day because the sign-up per-email
+     * limit is a daily one; a shorter idle expiry would quietly hand out a fresh allowance.
      */
     private final Cache<String, Bucket> buckets =
-            Caffeine.newBuilder().maximumSize(100_000).expireAfterAccess(Duration.ofHours(2)).build();
+            Caffeine.newBuilder().maximumSize(100_000).expireAfterAccess(Duration.ofHours(25)).build();
 
     public RateLimitFilter(
             String loginPath, String forgotPasswordPath, String superAdminLoginPath) {
@@ -73,6 +85,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
         // /%6cogin through the limiter and still land on the login filter.
         String path = RequestPathResolver.decodedPath(request);
         if (!allowed(request, path)) {
+            // The address check is a script call, not a page: a redirect would be followed as a
+            // GET to a URL that doesn't exist, so it gets a plain 429 the script understands.
+            if (SecurityPaths.SIGNUP_CHECK_ADDRESS_PATH.equals(path)) {
+                response.setStatus(429);
+                return;
+            }
             // Redirect rather than a bare 429: these are browser form posts, and the user needs
             // the page back with an explanation. ?rateLimited is what the template renders on.
             response.sendRedirect(request.getContextPath() + path + "?rateLimited");
@@ -98,6 +116,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 return true;
             }
             return consume("reset:" + email.trim().toLowerCase(Locale.ROOT), RESET_LIMIT);
+        }
+        if (SecurityPaths.SIGNUP_PATH.equals(path)) {
+            if (!consume("signup-ip:" + ClientIpResolver.resolve(request), SIGNUP_IP_LIMIT)) {
+                return false;
+            }
+            String email = request.getParameter("adminEmail");
+            if (email == null || email.isBlank()) {
+                return true;
+            }
+            return consume("signup-email:" + email.trim().toLowerCase(Locale.ROOT), SIGNUP_EMAIL_LIMIT);
+        }
+        if (SecurityPaths.SIGNUP_CHECK_ADDRESS_PATH.equals(path)) {
+            return consume("signup-check:" + ClientIpResolver.resolve(request), ADDRESS_CHECK_LIMIT);
         }
         return true;
     }

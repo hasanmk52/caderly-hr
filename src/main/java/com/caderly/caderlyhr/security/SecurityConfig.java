@@ -1,6 +1,8 @@
 package com.caderly.caderlyhr.security;
 
 import com.caderly.caderlyhr.identity.AppUserDetailsService;
+import com.caderly.caderlyhr.tenant.TenantResolutionFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
 import java.time.Duration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -8,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
@@ -26,7 +29,9 @@ import org.springframework.security.web.context.DelegatingSecurityContextReposit
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 /**
  * Authentication and authorization for the tenant realm (PRD §19.1, §19.2, §19.6; CLAUDE.md §6).
@@ -42,8 +47,9 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
  * Super Admin credentials from ever being checked against {@code app_user}, or the reverse.
  *
  * <p>{@code @Order(100)} leaves room below it for {@code superadmin.SuperAdminSecurityConfig}'s
- * {@code @Order(1)} chain: this one carries no {@code securityMatcher} and so matches everything,
- * and an unordered pair would let it swallow {@code /superadmin/**}.
+ * {@code @Order(1)} chain and this class's own public-site chain at {@code @Order(50)}: the tenant
+ * chain carries no {@code securityMatcher} and so matches everything, and an unordered set would
+ * let it swallow {@code /superadmin/**} and the base domain.
  */
 @Configuration
 @EnableWebSecurity
@@ -162,6 +168,76 @@ class SecurityConfig {
     @Bean
     FilterRegistrationBean<ActorMdcFilter> actorMdcFilterRegistration(ActorMdcFilter filter) {
         return new FilterRegistrationBean<>(filter);
+    }
+
+    /**
+     * The public site on the base domain (ADR 0022 decision B).
+     *
+     * <p>Matched by the marker {@link TenantResolutionFilter} puts on base-domain requests, never
+     * by path: {@code /} and {@code /login} exist on both surfaces. Nobody authenticates here, so
+     * there is no form login, logout or provider; the site's own routes are open and every other
+     * path is denied and answered as 404, so a tenant URL cannot be reached through the base
+     * domain. CSRF stays on — the sign-up form is the only state-changing request and it carries
+     * the token like every other form in the app.
+     */
+    @Bean
+    @Order(50)
+    SecurityFilterChain publicSiteSecurityFilterChain(HttpSecurity http) throws Exception {
+        RequestMatcher publicSite = TenantResolutionFilter::isPublicSite;
+        http.securityMatcher(publicSite)
+                .authorizeHttpRequests(
+                        authorize ->
+                                authorize
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/",
+                                                SecurityPaths.LOGIN_PATH,
+                                                "/login/go",
+                                                SecurityPaths.SIGNUP_PATH,
+                                                "/signup/sent",
+                                                SecurityPaths.SIGNUP_VERIFY_PATH,
+                                                "/terms",
+                                                "/privacy",
+                                                "/dpa")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                SecurityPaths.SIGNUP_PATH,
+                                                SecurityPaths.SIGNUP_VERIFY_PATH,
+                                                SecurityPaths.SIGNUP_CHECK_ADDRESS_PATH)
+                                        .permitAll()
+                                        .requestMatchers(
+                                                "/css/**",
+                                                "/js/**",
+                                                "/img/**",
+                                                "/fonts/**",
+                                                "/webjars/**",
+                                                "/favicon.ico",
+                                                "/favicon-16x16.png",
+                                                "/favicon-32x32.png",
+                                                "/apple-touch-icon.png",
+                                                "/error")
+                                        .permitAll()
+                                        .anyRequest()
+                                        .denyAll())
+                // A denied path on the public site is a path that doesn't exist there. Both
+                // handlers are needed: an anonymous visitor goes to the entry point, a request
+                // that somehow carries a principal goes to the access-denied handler. A CSRF
+                // failure is the exception: the path exists, the form is just stale, so it stays 403.
+                .exceptionHandling(
+                        exceptions ->
+                                exceptions
+                                        .authenticationEntryPoint(
+                                                (request, response, unauthenticated) ->
+                                                        response.sendError(HttpServletResponse.SC_NOT_FOUND))
+                                        .accessDeniedHandler(
+                                                (request, response, denied) ->
+                                                        response.sendError(
+                                                                denied instanceof CsrfException
+                                                                        ? HttpServletResponse.SC_FORBIDDEN
+                                                                        : HttpServletResponse.SC_NOT_FOUND)))
+                .headers(SecurityHeaders.standard());
+        return http.build();
     }
 
     /**
