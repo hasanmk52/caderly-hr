@@ -195,6 +195,7 @@ class SecurityConfig {
                                                 "/login/go",
                                                 SecurityPaths.SIGNUP_PATH,
                                                 "/signup/sent",
+                                                "/signup/created",
                                                 SecurityPaths.SIGNUP_VERIFY_PATH,
                                                 "/terms",
                                                 "/privacy",

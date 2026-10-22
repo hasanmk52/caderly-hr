@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.signup-created.title}, #{site.home.description}, ~{::main})}">
+<body>
+<main id="main" class="auth-page">
+  <div class="auth-main">
+    <div class="auth-card" role="status">
+      <h1 th:text="#{site.signup-created.heading}">Your workspace is ready</h1>
+      <p class="sub" style="margin:0" th:text="#{site.signup-created.body(${workspaceHost})}">acme.caderly.app is set up. Set your password to sign in as its Admin.</p>
+      <!--/* A link, not a form redirect: CSP form-action 'self' blocks cross-origin redirects after a POST (ADR 0022 decision C). */-->
+      <a class="btn btn-primary btn-lg btn-block" id="set-password" th:href="${acceptUrl}" th:text="#{site.signup-created.submit}">Set your password</a>
+      <p class="small-muted centered" style="margin:0" th:text="#{site.signup-created.email-copy}">We also emailed you this link, in case you close this page.</p>
+    </div>
+  </div>
+</main>
+</body>
+</html>

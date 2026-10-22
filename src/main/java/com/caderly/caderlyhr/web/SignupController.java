@@ -151,19 +151,26 @@ class SignupController {
     }
 
     /**
-     * Spends a confirmation link. On success the browser goes straight to the new workspace's
-     * set-password page; the link that took it there is never logged.
+     * Spends a confirmation link. On success the browser lands on a same-site "ready" page rather
+     * than being redirected to the new workspace: the CSP's {@code form-action 'self'} also covers
+     * redirects after a form post, so a cross-origin redirect here would be blocked by the browser.
+     * The set-password link that page shows is never logged.
      */
     @PostMapping("/signup/verify")
     @PreAuthorize("permitAll()")
     String verify(
             @RequestParam(name = "token", defaultValue = "") String token,
             Model model,
-            HttpServletResponse response) {
+            HttpServletResponse response,
+            RedirectAttributes redirect) {
         VerifyResult result =
                 token.isBlank() ? new VerifyResult.LinkInvalid() : signups.verify(token, this::tenantBaseUrl);
         return switch (result) {
-            case VerifyResult.Created created -> "redirect:" + created.acceptUrl();
+            case VerifyResult.Created created -> {
+                redirect.addFlashAttribute("acceptUrl", created.acceptUrl());
+                redirect.addFlashAttribute("workspaceHost", signups.workspaceHost(created.slug()));
+                yield "redirect:/signup/created";
+            }
             case VerifyResult.LinkInvalid invalid -> linkInvalid(model, response);
             case VerifyResult.AddressTaken taken -> {
                 response.setStatus(HttpServletResponse.SC_CONFLICT);
@@ -172,6 +179,16 @@ class SignupController {
                 yield "site/signup-link";
             }
         };
+    }
+
+    /**
+     * The page after a successful confirmation. Its data arrives as flash attributes, so a reload or
+     * a direct visit has nothing to show and goes to the sign-in page instead.
+     */
+    @GetMapping("/signup/created")
+    @PreAuthorize("permitAll()")
+    String created(Model model) {
+        return model.containsAttribute("acceptUrl") ? "site/signup-created" : "redirect:/login";
     }
 
     private static String linkInvalid(Model model, HttpServletResponse response) {

@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.caderly.caderlyhr.TestcontainersConfiguration;
@@ -200,9 +199,36 @@ class PublicSiteAccessControlTest {
                     .andExpect(content().string(containsString("id=\"confirm-signup\"")));
         }
 
-        mockMvc.perform(sitePost("/signup/verify").param("token", token).with(csrf()))
+        String acceptUrl =
+                (String)
+                        mockMvc.perform(sitePost("/signup/verify").param("token", token).with(csrf()))
+                                .andExpect(status().is3xxRedirection())
+                                .andExpect(redirectedUrl("/signup/created"))
+                                .andReturn()
+                                .getFlashMap()
+                                .get("acceptUrl");
+        assertThat(acceptUrl).startsWith("http://" + slug + ".localhost/accept-invite?token=");
+    }
+
+    /**
+     * The ready page links to the workspace instead of the POST redirecting there: CSP
+     * {@code form-action 'self'} blocks cross-origin redirects after a form post.
+     */
+    @Test
+    void signupCreated_rendersTheSetPasswordLinkFromTheFlash() throws Exception {
+        String acceptUrl = "http://acme.localhost/accept-invite?token=abc";
+        mockMvc.perform(get(URI.create(SITE + "/signup/created"))
+                        .flashAttr("acceptUrl", acceptUrl)
+                        .flashAttr("workspaceHost", "acme.localhost"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("href=\"" + acceptUrl + "\"")));
+    }
+
+    @Test
+    void signupCreated_withoutAFreshConfirmation_goesToSignIn() throws Exception {
+        mockMvc.perform(get(URI.create(SITE + "/signup/created")))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("http://" + slug + ".localhost/accept-invite?token=*"));
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test

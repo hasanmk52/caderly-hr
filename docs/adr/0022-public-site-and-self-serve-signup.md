@@ -81,10 +81,13 @@ not match and only the dashboard mapping remains.
    `TenantProvisioningService.provisionSelfServe(...)`, which runs the exact same
    create-tenant-then-invite sequence as the console (ADR 0019 decision B: the tenant row is
    written under `runAsSystem`, the first Admin under the new tenant's own `TenantContext`).
-4. Instead of making the person wait for a second email, the verify endpoint redirects straight to
-   the new tenant's `/accept-invite?token=…`. The ordinary invite email is still queued as a
-   fallback, so closing the tab loses nothing. Set-password and first sign-in are the existing
-   accept-invite flow, unchanged.
+4. Instead of making the person wait for a second email, the POST lands on a same-site "Your
+   workspace is ready" page whose button links to the new tenant's `/accept-invite?token=…`. It is a
+   link rather than a redirect because the CSP's `form-action 'self'` also applies to redirects
+   after a form post, and Chrome blocks one that crosses to the tenant's subdomain. The link reaches
+   that page as a flash attribute, so a reload shows nothing and sends the visitor to sign in. The
+   ordinary invite email is still queued as a fallback, so closing the tab loses nothing.
+   Set-password and first sign-in are the existing accept-invite flow, unchanged.
 
 The audit trail records the tenant creation with `actor_role = SELF_SIGNUP` and the pending row's
 id as the actor id, mirroring the Super Admin's `SUPER_ADMIN` row from the console.

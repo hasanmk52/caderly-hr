@@ -50,10 +50,12 @@ class SignupE2ETest extends PlaywrightE2ETestBase {
 
         baseUrl = "http://" + slug + ".localhost:" + port;
         // Opening the link only shows a button (mail scanners open links too); pressing it creates
-        // the workspace and hands over to its accept-invite page.
+        // the workspace, and the ready page links on to its accept-invite page.
         page.navigate(site + "/signup/verify?token=" + tokenFromLastEmailTo(email));
         assertThat(page.textContent("main")).contains(slug + ".localhost");
         page.click("#confirm-signup");
+        page.waitForURL("**/signup/created");
+        page.click("#set-password");
         page.waitForURL(baseUrl + "/accept-invite**");
 
         page.fill("#password", EMPLOYEE_PASSWORD);
