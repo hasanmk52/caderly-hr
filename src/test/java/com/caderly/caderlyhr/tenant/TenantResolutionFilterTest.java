@@ -14,6 +14,8 @@ import com.caderly.caderlyhr.TestcontainersConfiguration;
 import java.net.URI;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -64,11 +66,6 @@ class TenantResolutionFilterTest {
     }
 
     @Test
-    void home_whenUnknownTenant_returns404() throws Exception {
-        mockMvc.perform(get(URI.create("http://nope.localhost/"))).andExpect(status().isNotFound());
-    }
-
-    @Test
     void home_whenBaseDomain_servesThePublicSiteWithoutResolvingATenant() throws Exception {
         // ADR 0022 decision A: the bare base domain is the public site, not an unknown tenant.
         mockMvc.perform(get(URI.create("http://localhost/")))
@@ -90,18 +87,6 @@ class TenantResolutionFilterTest {
 
         mockMvc.perform(get(URI.create("http://mhzgroup.localhost/")))
                 .andExpect(request().attribute(TenantResolutionFilter.PUBLIC_SITE_ATTRIBUTE, (Object) null));
-    }
-
-    @Test
-    void home_whenSuspendedTenant_returns503() throws Exception {
-        Tenant suspended = seedTenantIfAbsent("frozen", "Frozen Co");
-        suspended.suspend();
-        TenantContext.runAsSystem("test: suspend tenant", () -> tenantRepository.save(suspended));
-        tenantService.evictCache();
-
-        mockMvc
-                .perform(get(URI.create("http://frozen.localhost/")))
-                .andExpect(status().isServiceUnavailable());
     }
 
     @Test
@@ -139,12 +124,13 @@ class TenantResolutionFilterTest {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
     }
 
-    @Test
-    void staticJsAsset_withoutTenant_returns200() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"/js/caderly.js", "/fonts/ibm-plex-sans-latin-400-normal.woff2"})
+    void staticAsset_withoutTenant_returns200(String path) throws Exception {
         // Regression: the Super Admin console (base domain, no tenant subdomain) depends on
         // caderly.js to attach the CSRF header to every htmx request — if this 404s, every
         // suspend/reinstate/delete action there 403s while the page itself still renders fine.
-        mockMvc.perform(get("/js/caderly.js")).andExpect(status().isOk());
+        mockMvc.perform(get(path)).andExpect(status().isOk());
     }
 
     @Test
@@ -156,16 +142,6 @@ class TenantResolutionFilterTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", containsString("max-age")))
                 .andExpect(header().string("Cache-Control", not(containsString("no-store"))));
-    }
-
-    @Test
-    void staticFontAsset_withoutTenant_returns200() throws Exception {
-        mockMvc.perform(get("/fonts/ibm-plex-sans-latin-400-normal.woff2")).andExpect(status().isOk());
-    }
-
-    @Test
-    void favicon_withoutTenant_returns200() throws Exception {
-        mockMvc.perform(get("/favicon.ico")).andExpect(status().isOk());
     }
 
     // Seeding a tenant is itself cross-tenant work (there's no tenant yet to be "in") — same

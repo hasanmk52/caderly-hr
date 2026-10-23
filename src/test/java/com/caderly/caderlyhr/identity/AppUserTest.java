@@ -118,32 +118,14 @@ class AppUserTest {
     }
 
     @Test
-    void revoke_whenRoleHeld_removesIt() {
+    void revoke_whenRoleHeld_removesItAndRevokingAgainIsANoOp() {
         AppUser user = activeUser();
         user.grant(Role.MANAGER);
 
         user.revoke(Role.MANAGER);
-
-        assertThat(user.roles()).doesNotContain(Role.MANAGER);
-    }
-
-    @Test
-    void revoke_whenRoleNeverGranted_isNoOp() {
-        AppUser user = activeUser();
-
         user.revoke(Role.MANAGER);
 
         assertThat(user.roles()).isEmpty();
-    }
-
-    @Test
-    void issueIcalToken_whenNoneYet_setsToken() {
-        AppUser user = activeUser();
-        assertThat(user.icalToken()).isNull();
-
-        user.issueIcalToken("raw-token-value");
-
-        assertThat(user.icalToken()).isEqualTo("raw-token-value");
     }
 
     @Test
@@ -151,6 +133,7 @@ class AppUserTest {
         // Regeneration must invalidate the old URL immediately — a plain overwrite, since this
         // is a column, not a history table.
         AppUser user = activeUser();
+        assertThat(user.icalToken()).isNull();
         user.issueIcalToken("first-token");
 
         user.issueIcalToken("second-token");

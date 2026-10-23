@@ -235,7 +235,7 @@ class CalendarController {
     /** Resolves {@code key} through {@code messages.properties} (ADR 0013), then fires the toast. */
     private void toast(HttpServletResponse response, String key, String defaultMessage) {
         String message = messages.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale());
-        response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
+        response.setHeader("HX-Trigger", WebMessages.toastTrigger(message));
     }
 
     record CalendarRowView(

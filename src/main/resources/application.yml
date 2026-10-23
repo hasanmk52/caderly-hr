@@ -1,4 +1,7 @@
 server:
+  # Behind the TLS-terminating proxy (PRD §27) the app sees plain http; honour the proxy's
+  # X-Forwarded-Proto/Host so absolute links in emails and redirects come out as https.
+  forward-headers-strategy: native
   servlet:
     session:
       # PRD §19.1 idle timeout. The 24 h ABSOLUTE cap is not expressible here — this setting
@@ -161,6 +164,14 @@ caderly:
     # leaves the header attacker-controlled, and a forged "X-Forwarded-For: <allowlisted>"
     # reduces the console to password-only — the same posture this setting exists to prevent.
     ip-allowlist: ${CADERLY_SUPERADMIN_IP_ALLOWLIST:}
+
+management:
+  endpoints:
+    web:
+      # Pinned to health only (CLAUDE.md §6 A05) so adding an actuator starter can never expose
+      # env, heapdump or beans by default.
+      exposure:
+        include: health
 
 logging:
   level:

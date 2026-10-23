@@ -335,7 +335,7 @@ class AdminLeaveController {
 
     /** For a caller that has already resolved (and parameterized) its own message text. */
     private static void toastRaw(HttpServletResponse response, String message) {
-        response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
+        response.setHeader("HX-Trigger", WebMessages.toastTrigger(message));
     }
 
     /** One entry in the leave-type icon picker: a Bootstrap Icons class name plus its display label. */

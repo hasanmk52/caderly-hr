@@ -122,31 +122,6 @@ class SuperAdminTenantControllerTest {
     }
 
     @Test
-    void list_asATenantAdmin_isNotAuthenticatedInThisRealm() throws Exception {
-        String slug = "acme" + shortId();
-        UUID tenantId = seedTenant(slug);
-        String email = "admin-" + shortId() + "@example.test";
-        seedActiveAdmin(tenantId, email);
-        MockHttpSession tenantSession = tenantAdminSession(slug, email);
-
-        // Same reasoning as SuperAdminSecurityConfigTest: this realm keeps its SecurityContext
-        // under its own session key, so a tenant session looks anonymous here rather than
-        // authenticated-with-the-wrong-role — a redirect to this realm's own login, not a 403.
-        mockMvc
-                .perform(get(URI.create("http://localhost/superadmin/tenants")).session(tenantSession))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/superadmin/login"));
-    }
-
-    @Test
-    void list_whenUnauthenticated_redirectsToSuperAdminLogin() throws Exception {
-        mockMvc
-                .perform(get(URI.create("http://localhost/superadmin/tenants")))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/superadmin/login"));
-    }
-
-    @Test
     void create_withValidData_createsTheTenantAndQueuesTheFirstAdminsInvite() throws Exception {
         MockHttpSession session = superAdminSession();
         String slug = uniqueSlug();
@@ -425,20 +400,6 @@ class SuperAdminTenantControllerTest {
                                         .param("password", PASSWORD)
                                         .with(csrf()))
                         .andExpect(redirectedUrl("/superadmin/tenants"))
-                        .andReturn()
-                        .getRequest()
-                        .getSession();
-    }
-
-    private MockHttpSession tenantAdminSession(String slug, String email) throws Exception {
-        return (MockHttpSession)
-                mockMvc
-                        .perform(
-                                post(URI.create("http://" + slug + ".localhost/login"))
-                                        .param("email", email)
-                                        .param("password", PASSWORD)
-                                        .with(csrf()))
-                        .andExpect(redirectedUrl("/"))
                         .andReturn()
                         .getRequest()
                         .getSession();

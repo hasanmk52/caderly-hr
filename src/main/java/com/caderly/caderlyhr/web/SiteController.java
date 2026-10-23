@@ -70,10 +70,12 @@ class SiteController {
     }
 
     /**
-     * Sends the browser to a workspace's own sign-in page. Never checks whether the workspace
-     * exists — an unknown one lands on the tenant 404 page, so this can't be used to list
-     * customers (ADR 0022 decision H). The redirect host is built only from a format-valid slug
-     * and the configured base domain, so it can't be turned into an open redirect.
+     * Offers a link to a workspace's own sign-in page. It is a link rather than a redirect because
+     * the CSP's {@code form-action 'self'} blocks a cross-origin redirect after a form submit
+     * (ADR 0022 decision C). Never checks whether the workspace exists — an unknown one lands on
+     * the tenant 404 page, so this can't be used to list customers (ADR 0022 decision H). The
+     * target host is built only from a format-valid slug and the configured base domain, so it
+     * can't be turned into an open redirect.
      */
     @GetMapping("/login/go")
     @PreAuthorize("permitAll()")
@@ -84,14 +86,17 @@ class SiteController {
             model.addAttribute("invalidWorkspace", true);
             return "site/login";
         }
+        String host = slug + "." + baseDomain;
         String target =
                 ServletUriComponentsBuilder.fromCurrentContextPath()
-                        .host(slug + "." + baseDomain)
+                        .host(host)
                         .replacePath("/login")
                         .replaceQuery(null)
                         .build()
                         .toUriString();
-        return "redirect:" + target;
+        model.addAttribute("workspaceHost", host);
+        model.addAttribute("workspaceLoginUrl", target);
+        return "site/login-continue";
     }
 
     /** People paste the whole address; accept {@code acme.caderly.app} as well as {@code acme}. */

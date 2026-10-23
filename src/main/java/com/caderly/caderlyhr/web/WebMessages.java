@@ -20,4 +20,30 @@ final class WebMessages {
         String key = "error." + exception.errorCode().toLowerCase(Locale.ROOT).replace('_', '-');
         return messageSource.getMessage(key, null, exception.getMessage(), locale);
     }
+
+    /**
+     * Value of the {@code HX-Trigger} header that fires {@code caderly.js}'s toast. The message is
+     * escaped rather than concatenated in: a quote or backslash would otherwise break the JSON, and
+     * non-ASCII is {@code \}{@code uXXXX}-escaped because header values are not reliably UTF-8.
+     */
+    static String toastTrigger(String message) {
+        StringBuilder escaped = new StringBuilder();
+        for (char c : message.toCharArray()) {
+            switch (c) {
+                case '"' -> escaped.append("\\\"");
+                case '\\' -> escaped.append("\\\\");
+                case '\n' -> escaped.append("\\n");
+                case '\r' -> escaped.append("\\r");
+                case '\t' -> escaped.append("\\t");
+                default -> {
+                    if (c < 0x20 || c > 0x7e) {
+                        escaped.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        escaped.append(c);
+                    }
+                }
+            }
+        }
+        return "{\"organization-toast\": {\"message\": \"" + escaped + "\"}}";
+    }
 }

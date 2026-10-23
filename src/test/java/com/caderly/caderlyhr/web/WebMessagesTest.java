@@ -34,4 +34,16 @@ class WebMessagesTest {
 
         assertThat(detail).isEqualTo("Employee not found");
     }
+
+    @Test
+    void toastTrigger_withAPlainMessage_buildsTheOrganizationToastJson() {
+        assertThat(WebMessages.toastTrigger("File uploaded"))
+                .isEqualTo("{\"organization-toast\": {\"message\": \"File uploaded\"}}");
+    }
+
+    @Test
+    void toastTrigger_withQuotesBackslashesAndNonAscii_escapesThemSoTheHeaderStaysValidJson() {
+        assertThat(WebMessages.toastTrigger("Say \"hi\" \\ café\n"))
+                .isEqualTo("{\"organization-toast\": {\"message\": \"Say \\\"hi\\\" \\\\ caf\\u00e9\\n\"}}");
+    }
 }

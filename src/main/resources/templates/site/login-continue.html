@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{site-layout :: layout(#{site.login-continue.title}, #{site.home.description}, ~{::main})}">
+<body>
+<main id="main" class="auth-page">
+  <div class="auth-main">
+    <div class="auth-card">
+      <h1 th:text="#{site.login-continue.heading}">Continue to your workspace</h1>
+      <p class="sub" style="margin:0" th:text="#{site.login-continue.body(${workspaceHost})}">Sign in at acme.caderly.app.</p>
+      <!--/* A link, not a form redirect: CSP form-action 'self' blocks cross-origin redirects after a form submit (ADR 0022 decision C). */-->
+      <a class="btn btn-primary btn-lg btn-block" id="continue-to-workspace" th:href="${workspaceLoginUrl}" th:text="#{site.login-continue.submit}">Continue to sign-in</a>
+    </div>
+  </div>
+</main>
+</body>
+</html>

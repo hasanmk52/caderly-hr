@@ -121,6 +121,6 @@ class AdminNotificationsController {
     private void toast(HttpServletResponse response, String key, String defaultMessage) {
         String message =
                 messages.getMessage(key, null, defaultMessage, LocaleContextHolder.getLocale());
-        response.setHeader("HX-Trigger", "{\"organization-toast\": {\"message\": \"" + message + "\"}}");
+        response.setHeader("HX-Trigger", WebMessages.toastTrigger(message));
     }
 }

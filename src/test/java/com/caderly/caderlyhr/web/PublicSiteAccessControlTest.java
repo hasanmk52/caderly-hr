@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -237,16 +238,19 @@ class PublicSiteAccessControlTest {
     }
 
     @Test
-    void loginGo_withAWorkspaceAddress_redirectsToThatWorkspacesSignIn() throws Exception {
+    void loginGo_withAWorkspaceAddress_linksToThatWorkspacesSignInInsteadOfRedirecting() throws Exception {
+        // A cross-origin redirect after a form submit is blocked by CSP form-action 'self'.
         mockMvc.perform(get(URI.create(SITE + "/login/go?workspace=Acme")))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("http://acme.localhost/login"));
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Location"))
+                .andExpect(content().string(containsString("href=\"http://acme.localhost/login\"")));
     }
 
     @Test
     void loginGo_acceptsTheFullAddressToo() throws Exception {
         mockMvc.perform(get(URI.create(SITE + "/login/go?workspace=acme.localhost")))
-                .andExpect(redirectedUrl("http://acme.localhost/login"));
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("href=\"http://acme.localhost/login\"")));
     }
 
     @ParameterizedTest
