@@ -1,0 +1,28 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# One wildcard certificate covers every tenant ({slug}.<base domain>); the apex is the public
+# site. DNS-01 is the only challenge Let's Encrypt allows for a wildcard.
+{$CADERLY_BASE_DOMAIN}, *.{$CADERLY_BASE_DOMAIN} {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+
+	encode zstd gzip
+
+	# The app trusts the first X-Forwarded-For hop as the client address (ClientIpResolver, the
+	# Super Admin IP allowlist and login rate limits all rely on it). Caddy must therefore SET
+	# the header from the real peer address and never pass a client-supplied value through.
+	reverse_proxy app:8080 {
+		header_up X-Forwarded-For {remote_host}
+	}
+}
+
+# www is not a tenant: send it to the public site.
+www.{$CADERLY_BASE_DOMAIN} {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	redir https://{$CADERLY_BASE_DOMAIN}{uri} permanent
+}

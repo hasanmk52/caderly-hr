@@ -1,0 +1,61 @@
+# App + reverse proxy only. PostgreSQL is installed natively on the host and reached through
+# host.docker.internal (INSTALL.md). Settings come from .env (see .env.production.example).
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    # No published port: only Caddy, on the same network, can reach the app. A directly
+    # reachable app port would let a client forge X-Forwarded-For.
+    expose:
+      - "8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/${DB_NAME:-caderly}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-caderly}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      SPRING_MAIL_HOST: ${SMTP_HOST:?set SMTP_HOST in .env}
+      SPRING_MAIL_PORT: ${SMTP_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SMTP_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SMTP_PASSWORD:-}
+      CADERLY_BASE_DOMAIN: ${CADERLY_BASE_DOMAIN:?set CADERLY_BASE_DOMAIN in .env}
+      CADERLY_EMAIL_FROM: ${CADERLY_EMAIL_FROM:?set CADERLY_EMAIL_FROM in .env}
+      CADERLY_EMPLOYEE_ENCRYPTION_KEY: ${CADERLY_EMPLOYEE_ENCRYPTION_KEY:?set CADERLY_EMPLOYEE_ENCRYPTION_KEY in .env}
+      CADERLY_SIGNUP_ENABLED: ${CADERLY_SIGNUP_ENABLED:-false}
+      CADERLY_SUPERADMIN_EMAIL: ${CADERLY_SUPERADMIN_EMAIL:-}
+      CADERLY_SUPERADMIN_PASSWORD: ${CADERLY_SUPERADMIN_PASSWORD:-}
+      CADERLY_SUPERADMIN_IP_ALLOWLIST: ${CADERLY_SUPERADMIN_IP_ALLOWLIST:-}
+      CADERLY_STORAGE_ROOT: /data/files
+    volumes:
+      # Host directory, owned by uid 65532 (the distroless nonroot user): see INSTALL.md.
+      - ${CADERLY_FILES_DIR:-/var/lib/caderly/files}:/data/files
+    mem_limit: 1536m
+    networks: [edge]
+
+  caddy:
+    build: deploy/caddy
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+      CADERLY_BASE_DOMAIN: ${CADERLY_BASE_DOMAIN:?set CADERLY_BASE_DOMAIN in .env}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?set CLOUDFLARE_API_TOKEN in .env}
+    networks: [edge]
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and the ACME account: losing this volume means re-issuing (rate limits).
+      - caddy_data:/data
+
+volumes:
+  caddy_data:
+
+networks:
+  edge:
+    ipam:
+      config:
+        # Fixed so pg_hba.conf can allow exactly this subnet to reach Postgres (INSTALL.md).
+        - subnet: 172.30.0.0/24
