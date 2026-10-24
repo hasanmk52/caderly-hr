@@ -59,7 +59,11 @@ class SecurityConfig {
     /** PRD §19.1's idle timeout is a container setting; this is the absolute cap on top of it. */
     private static final Duration MAX_SESSION_AGE = Duration.ofHours(24);
 
-    /** CLAUDE.md §6 A02. Cost 12 is a deliberate CPU cost; do not lower it to speed tests up. */
+    /**
+     * CLAUDE.md §6 A02. Cost 12 is a deliberate CPU cost; do not lower it here. Tests swap in a
+     * cheaper encoder of their own, and {@code SecurityConfigPasswordEncoderTest} fails if this one
+     * ever drops below 12.
+     */
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);

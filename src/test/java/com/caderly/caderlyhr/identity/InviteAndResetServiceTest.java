@@ -136,8 +136,9 @@ class InviteAndResetServiceTest extends TenantIsolationTestBase {
         assertThat(activated.status()).isEqualTo(UserStatus.ACTIVE);
         assertThat(activated.inviteTokenHash()).isNull();
         assertThat(passwordEncoder.matches(GOOD_PASSWORD, activated.passwordHash())).isTrue();
-        // BCrypt cost 12 (CLAUDE.md §6 A02) — the $2a$12$ prefix encodes the work factor.
-        assertThat(activated.passwordHash()).startsWith("$2a$12$");
+        // Stored as a BCrypt hash, never the raw password. The production cost (12) is pinned by
+        // SecurityConfigPasswordEncoderTest; tests run a cheaper encoder.
+        assertThat(activated.passwordHash()).startsWith("$2a$").isNotEqualTo(GOOD_PASSWORD);
     }
 
     @Test
